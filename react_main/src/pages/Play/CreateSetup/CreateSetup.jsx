@@ -113,7 +113,7 @@ export default function CreateSetup(props) {
         sx={{
           position: "fixed",
           top: "50%",
-          left: 0,
+          left: 30,
           zIndex: 1201,
           visibility: drawerOpen ? "hidden" : "visible",
           backgroundColor: theme.palette.secondary.main,
