@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
-import { Navigate, useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import { UserContext } from "Contexts";
@@ -7,27 +7,22 @@ import { getPageNavFilterArg, PageNav } from "components/Nav";
 import { useErrorAlert } from "components/Alerts";
 import { camelCase } from "../../../utils";
 import Comments from "../../Community/Comments";
-import { Lobbies } from "../../../Constants";
+import { GameTypes } from "../../../Constants";
 import "css/join.css";
 import { RefreshButton } from "./RefreshButton";
 import { Loading } from "components/Loading";
 import {
   Box,
-  Divider,
-  Grid,
+  Button,
   Grid2,
-  List,
   ListItem,
   Paper,
   Stack,
-  Tab,
-  Tabs,
   Typography,
   useTheme,
 } from "@mui/material";
 import { useLoading } from "../../../hooks/useLoading";
 import { GameRow } from "./GameRow";
-import { useIsPhoneDevice } from "../../../hooks/useIsPhoneDevice";
 import { RecentlyPlayedSetups } from "./RecentlyPlayedSetups";
 import { RecentForumReplies } from "components/RecentForumReplies";
 import { Poll } from "components/Poll";
@@ -36,13 +31,11 @@ import Chat from "../../Chat/Chat";
 import { FeaturedSetup } from "./FeaturedSetup";
 import { DailyChallenges } from "./DailyChallengeDisplay";
 import { getRowStubColor } from "./gameRowColors.js";
-
-import { lobbies } from "../../../constants/lobbies";
+import GameIcon from "components/GameIcon";
 
 export default function LobbyBrowser() {
-  const isPhoneDevice = useIsPhoneDevice();
   const theme = useTheme();
-  const defaultLobbyName = lobbies[0].name;
+  const defaultGameType = GameTypes[0];
   const [openGamesCounts, setOpenGamesCounts] = useState({});
   const [refreshTimeoutId, setRefreshTimeoutId] = useState(null);
   const [refreshButtonIsSpinning, setRefreshButtonIsSpinning] = useState(false);
@@ -59,8 +52,10 @@ export default function LobbyBrowser() {
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
   const params = new URLSearchParams(location.search);
-  const [lobbyName, setLobbyName] = useState(
-    params.get("lobby") || localStorage.getItem("lobby") || defaultLobbyName
+  const [selectedGameType, setSelectedGameType] = useState(
+    params.get("game") ||
+      localStorage.getItem("lobbyGameType") ||
+      defaultGameType
   );
 
   const glowingHostButton = user.canPlayRanked
@@ -76,24 +71,30 @@ export default function LobbyBrowser() {
       }
     };
   }, [refreshTimeoutId]);
-
   useEffect(() => {
-    localStorage.setItem("lobby", lobbyName);
+    const safeGameType = GameTypes.includes(selectedGameType)
+      ? selectedGameType
+      : defaultGameType;
 
-    if (params.get("lobby") !== lobbyName) {
-      navigate(location.pathname + `?lobby=${lobbyName}`, { replace: true });
+    if (safeGameType !== selectedGameType) {
+      setSelectedGameType(safeGameType);
+      return;
+    }
+
+    localStorage.setItem("lobbyGameType", safeGameType);
+
+    if (params.get("game") !== safeGameType) {
+      navigate(location.pathname + `?game=${encodeURIComponent(safeGameType)}`, {
+        replace: true,
+      });
     }
 
     document.title = `🔪 Ultimafia Lobby`;
-    getGameList(listType, 1);
-  }, [location.pathname, lobbyName]);
-
-  useEffect(() => {
     setHasOneOpenGame(false);
     setHasOneOpenUrankedGame(false);
-    getGameList(listType, page);
+    getGameList(listType, 1);
     getOpenGameCounts();
-  }, [lobbyName]);
+  }, [location.pathname, selectedGameType]);
 
   const getOpenGameCounts = useCallback(async () => {
     return axios.get(`/api/game/list?list=open`).then(({ data }) => {
@@ -101,11 +102,12 @@ export default function LobbyBrowser() {
 
       const result = {};
       data.forEach((game) => {
-        const { lobby } = game;
-        if (result[lobby] == undefined) {
-          result[lobby] = 0;
+        const gameType = game?.setup?.gameType;
+        if (!gameType) return;
+        if (result[gameType] === undefined) {
+          result[gameType] = 0;
         }
-        result[lobby]++;
+        result[gameType]++;
 
         if (!hasOneOpenGame) setHasOneOpenGame(true);
         if (!hasOneOpenUrankedGame && !game.ranked)
@@ -126,14 +128,18 @@ export default function LobbyBrowser() {
       const res = await axios.get(
         `/api/game/list?list=${camelCase(
           _listType
-        )}&lobby=${lobbyName}&${filterArg}`
+        )}&lobby=All&${filterArg}`
       );
       if (!isMountedRef.current) return;
 
-      if (res.data.length > 0 || _page === 1) {
+      const filteredGames = (res.data || []).filter(
+        (game) => game?.setup?.gameType === selectedGameType
+      );
+
+      if (filteredGames.length > 0 || _page === 1) {
         setListType(_listType);
         setPage(_page);
-        setGames(res.data);
+        setGames(filteredGames);
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -165,7 +171,7 @@ export default function LobbyBrowser() {
     }
 
     const callback = async () => {
-      // The animation is so beautiful… It must keep spinning! (although the games have already been refreshed)
+      // The animation is so beautifulâ€¦ It must keep spinning! (although the games have already been refreshed)
       const minAnimationTime = 100;
       await new Promise((res) => {
         const timeoutId = setTimeout(res, minAnimationTime);
@@ -182,45 +188,60 @@ export default function LobbyBrowser() {
     getOpenGameCounts();
   };
 
-  if (lobbyName !== "All" && Lobbies.indexOf(lobbyName) === -1)
-    setLobbyName(defaultLobbyName);
-
   if (!user.loaded) return <Loading small />;
   // Allow logged-out users to access LobbyBrowser
 
-  const lobbyTabs = (
-    <Tabs
-      value={lobbyName}
-      onChange={(_, newValue) => setLobbyName(newValue)}
-    >
-      {lobbies
-        .filter((lobby) => !lobby.hidden)
-        .map((lobby) => (
-          <Tab
-            key={`lobby-tab-${lobby.name}`}
-            label={
-              <div>
-                {lobby.displayName}
-                {openGamesCounts[lobby.name] && (
-                  <span
-                    style={{
-                      marginLeft: "5px",
-                      borderRadius: "50%",
-                      backgroundColor: theme.palette.secondary.main,
-                      color: "white",
-                      padding: "0 5px",
-                    }}
-                  >
-                    {openGamesCounts[lobby.name]}
-                  </span>
-                )}
-              </div>
-            }
-            value={lobby.name}
-            disabled={lobby?.disabled}
-          />
+  const gameCategoryPanel = (
+    <Paper sx={{ p: 1 }}>
+      <Stack spacing={0.5}>
+        {GameTypes.map((gameType) => (
+          <Box
+            key={`game-category-${gameType}`}
+            component="button"
+            onClick={() => setSelectedGameType(gameType)}
+            sx={{
+              width: "100%",
+              border: "1px solid",
+              borderColor:
+                selectedGameType === gameType ? "primary.main" : "divider",
+              borderRadius: 1,
+              px: 1,
+              py: 0.75,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              cursor: "pointer",
+              backgroundColor:
+                selectedGameType === gameType
+                  ? "action.selected"
+                  : "background.paper",
+              "&:hover": {
+                backgroundColor: "action.hover",
+              },
+            }}
+          >
+            <GameIcon gameType={gameType} size={22} />
+            <Typography variant="body2" sx={{ textAlign: "left", flex: 1 }}>
+              {gameType}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                borderRadius: 10,
+                px: 0.75,
+                py: 0.2,
+                backgroundColor: theme.palette.secondary.main,
+                color: "white",
+                minWidth: "22px",
+                textAlign: "center",
+              }}
+            >
+              {openGamesCounts[gameType] || 0}
+            </Typography>
+          </Box>
         ))}
-    </Tabs>
+      </Stack>
+    </Paper>
   );
 
   const gameList = loading ? (
@@ -242,11 +263,9 @@ export default function LobbyBrowser() {
             />
             <GameRow
               game={game}
-              lobby={lobbyName}
               refresh={() => getGameList(listType, page)}
               odd={games.indexOf(game) % 2 === 1}
               key={game.id}
-              showLobbyName
               showGameTypeIcon
               showGameState
             />
@@ -256,7 +275,7 @@ export default function LobbyBrowser() {
     </Stack>
   ) : (
     <Typography style={{ textAlign: "center" }}>
-      No games played recently.
+      No open games in this category right now.
     </Typography>
   );
 
@@ -274,44 +293,52 @@ export default function LobbyBrowser() {
         <Typography variant="h3" color="primary">
           Games
         </Typography>
-        <div onClick={refreshGames}>
-          <RefreshButton isSpinning={refreshButtonIsSpinning} />
-        </div>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          {user.loggedIn && (
+            <Button
+              variant="outlined"
+              size="small"
+              href="/play/create"
+            >
+              Create Host
+            </Button>
+          )}
+          <div onClick={refreshGames}>
+            <RefreshButton isSpinning={refreshButtonIsSpinning} />
+          </div>
+        </Stack>
       </Stack>
     </Paper>
   );
 
   return (
-    <Stack direction="column" spacing={1}>
-      {lobbyTabs}
+    <Stack direction="column" spacing={1} sx={{ pt: 4 }}>
       <Grid2 container rowSpacing={2} columnSpacing={2}>
-        <Grid2 size={{ xs: 12, md: 8 }}>
+        <Grid2 size={{ xs: 12, md: 2.5 }}>
+          <Stack spacing={1}>
+            {gameCategoryPanel}
+          </Stack>
+        </Grid2>
+        <Grid2 size={{ xs: 12, md: 5.5 }}>
           <Stack spacing={2}>
             <Stack direction="column" spacing={1}>
               {buttons}
               {gameList}
             </Stack>
-            <Comments
-              fullWidth
-              location={
-                lobbyName === "Main" || lobbyName === "All"
-                  ? "lobby"
-                  : `lobby-${lobbyName}`
-              }
-            />
+            <Comments fullWidth location="lobby" />
           </Stack>
         </Grid2>
         <Grid2 size={{ xs: 12, md: 4 }}>
           <Stack spacing={1}>
             <FeaturedSetup
-              lobby={lobbyName}
+              lobby="All"
               glowingHostButton={glowingHostButton}
             />
             <DailyChallenges />
-            <RecentlyPlayedSetups lobby={lobbyName} />
+            <RecentlyPlayedSetups lobby="All" />
             <RecentForumReplies />
             <Chat />
-            <Poll lobby={lobbyName} />
+            <Poll lobby="All" />
             <RecentTradesFeed />
           </Stack>
         </Grid2>

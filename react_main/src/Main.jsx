@@ -256,11 +256,6 @@ function Header({ setShowAnnouncementTemporarily }) {
                     hide: !user.loggedIn,
                   },
                   {
-                    text: "Create Setup",
-                    path: "/play/create",
-                    hide: !user.loggedIn,
-                  },
-                  {
                     text: "Decks",
                     path: "/play/decks",
                     hide: !user.loggedIn,
@@ -333,11 +328,6 @@ function Header({ setShowAnnouncementTemporarily }) {
               items={[
                 { text: "Play", path: "/play" },
                 { text: "Host", path: "/play/host", hide: !user.loggedIn },
-                {
-                  text: "Create Setup",
-                  path: "/play/create",
-                  hide: !user.loggedIn,
-                },
                 { text: "Decks", path: "/play/decks", hide: !user.loggedIn },
               ]}
             />
