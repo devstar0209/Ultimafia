@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useReducer } from "react";
+import React, { useState, useEffect, useContext, useReducer, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -50,6 +50,7 @@ export default function HostBrowser(props) {
   const [hostNavLabel, setHostNavLabel] = useState(defaultNavLabel);
   const [pageCount, setPageCount] = useState(1);
   const [setups, setSetups] = useState([]);
+  const isMountedRef = useRef(true);
 
   const isPhoneDevice = useIsPhoneDevice();
   const theme = useTheme();
@@ -158,6 +159,13 @@ export default function HostBrowser(props) {
     };
   }, [filters, gameType]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   function getSetupList(filters) {
     axios
       .get(
@@ -167,8 +175,13 @@ export default function HostBrowser(props) {
         }).toString()}`
       )
       .then((res) => {
-        setSetups(res.data.setups);
-        setPageCount(res.data.pages);
+        if (isMountedRef.current) {
+          setSetups(res.data.setups);
+          setPageCount(res.data.pages);
+        }
+      })
+      .catch(() => {
+        // Silently handle errors
       });
   }
 
@@ -346,7 +359,6 @@ export default function HostBrowser(props) {
             <List>
               {GameTypes.map((game) => (
                 <ListItem
-                  button
                   key={game}
                   selected={gameType === game}
                   onClick={() => handleListItemClick(game)}
@@ -470,7 +482,6 @@ export default function HostBrowser(props) {
                 <Stack direction="column" spacing={0.5}>
                   {GameTypes.map((game) => (
                     <ListItem
-                      button
                       key={game}
                       selected={gameType === game}
                       onClick={() => handleListItemClick(game)}

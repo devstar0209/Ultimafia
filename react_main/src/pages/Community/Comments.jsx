@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import axios from "axios";
 
 import { useErrorAlert } from "../../components/Alerts";
@@ -21,6 +21,7 @@ export default function Comments(props) {
   const [showInput, setShowInput] = useState(false);
   const [postContent, setPostContent] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const isMountedRef = useRef(true);
 
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
@@ -30,6 +31,13 @@ export default function Comments(props) {
     onCommentsPageNav(1);
   }, [location]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   function onCommentsPageNav(_page) {
     var filterArg = getPageNavFilterArg(_page, page, comments, "date");
 
@@ -38,6 +46,8 @@ export default function Comments(props) {
     axios
       .get(`/api/comment?location=${location}&${filterArg}`)
       .then((res) => {
+        if (!isMountedRef.current) return;
+
         setLoaded(true);
 
         if (res.data.length > 0) {
@@ -52,18 +62,28 @@ export default function Comments(props) {
           setPage(_page);
         }
       })
-      .catch(errorAlert);
+      .catch((err) => {
+        if (isMountedRef.current) {
+          errorAlert(err);
+        }
+      });
   }
 
   function onPostSubmit() {
     axios
       .post("/api/comment", { content: postContent, location })
       .then(() => {
-        onCommentsPageNav(1);
-        setPostContent("");
-        setShowInput(false);
+        if (isMountedRef.current) {
+          onCommentsPageNav(1);
+          setPostContent("");
+          setShowInput(false);
+        }
       })
-      .catch(errorAlert);
+      .catch((err) => {
+        if (isMountedRef.current) {
+          errorAlert(err);
+        }
+      });
   }
 
   function onPostCancel() {
