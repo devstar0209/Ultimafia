@@ -93,6 +93,9 @@ function ErrorFallbackNoMain({ error, resetErrorBoundary }) {
 
 function Main(props) {
   const errorContent = props.errorContent;
+  const location = useLocation();
+  const isWelcomeRoute =
+    location.pathname === "/welcome" || location.pathname === "/";
 
   const [isUserLoading, setUserLoading] = useState(true);
   const [siteTheme, setSiteTheme] = useState(() => getSiteTheme());
@@ -128,9 +131,9 @@ function Main(props) {
       }}>
         <Stack direction="column" spacing={1} sx={{
           margin: "0 auto",
-          px: isPhoneDevice ? 1 : 3,
+          px: isWelcomeRoute ? 0 : isPhoneDevice ? 1 : 3,
           py: 1,
-          width: "1080px",
+          width: isWelcomeRoute ? "100%" : "1080px",
           maxWidth: "100%",
         }}>
           <Announcement
