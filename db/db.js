@@ -8,7 +8,7 @@ module.exports = {
       process.env.MONGO_DB
     );
     await mongoose.connect(
-      `mongodb://${process.env.MONGO_URL}/${process.env.MONGO_DB}?authSource=admin`,
+      process.env.MONGO_URI,
       {
         user: process.env.MONGO_USER,
         pass: process.env.MONGO_PW,

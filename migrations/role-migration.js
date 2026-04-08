@@ -32,10 +32,8 @@ function mongoConnectOptions() {
   const host = process.env.MONGO_URL || "localhost:27017";
   const dbName = process.env.MONGO_DB || "ultimafia";
   return {
-    uri: `mongodb://${host}/${dbName}?authSource=admin`,
+    uri: process.env.MONGO_URI,
     options: {
-      user: process.env.MONGO_USER,
-      pass: process.env.MONGO_PW,
       useNewUrlParser: true,
       useUnifiedTopology: true,
     },
