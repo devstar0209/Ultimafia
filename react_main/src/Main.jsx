@@ -1,5 +1,5 @@
 import React, { lazy, useState, useContext, useEffect, Suspense } from "react";
-import { Route, Link, Navigate, Routes, useLocation } from "react-router-dom";
+import { Route, Link, Navigate, Routes, useLocation, NavLink } from "react-router-dom";
 import { ErrorBoundary } from "react-error-boundary";
 import axios from "axios";
 import { Icon } from "@iconify/react";
@@ -292,6 +292,16 @@ function Header({ setShowAnnouncementTemporarily }) {
                   { text: "Moderation", path: "/policy/moderation" },
                 ],
               },
+              {
+                label: "Shop",
+                items: [
+                  {
+                    text: "Shop",
+                    path: "/user/shop",
+                    hide: !user.loggedIn,
+                  },
+                ],
+              },
             ]}
           />
           <SiteLogo small />
@@ -361,6 +371,21 @@ function Header({ setShowAnnouncementTemporarily }) {
                 { text: "Moderation", path: "/policy/moderation" },
               ]}
             />
+            {user.loggedIn && (
+              <NavLink
+                to="/user/shop"
+                style={({ isActive }) => ({
+                  textTransform: "uppercase",
+                  color: "inherit",
+                  padding: "0 var(--mui-spacing)",
+                  backgroundColor: isActive
+                    ? "rgba(var(--mui-palette-primary-mainChannel) / var(--mui-palette-action-selectedOpacity))"
+                    : undefined,
+                })}
+              >
+                <Typography variant="h3">Shop</Typography>
+              </NavLink>
+            )}
             <Box sx={{
               marginLeft: "auto !important",
             }}>

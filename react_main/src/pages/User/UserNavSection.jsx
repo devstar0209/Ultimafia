@@ -105,11 +105,6 @@ export default function UserNavSection({
       icon: (<i className="fas fa-cog"/>),
     },
     {
-      text: "Shop",
-      path: "/user/shop",
-      icon: (<i className="fas fa-coins"/>),
-    },
-    {
       text: "Announcements",
       onClick: openAnnouncements,
       icon: (<i className="fas fa-bullhorn"/>),

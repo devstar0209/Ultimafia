@@ -42,6 +42,7 @@ import { Loading } from "components/Loading";
 import { GameRow } from "pages/Play/LobbyBrowser/GameRow";
 import {
   Box,
+  Button,
   Grid,
   IconButton,
   Popover,
@@ -1161,6 +1162,17 @@ export default function Profile() {
             </>
           )}
         </Stack>
+        {isSelf && user.loggedIn && (
+          <Button
+            component={Link}
+            to="/user/shop"
+            size="small"
+            sx={{ textTransform: "none" }}
+            startIcon={<i className="fas fa-coins" />}
+          >
+            Buy Coins
+          </Button>
+        )}
         <AdminVisuals profileUserId={profileUserId} />
       </Stack>
     </Grid>
