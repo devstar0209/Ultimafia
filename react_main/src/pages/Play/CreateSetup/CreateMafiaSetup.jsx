@@ -23,6 +23,8 @@ export default function CreateMafiaSetup() {
       ref: "closed",
       type: "boolean",
       groupName: "Closed Roles Settings",
+      groupTooltip: "🎭 How roles are assigned and managed in the game",
+      infoTooltip: "👉 Players don't know what roles exist in the game",
     },
     {
       label: "Unique Roles",
@@ -30,6 +32,7 @@ export default function CreateMafiaSetup() {
       type: "boolean",
       groupName: "Closed Roles Settings",
       showIf: "closed",
+      infoTooltip: "👉 Each role can appear only once",
     },
     {
       label: "Unique Without Modifier",
@@ -44,6 +47,8 @@ export default function CreateMafiaSetup() {
       type: "boolean",
       groupName: "Closed Roles Settings",
       showIf: "closed",
+      infoTooltip:
+        "👉 Roles are grouped into categories instead of exact roles",
     },
     {
       label: "Village Count",
@@ -86,7 +91,7 @@ export default function CreateMafiaSetup() {
       showIf: ["closed", "!useRoleGroups"],
     },
     {
-      label: "Prompt Text",
+      label: "💬 Game Messages",
       ref: "gameStartPrompt",
       type: "text",
       textStyle: "large",

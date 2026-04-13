@@ -54,7 +54,7 @@ const GAME_SETUP_HELP = {
       "👍 Recommended players: 3-6 for better balance",
       "🎯 Keep village and mafia power levels close.",
       "🌞 Set day and night timers based on lobby pace.",
-      "⚡ Choose Fast Mode for 3–5 minute matches",
+      "⚡ Choose Fast Mode for 3-5 minute matches",
       "🕰️ Choose Classic Mode for longer gameplay"
     ],
   },
