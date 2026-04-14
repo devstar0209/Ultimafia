@@ -29,6 +29,22 @@ const factionRatings = [
   },
 ];
 
+const coinPurchaseSchema = new mongoose.Schema({
+  id: { type: String, index: true, unique: true },
+  userId: { type: String, index: true },
+  provider: { type: String, index: true },
+  externalId: { type: String, index: true },
+  packageId: { type: String, index: true },
+  coins: { type: Number, default: 0 },
+  amountUsd: { type: Number, default: 0 },
+  status: { type: String, index: true, default: "pending" },
+  rawStatus: { type: String, default: "" },
+  raw: { type: mongoose.Schema.Types.Mixed, default: {} },
+  createdAt: { type: Number, index: true, default: Date.now },
+  creditedAt: { type: Number, default: null },
+});
+coinPurchaseSchema.index({ provider: 1, externalId: 1 }, { unique: true });
+
 var schemas = {
   User: new mongoose.Schema({
     id: { type: String, index: true },
@@ -184,6 +200,7 @@ var schemas = {
     banned: { type: Boolean, default: false },
     flagged: { type: Boolean, default: false },
   }),
+  CoinPurchase: coinPurchaseSchema,
   Session: new mongoose.Schema({
     expires: Date,
     lastModified: Date,

@@ -162,7 +162,7 @@ async function cacheUserInfo(userId, reset) {
 
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements redHearts goldHearts points dailyChallengesCompleted dailyChallenges"
+        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements redHearts goldHearts coins points dailyChallengesCompleted dailyChallenges"
       )
       .populate({
         path: "customEmotes",
@@ -221,6 +221,7 @@ async function cacheUserInfo(userId, reset) {
     await client.setAsync(`user:${userId}:info:gamesPlayed`, gamesPlayed);
     await client.setAsync(`user:${userId}:info:redHearts`, user.redHearts);
     await client.setAsync(`user:${userId}:info:goldHearts`, user.goldHearts);
+    await client.setAsync(`user:${userId}:info:coins`, user.coins || 0);
     await client.setAsync(`user:${userId}:info:points`, user.points);
     await client.setAsync(
       `user:${userId}:info:redHeartRefreshTimestamp`,
@@ -267,6 +268,7 @@ async function cacheUserInfo(userId, reset) {
   client.expire(`user:${userId}:info:gamesPlayed`, 3600);
   client.expire(`user:${userId}:info:redHearts`, 3600);
   client.expire(`user:${userId}:info:goldHearts`, 3600);
+  client.expire(`user:${userId}:info:coins`, 3600);
   client.expire(`user:${userId}:info:points`, 3600);
   client.expire(`user:${userId}:info:redHeartRefreshTimestamp`, 3600);
   client.expire(`user:${userId}:info:goldHeartRefreshTimestamp`, 3600);
@@ -291,6 +293,7 @@ async function deleteUserInfo(userId) {
   await client.delAsync(`user:${userId}:info:gamesPlayed`);
   await client.delAsync(`user:${userId}:info:redHearts`);
   await client.delAsync(`user:${userId}:info:goldHearts`);
+  await client.delAsync(`user:${userId}:info:coins`);
   await client.delAsync(`user:${userId}:info:points`);
   await client.delAsync(`user:${userId}:info:redHeartRefreshTimestamp`);
   await client.delAsync(`user:${userId}:info:goldHeartRefreshTimestamp`);
@@ -320,6 +323,7 @@ async function getUserInfo(userId) {
       `user:${userId}:info:gamesPlayed`,
       `user:${userId}:info:redHearts`,
       `user:${userId}:info:goldHearts`,
+      `user:${userId}:info:coins`,
       `user:${userId}:info:points`,
       `user:${userId}:info:redHeartRefreshTimestamp`,
       `user:${userId}:info:goldHeartRefreshTimestamp`,
@@ -346,6 +350,7 @@ async function getUserInfo(userId) {
     gamesPlayed,
     redHearts,
     goldHearts,
+    coins,
     points,
     redHeartRefreshTimestamp,
     goldHeartRefreshTimestamp,
@@ -371,6 +376,7 @@ async function getUserInfo(userId) {
   info.gamesPlayed = gamesPlayed;
   info.redHearts = redHearts;
   info.goldHearts = goldHearts;
+  info.coins = Number(coins || 0);
   info.points = points;
   info.redHeartRefreshTimestamp = redHeartRefreshTimestamp;
   info.goldHeartRefreshTimestamp = goldHeartRefreshTimestamp;

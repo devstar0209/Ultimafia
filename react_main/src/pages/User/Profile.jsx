@@ -61,6 +61,7 @@ export const POINTS_NEGATIVE_ICON = require(`images/pointsNegative.png`);
 export const PRESTIGE_ICON = require(`images/prestige.png`);
 export const ACHIEVEMENTS_ICON = require(`images/achievements.png`);
 export const DAILY_ICON = require(`images/dailyChallenges.png`);
+export const COIN_ICON = require(`images/umcoin.png`);
 
 function FavoritedRolesPanel({
   favoriteRoles = [],
@@ -148,6 +149,7 @@ export default function Profile() {
   const [points, setPoints] = useState(0);
   const [pointsNegative, setPointsNegative] = useState(0);
   const [championshipPoints, setChampionshipPoints] = useState(0);
+  const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [favoriteRoles, setFavoriteRoles] = useState([]);
   const [roleIconCredits, setRoleIconCredits] = useState([]);
@@ -321,6 +323,7 @@ export default function Profile() {
           setStats(res.data.stats);
           setKudos(res.data.kudos);
           setChampionshipPoints(res.data.championshipPoints);
+          setCoinBalance(res.data.coins || 0);
           setPoints(res.data.points);
           setPointsNegative(res.data.pointsNegative);
           setKarmaInfo(res.data.karmaInfo);
@@ -1162,17 +1165,6 @@ export default function Profile() {
             </>
           )}
         </Stack>
-        {isSelf && user.loggedIn && (
-          <Button
-            component={Link}
-            to="/user/shop"
-            size="small"
-            sx={{ textTransform: "none" }}
-            startIcon={<i className="fas fa-coins" />}
-          >
-            Buy Coins
-          </Button>
-        )}
         <AdminVisuals profileUserId={profileUserId} />
       </Stack>
     </Grid>

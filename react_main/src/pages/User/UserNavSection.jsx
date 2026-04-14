@@ -1,23 +1,46 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { NameWithAvatar, Avatar } from "./User";
+import { Avatar } from "./User";
 import { useNow } from "../../hooks/useNow";
 import { useIsPhoneDevice } from "../../hooks/useIsPhoneDevice";
+import { useErrorAlert } from "../../components/Alerts";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Divider,
   Stack,
   Tooltip,
   Typography,
-  IconButton,
   Badge,
   Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from "@mui/material";
 import NavDropdown from "../../components/NavDropdown";
 import { SiteInfoContext } from "../../Contexts";
 
 import "css/main.css";
 import exitIcon from "../../images/emotes/exit.png";
+import coinIcon from "../../images/umcoin.png";
+
+const PAYMENT_PROVIDER_COPY = {
+  braintree: {
+    optionLabel: "Option 1",
+    title: "Credit Card",
+    subtitle: "Secure checkout powered by Braintree.",
+  },
+  nowpayments: {
+    optionLabel: "Option 2",
+    title: "Crypto Payment",
+    subtitle: "Pay with USDT, USDC, ETH, or BTC via NowPayments.",
+  },
+};
 
 export default function UserNavSection({
   openAnnouncements,
@@ -28,8 +51,25 @@ export default function UserNavSection({
   const navigate = useNavigate();
   const isMobile = useIsPhoneDevice();
   const unreadCount = useUnreadNotifications();
+  const errorAlert = useErrorAlert();
   const [userFamily, setUserFamily] = useState(null);
-  const { cacheVal } = useContext(SiteInfoContext);
+  const siteInfo = useContext(SiteInfoContext);
+  const { cacheVal } = siteInfo;
+  const [buyCoinsDialogOpen, setBuyCoinsDialogOpen] = useState(false);
+const [buyConfig, setBuyConfig] = useState(null);
+  const [selectedAmount, setSelectedAmount] = useState(50); 
+  const [paymentProvider, setPaymentProvider] = useState("braintree");
+  const [braintreeEnabled, setBraintreeEnabled] = useState(false);
+  const [nowPaymentsEnabled, setNowPaymentsEnabled] = useState(false);
+  const [nowPaymentsCurrencies, setNowPaymentsCurrencies] = useState([]);
+  const [nowPaymentsCurrency, setNowPaymentsCurrency] = useState("");
+  const [nowPaymentsPaymentId, setNowPaymentsPaymentId] = useState("");
+  const [nowPaymentsInvoiceUrl, setNowPaymentsInvoiceUrl] = useState("");
+  const [clientToken, setClientToken] = useState("");
+  const [dropInInstance, setDropInInstance] = useState(null);
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
+  const dropInContainerRef = useRef(null);
+const selectedPrice = buyConfig ? (selectedAmount * buyConfig.pricePerCoin).toFixed(2) : '0.00';
 
   useEffect(() => {
     if (user.loggedIn) {
@@ -123,6 +163,214 @@ export default function UserNavSection({
     },
   ];
 
+  function closeBuyCoinsDialog() {
+    setBuyCoinsDialogOpen(false);
+    setBuyConfig(null);
+    setSelectedAmount(50);
+    setPaymentProvider("braintree");
+    setBraintreeEnabled(false);
+    setNowPaymentsEnabled(false);
+    setNowPaymentsCurrencies([]);
+    setNowPaymentsCurrency("");
+    setNowPaymentsPaymentId("");
+    setNowPaymentsInvoiceUrl("");
+    setClientToken("");
+    setDropInInstance(null);
+    setIsProcessingPurchase(false);
+  }
+
+  const loadBraintreeToken = useCallback(() => {
+    return axios
+      .get("/api/shop/buyCoins/token")
+      .then((res) => {
+        setClientToken(res.data.clientToken);
+      })
+      .catch(errorAlert);
+  }, [errorAlert]);
+
+function openBuyCoinsDialog() {
+  // don't change here
+    setBuyCoinsDialogOpen(true);
+  }
+
+  const handleAmountChange = (newAmount) => {
+    setSelectedAmount(newAmount);
+    setNowPaymentsPaymentId("");
+    setNowPaymentsInvoiceUrl("");
+  };
+
+  function handlePaymentProviderChange(nextProvider) {
+    setPaymentProvider(nextProvider);
+  }
+
+  const [payAddress, setPayAddress] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  function generateCryptoPayment(currencyCode) {
+    setNowPaymentsCurrency(currencyCode);
+    setNowPaymentsPaymentId("");
+    setNowPaymentsInvoiceUrl("");
+    setPayAddress("");
+    setPayAmount("");
+    setIsProcessingPurchase(true);
+    axios.post("/api/shop/buyCoins/nowpayments/createInvoice", {
+      amount: selectedAmount,
+      payCurrency: currencyCode,
+    }).then((res) => {
+      setNowPaymentsPaymentId(res.data.paymentId || "");
+      setNowPaymentsInvoiceUrl(res.data.invoiceUrl || "");
+      setPayAddress(res.data.payAddress || "");
+      setPayAmount(res.data.payAmount || "");
+      setIsProcessingPurchase(false);
+      if (res.data.invoiceUrl) {
+        window.open(res.data.invoiceUrl, "_blank", "noopener,noreferrer");
+      }
+    }).catch(errorAlert).finally(() => setIsProcessingPurchase(false));
+  }
+
+  function buyCoinsWithBraintree() {
+    if (!dropInInstance || !selectedPackageId) return;
+    setIsProcessingPurchase(true);
+    dropInInstance
+      .requestPaymentMethod()
+      .then((payload) =>
+        axios.post("/api/shop/buyCoins/checkout", {
+          amount: selectedAmount,
+          paymentMethodNonce: payload.nonce,
+        })
+      )
+      .then((res) => {
+        user.set((prev) => ({
+          ...prev,
+          coins: res.data.balance,
+        }));
+        if (res.data.alreadyCredited) {
+          siteInfo.showAlert("This payment was already credited.", "basic");
+        } else {
+          siteInfo.showAlert(
+            `Purchased ${res.data.coinsAdded} coins successfully.`,
+            "success"
+          );
+        }
+        closeBuyCoinsDialog();
+      })
+      .catch(errorAlert)
+      .finally(() => setIsProcessingPurchase(false));
+  }
+
+  function createNowPaymentsInvoice() {
+    if (!selectedPackageId || !nowPaymentsCurrency) return;
+    setIsProcessingPurchase(true);
+    axios
+      .post("/api/shop/buyCoins/nowpayments/createInvoice", {
+        amount: selectedAmount,
+        payCurrency: nowPaymentsCurrency,
+      })
+      .then((res) => {
+        setNowPaymentsPaymentId(res.data.paymentId || "");
+        setNowPaymentsInvoiceUrl(res.data.invoiceUrl || "");
+
+        if (res.data.invoiceUrl) {
+          window.open(res.data.invoiceUrl, "_blank", "noopener,noreferrer");
+        } else {
+          siteInfo.showAlert(
+            `Invoice created. Payment ID: ${res.data.paymentId}`,
+            "basic"
+          );
+        }
+      })
+      .catch(errorAlert)
+      .finally(() => setIsProcessingPurchase(false));
+  }
+
+  function claimNowPaymentsInvoice() {
+    if (!nowPaymentsPaymentId) return;
+    setIsProcessingPurchase(true);
+    axios
+      .post("/api/shop/buyCoins/nowpayments/claim", {
+        paymentId: nowPaymentsPaymentId,
+      })
+      .then((res) => {
+        user.set((prev) => ({
+          ...prev,
+          coins: res.data.balance,
+        }));
+        siteInfo.showAlert(
+          `Purchased ${res.data.coinsAdded} coins successfully.`,
+          "success"
+        );
+        closeBuyCoinsDialog();
+      })
+      .catch((err) => {
+        const waitingMessage = err?.response?.data?.message;
+        if (waitingMessage) {
+          siteInfo.showAlert(waitingMessage, "basic");
+          return;
+        }
+        errorAlert(err);
+      })
+      .finally(() => setIsProcessingPurchase(false));
+  }
+
+  useEffect(() => {
+    if (
+      buyCoinsDialogOpen &&
+      paymentProvider === "braintree" &&
+      braintreeEnabled &&
+      !clientToken
+    ) {
+      loadBraintreeToken();
+    }
+  }, [
+    buyCoinsDialogOpen,
+    paymentProvider,
+    braintreeEnabled,
+    clientToken,
+    loadBraintreeToken,
+  ]);
+
+  useEffect(() => {
+    if (
+      !buyCoinsDialogOpen ||
+      paymentProvider !== "braintree" ||
+      !clientToken ||
+      !dropInContainerRef.current
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let activeInstance = null;
+
+    const script = document.createElement("script");
+    script.src = "https://js.braintreegateway.com/web/dropin/1.44.2/js/dropin.min.js";
+    script.async = true;
+    script.onload = () => {
+      if (cancelled || !window.braintree?.dropin) return;
+      window.braintree.dropin.create(
+        {
+          authorization: clientToken,
+          container: dropInContainerRef.current,
+          paypal: {
+            flow: "checkout",
+          },
+        },
+        (err, instance) => {
+          if (err || cancelled) return;
+          activeInstance = instance;
+          setDropInInstance(instance);
+        }
+      );
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      cancelled = true;
+      setDropInInstance(null);
+      if (activeInstance) activeInstance.teardown(() => {});
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+  }, [buyCoinsDialogOpen, clientToken, paymentProvider]);
+
   function timeToGo(timestamp) {
     // Utility to add leading zero
     function z(n) {
@@ -157,46 +405,321 @@ export default function UserNavSection({
   }
 
   return (
-    <Stack direction="row" spacing={0.5} divider={<Divider orientation="vertical" flexItem />} sx={{
-      px: 1,
-      alignItems: "center",
-      justifyContent: "end",
-    }}>
-      <Stack>
-        <Box sx={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1em",
-          columnGap: 0.5,
-          width: "3em",
+    <>
+      <Stack
+        direction="row"
+        spacing={1}
+        divider={<Divider orientation="vertical" flexItem />}
+        sx={{
+          px: 1,
           alignItems: "center",
-          textAlign: "right",
-        }}>
+          justifyContent: "end",
+        }}
+      >
+        <Button
+          onClick={openBuyCoinsDialog}
+          size="small"
+          sx={{
+            minWidth: 0,
+            px: 1,
+            py: 0.25,
+          }}
+        >
+          {isMobile ? "Buy" : "Buy Coins"}
+        </Button>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: "center",
+            whiteSpace: "nowrap",
+          }}
+        >
           <Typography variant="body2">
-            {user.redHearts ?? 0}
+            {(Number(user.coins) || 0).toLocaleString()}
           </Typography>
-          <Tooltip title={getHeartRefreshMessage(user, "red")}>
-            <i
-              className="fas fa-heart"
-              style={{ color: "#e23b3b", marginLeft: "auto" }}
-            />
-          </Tooltip>
-          <Typography variant="body2">
-            {user.goldHearts ?? 0}
-          </Typography>
-          <Link to="/fame/competitive">
-            <i
-              className="fas fa-heart"
-              style={{ color: "var(--gold-heart-color)", marginLeft: "auto" }}
-            />
-          </Link>
-        </Box>
+          <Box
+            component="img"
+            src={coinIcon}
+            alt="Coins"
+            sx={{
+              width: "18px",
+              height: "18px",
+            }}
+          />
+        </Stack>
+        <Stack>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1em",
+              columnGap: 0.5,
+              width: "3em",
+              alignItems: "center",
+              textAlign: "right",
+            }}
+          >
+            <Typography variant="body2">
+              {user.redHearts ?? 0}
+            </Typography>
+            <Tooltip title={getHeartRefreshMessage(user, "red")}>
+              <i
+                className="fas fa-heart"
+                style={{ color: "#e23b3b", marginLeft: "auto" }}
+              />
+            </Tooltip>
+            <Typography variant="body2">
+              {user.goldHearts ?? 0}
+            </Typography>
+            <Link to="/fame/competitive">
+              <i
+                className="fas fa-heart"
+                style={{ color: "var(--gold-heart-color)", marginLeft: "auto" }}
+              />
+            </Link>
+          </Box>
+        </Stack>
+        <Badge badgeContent={unreadCount} color="error" max={99}>
+          <NavDropdown
+            items={userMenuItems}
+            customTrigger={<Avatar id={user.id} name={user.name} hasImage={user.avatar} />}
+          />
+        </Badge>
       </Stack>
-      <Badge badgeContent={unreadCount} color="error" max={99}>
-        <NavDropdown
-          items={userMenuItems}
-          customTrigger={<Avatar id={user.id} name={user.name} hasImage={user.avatar} />}
-        />
-      </Badge>
-    </Stack>
+      <Dialog
+        open={buyCoinsDialogOpen}
+        onClose={closeBuyCoinsDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Buy Coins</DialogTitle>
+        <DialogContent dividers>
+          <Stack direction="column" spacing={2}>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                {[10, 50, 100, 300].map((amt) => (
+                <Button
+                  key={amt}
+                  variant={selectedAmount === amt ? 'contained' : 'outlined'}
+                  onClick={() => handleAmountChange(amt)}
+                  size="small"
+                >
+                  {amt} coins
+                </Button>
+              ))}
+              </Stack>
+            <TextField
+              fullWidth
+              label="Custom amount"
+              type="number"
+              value={selectedAmount}
+              onChange={(e) => handleAmountChange(Number(e.target.value))}
+              inputProps={{
+                min: buyConfig?.minAmount || 50,
+                max: buyConfig?.maxAmount || 5000,
+                step: 50
+              }}
+              helperText={`$${selectedPrice} (${buyConfig?.pricePerCoin ? (1/buyConfig.pricePerCoin).toFixed(0) : '10'} coins/$)`}
+            />
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+              {braintreeEnabled && (
+                <Button
+                  fullWidth
+                  variant={paymentProvider === "braintree" ? "contained" : "outlined"}
+                  onClick={() => handlePaymentProviderChange("braintree")}
+                  sx={{
+                    alignItems: "flex-start",
+                    justifyContent: "flex-start",
+                    minHeight: 110,
+                    px: 2,
+                    py: 1.5,
+                    textAlign: "left",
+                    textTransform: "none",
+                  }}
+                >
+                  <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
+                    <Typography variant="overline" sx={{ lineHeight: 1.2 }}>
+                      {PAYMENT_PROVIDER_COPY.braintree.optionLabel}
+                    </Typography>
+                    <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                      {PAYMENT_PROVIDER_COPY.braintree.title}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        opacity: paymentProvider === "braintree" ? 0.9 : 0.75,
+                      }}
+                    >
+                      {PAYMENT_PROVIDER_COPY.braintree.subtitle}
+                    </Typography>
+                  </Stack>
+                </Button>
+              )}
+              {nowPaymentsEnabled && (
+                <Button
+                  fullWidth
+                  variant={paymentProvider === "nowpayments" ? "contained" : "outlined"}
+                  onClick={() => handlePaymentProviderChange("nowpayments")}
+                  sx={{
+                    alignItems: "flex-start",
+                    justifyContent: "flex-start",
+                    minHeight: 110,
+                    px: 2,
+                    py: 1.5,
+                    textAlign: "left",
+                    textTransform: "none",
+                  }}
+                >
+                  <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
+                    <Typography variant="overline" sx={{ lineHeight: 1.2 }}>
+                      {PAYMENT_PROVIDER_COPY.nowpayments.optionLabel}
+                    </Typography>
+                    <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                      {PAYMENT_PROVIDER_COPY.nowpayments.title}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        opacity: paymentProvider === "nowpayments" ? 0.9 : 0.75,
+                      }}
+                    >
+                      {PAYMENT_PROVIDER_COPY.nowpayments.subtitle}
+                    </Typography>
+                  </Stack>
+                </Button>
+              )}
+            </Stack>
+
+            {buyConfig && (
+              <Box
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 1.5,
+                  px: 2,
+                  py: 1.5,
+                }}
+              >
+                <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                  Selected amount
+                </Typography>
+                <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                  {selectedAmount} coins
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  ${selectedPrice}
+                </Typography>
+              </Box>
+            )}
+
+  <Accordion>
+    <AccordionSummary expandIcon={<i className="fas fa-chevron-down"/>}>
+      <Typography>Pay with Credit Card</Typography>
+    </AccordionSummary>
+    <AccordionDetails>
+      {clientToken ? (
+        <Box ref={dropInContainerRef} sx={{ mb: 2 }} />
+      ) : (
+        <Typography variant="body2" sx={{ opacity: 0.75, mb: 2 }}>
+          Loading card form...
+        </Typography>
+      )}
+      <Button
+        fullWidth
+        variant="contained"
+        disabled={!dropInInstance || isProcessingPurchase}
+        onClick={buyCoinsWithBraintree}
+      >
+        {isProcessingPurchase ? "Processing..." : "Pay $" + selectedPrice}
+      </Button>
+    </AccordionDetails>
+  </Accordion>
+
+  <Accordion>
+    <AccordionSummary expandIcon={<i className="fas fa-chevron-down"/>}>
+      <Typography>Pay with Crypto</Typography>
+    </AccordionSummary>
+    <AccordionDetails>
+  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mb: 2 }}>
+        {[
+          { code: 'usdttrc20', label: 'USDT', icon: 'usdt' },
+          { code: 'usdc', label: 'USDC', icon: 'usdc' },
+          { code: 'btc', label: 'BTC', icon: 'btc' },
+          { code: 'eth', label: 'ETH', icon: 'eth' },
+        ].map((currency) => (
+          <Button
+            key={currency.code}
+            variant={nowPaymentsCurrency === currency.code ? "contained" : "outlined"}
+            onClick={() => generateCryptoPayment(currency.code)}
+            size="small"
+            startIcon={<i className={`fab fa-${currency.icon}`} />}
+          >
+            {currency.label}
+          </Button>
+        ))}
+      </Stack>
+      {nowPaymentsPaymentId && (
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          Payment ID: {nowPaymentsPaymentId}
+        </Typography>
+      )}
+      {nowPaymentsInvoiceUrl && (
+        <Button
+          onClick={() => window.open(nowPaymentsInvoiceUrl, "_blank", "noopener,noreferrer")}
+          variant="outlined"
+          sx={{ mb: 2 }}
+        >
+          Open Invoice
+        </Button>
+      )}
+      {nowPaymentsPaymentId ? (
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={claimNowPaymentsInvoice}
+          disabled={isProcessingPurchase}
+        >
+          {isProcessingPurchase ? "Processing..." : "Claim Payment"}
+        </Button>
+      ) : (
+        <Typography variant="body2" sx={{ opacity: 0.75 }}>
+          Select currency above to generate QR code and address.
+        </Typography>
+      )}
+      {nowPaymentsPaymentId && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Payment ID: {nowPaymentsPaymentId}
+          </Typography>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => window.open(nowPaymentsInvoiceUrl, "_blank", "noopener,noreferrer")}
+          >
+            Open Invoice
+          </Button>
+        </Box>
+      )}
+      {payAddress && payAmount && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Send exactly {payAmount} {nowPaymentsCurrency.toUpperCase()} to:
+          </Typography>
+          <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, textAlign: 'center' }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>{payAddress}</Typography>
+            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${payAddress}`} alt="QR Code" />
+          </Box>
+        </Box>
+      )}
+    </AccordionDetails>
+  </Accordion>
+          </Stack>
+        </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeBuyCoinsDialog}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
