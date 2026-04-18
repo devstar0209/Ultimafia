@@ -281,7 +281,7 @@ module.exports = {
   maxArchivedGamesMax: 10,
   maxDeckNameLength: 25, // maxSetupNameLength
   maxCustomEmoteNameLength: 25,
-  minDeckSize: 5, // minMafiaSetupTotal
+  minDeckSize: 3, // minMafiaSetupTotal
   maxDeckSize: 50, // maxPlayers
   maxNameLengthInDeck: 20, // maxUserNameLength
   maxTrophyNameLength: 40,
@@ -345,7 +345,7 @@ module.exports = {
   referralGames: 5,
   referralCoins: 50,
 
-  minMafiaSetupTotal: process.env.NODE_ENV.includes("development") ? 3 : 5,
+  minMafiaSetupTotal: process.env.NODE_ENV.includes("development") ? 3 : 3,
   captchaThreshold: 0.25,
 
   initialRedHeartCapacity: 15,
