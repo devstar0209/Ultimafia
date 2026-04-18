@@ -34,7 +34,7 @@ nvm alias default 22.17.0
 ## 3. Clone the repository
 
 ```bash
-git clone https://github.com/UltiMafia/Ultimafia.git
+git clone https://github.com/devstar0209/Ultimafia
 cd Ultimafia
 ```
 
@@ -165,6 +165,16 @@ cd react_main
 npm ci
 bash build.sh
 cd ..
+```
+
+When process is killed
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h
 ```
 
 This creates `react_main/build_public`, which the Express app serves in production.
