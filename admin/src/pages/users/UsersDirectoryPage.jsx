@@ -3,13 +3,17 @@ import { Grid, Stack } from "@mui/material";
 
 import ActionCard from "../../components/admin/ActionCard";
 import MiniTable from "../../components/admin/MiniTable";
+import PageFeedback from "../../components/admin/PageFeedback";
 import SummaryCard from "../../components/admin/SummaryCard";
 import TrustMeter from "../../components/admin/TrustMeter";
 import StatusChip from "../../components/StatusChip";
-import { users } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getAdminUsers } from "../../services/adminService";
 import { filterRows } from "../../utils/filterRows";
 
 export default function UsersDirectoryPage({ search = "" }) {
+  const { data, loading, error } = useAdminQuery(getAdminUsers);
+  const users = data?.items || [];
   const filteredUsers = filterRows(users, search, [
     "id",
     "name",
@@ -17,6 +21,29 @@ export default function UsersDirectoryPage({ search = "" }) {
     "status",
     "email",
   ]);
+  const staffCount = users.filter((user) => user.role && user.role !== "Player").length;
+  const flaggedCount = users.filter((user) =>
+    ["Flagged", "Suspended"].includes(user.status)
+  ).length;
+  const avatarCount = users.filter((user) => user.hasAvatar).length;
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading users"
+        description="Fetching the current user directory and role data from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="User directory unavailable"
+        description="The admin panel could not load user records from the backend."
+      />
+    );
+  }
 
   return (
     <Grid container spacing={3}>
@@ -49,10 +76,10 @@ export default function UsersDirectoryPage({ search = "" }) {
           <SummaryCard
             title="Directory Summary"
             items={[
-              "12480 active accounts",
-              "42 staff accounts",
-              "17 users currently flagged",
-              "6 pending account reviews",
+              `${users.length} recent accounts loaded`,
+              `${staffCount} staff or elevated accounts`,
+              `${flaggedCount} users currently flagged or suspended`,
+              `${avatarCount} users with profile assets`,
             ]}
           />
         </Stack>

@@ -105,6 +105,7 @@ router.get("/info", async function (req, res) {
     user.perms = (await redis.getUserPermissions(userId)) || {};
     user.rank = String(user.perms.rank || 0);
     user.perms = user.perms.perms || {};
+    user.admin = Boolean(user.admin);
     delete user.status;
 
     res.send(user);

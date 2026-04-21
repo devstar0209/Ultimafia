@@ -1,6 +1,7 @@
-import { defineConfig } from "@rsbuild/core";
+import { defineConfig, loadEnv } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 
+const { publicVars } = loadEnv({ prefixes: ["REACT_APP_"] });
 const isProduction = process.env.NODE_ENV === "production";
 
 export default defineConfig({
@@ -22,6 +23,7 @@ export default defineConfig({
   },
   devtool: isProduction ? "source-map" : "eval-source-map",
   source: {
+    define: publicVars,
     tsconfigPath: "./jsconfig.json",
   },
   server: {

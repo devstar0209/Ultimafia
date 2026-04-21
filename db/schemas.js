@@ -137,6 +137,7 @@ var schemas = {
       maxlength: 240,
       default: "",
     },
+    admin: { type: Boolean, default: false, index: true },
     rank: Number,
     permissions: [String],
     setups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Setup" }],

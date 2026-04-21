@@ -162,7 +162,7 @@ async function cacheUserInfo(userId, reset) {
 
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements redHearts goldHearts coins points dailyChallengesCompleted dailyChallenges"
+        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements redHearts goldHearts coins points dailyChallengesCompleted dailyChallenges admin"
       )
       .populate({
         path: "customEmotes",
@@ -205,6 +205,7 @@ async function cacheUserInfo(userId, reset) {
 
     await client.setAsync(`user:${userId}:info:id`, userId);
     await client.setAsync(`user:${userId}:info:name`, user.name);
+    await client.setAsync(`user:${userId}:info:admin`, user.admin || false);
     await client.setAsync(`user:${userId}:info:avatar`, user.avatar || false);
     await client.setAsync(
       `user:${userId}:info:profileBackground`,
@@ -258,6 +259,7 @@ async function cacheUserInfo(userId, reset) {
 
   client.expire(`user:${userId}:info:id`, 3600);
   client.expire(`user:${userId}:info:name`, 3600);
+  client.expire(`user:${userId}:info:admin`, 3600);
   client.expire(`user:${userId}:info:avatar`, 3600);
   client.expire(`user:${userId}:info:profileBackground`, 3600);
   client.expire(`user:${userId}:info:vanityUrl`, 3600);
@@ -284,6 +286,7 @@ async function cacheUserInfo(userId, reset) {
 async function deleteUserInfo(userId) {
   await client.delAsync(`user:${userId}:info:id`);
   await client.delAsync(`user:${userId}:info:name`);
+  await client.delAsync(`user:${userId}:info:admin`);
   await client.delAsync(`user:${userId}:info:avatar`);
   await client.delAsync(`user:${userId}:info:vanityUrl`);
   await client.delAsync(`user:${userId}:info:nameChanged`);
@@ -314,6 +317,7 @@ async function getUserInfo(userId) {
     [
       `user:${userId}:info:id`,
       `user:${userId}:info:name`,
+      `user:${userId}:info:admin`,
       `user:${userId}:info:avatar`,
       `user:${userId}:info:profileBackground`,
       `user:${userId}:info:nameChanged`,
@@ -341,6 +345,7 @@ async function getUserInfo(userId) {
   const [
     id,
     name,
+    admin,
     avatar,
     profileBackground,
     nameChanged,
@@ -367,6 +372,7 @@ async function getUserInfo(userId) {
   const info = {};
   info.id = id;
   info.name = name;
+  info.admin = admin === "true";
   info.avatar = avatar === "true";
   info.profileBackground = profileBackground === "true";
   info.nameChanged = nameChanged === "true";
@@ -427,6 +433,7 @@ async function getBasicUserInfo(userId, delTemplate) {
   var info = {};
   info.id = await client.getAsync(`user:${userId}:info:id`);
   info.name = await client.getAsync(`user:${userId}:info:name`);
+  info.admin = (await client.getAsync(`user:${userId}:info:admin`)) == "true";
   info.avatar = (await client.getAsync(`user:${userId}:info:avatar`)) == "true";
   info.status = await client.getAsync(`user:${userId}:info:status`);
   info.groups = JSON.parse(await client.getAsync(`user:${userId}:info:groups`));

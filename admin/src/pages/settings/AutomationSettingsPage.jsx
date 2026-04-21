@@ -3,17 +3,39 @@ import { Grid } from "@mui/material";
 
 import ActionCard from "../../components/admin/ActionCard";
 import MiniTable from "../../components/admin/MiniTable";
+import PageFeedback from "../../components/admin/PageFeedback";
 import StatusChip from "../../components/StatusChip";
-import { automationRules } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getAdminSettingsSummary } from "../../services/adminService";
 import { filterRows } from "../../utils/filterRows";
 
 export default function AutomationSettingsPage({ search = "" }) {
+  const { data, loading, error } = useAdminQuery(getAdminSettingsSummary);
+  const automationRules = data?.automationRules || [];
   const filteredRules = filterRows(automationRules, search, [
     "name",
     "trigger",
     "owner",
     "status",
   ]);
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading automation"
+        description="Fetching automation rules and their current status from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Automation unavailable"
+        description="The admin panel could not load automation rules from the backend."
+      />
+    );
+  }
 
   return (
     <Grid container spacing={3}>

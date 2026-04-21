@@ -3,12 +3,16 @@ import { Grid, Stack } from "@mui/material";
 
 import ActionCard from "../../components/admin/ActionCard";
 import MiniTable from "../../components/admin/MiniTable";
+import PageFeedback from "../../components/admin/PageFeedback";
 import SummaryCard from "../../components/admin/SummaryCard";
 import StatusChip from "../../components/StatusChip";
-import { games } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getAdminGames } from "../../services/adminService";
 import { filterRows } from "../../utils/filterRows";
 
 export default function LiveGamesPage({ search = "" }) {
+  const { data, loading, error } = useAdminQuery(getAdminGames);
+  const games = data?.items || [];
   const filteredGames = filterRows(games, search, [
     "id",
     "title",
@@ -16,6 +20,27 @@ export default function LiveGamesPage({ search = "" }) {
     "state",
     "health",
   ]);
+  const investigatingCount = games.filter((game) => game.health === "Investigating").length;
+  const reviewCount = games.filter((game) => game.health === "Needs Review").length;
+  const totalPlayers = games.reduce((sum, game) => sum + Number(game.players || 0), 0);
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading live games"
+        description="Fetching active games and current health signals from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Live games unavailable"
+        description="The admin panel could not load live game data from the backend."
+      />
+    );
+  }
 
   return (
     <Grid container spacing={3}>
@@ -48,10 +73,10 @@ export default function LiveGamesPage({ search = "" }) {
           <SummaryCard
             title="Live Snapshot"
             items={[
-              "214 games running",
-              "12 waiting rooms nearing timeout",
-              "3 paused for investigation",
-              "Average fill time: 1m 38s",
+              `${games.length} live games loaded`,
+              `${totalPlayers} players active across live games`,
+              `${reviewCount} games currently need review`,
+              `${investigatingCount} games under investigation`,
             ]}
           />
         </Stack>

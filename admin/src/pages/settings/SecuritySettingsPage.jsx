@@ -3,11 +3,34 @@ import { Grid, Stack, Typography } from "@mui/material";
 import { Icon } from "@iconify/react";
 
 import MiniTable from "../../components/admin/MiniTable";
+import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import StatusChip from "../../components/StatusChip";
-import { moderationPolicies } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getAdminSettingsSummary } from "../../services/adminService";
 
 export default function SecuritySettingsPage() {
+  const { data, loading, error } = useAdminQuery(getAdminSettingsSummary);
+  const moderationPolicies = data?.policies || [];
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading security policies"
+        description="Fetching moderation and admin protection policies from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Security policies unavailable"
+        description="The admin panel could not load security policy data from the backend."
+      />
+    );
+  }
+
   return (
     <Grid container spacing={3}>
       <Grid item xs={12} lg={7}>

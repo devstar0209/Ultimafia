@@ -2,11 +2,34 @@ import React from "react";
 import { Grid, Paper, Stack, Typography } from "@mui/material";
 
 import ActionCard from "../../components/admin/ActionCard";
+import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import StatusChip from "../../components/StatusChip";
-import { settingsModules } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getAdminSettingsSummary } from "../../services/adminService";
 
 export default function GeneralSettingsPage() {
+  const { data, loading, error } = useAdminQuery(getAdminSettingsSummary);
+  const settingsModules = data?.modules || [];
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading settings"
+        description="Fetching the current admin settings summary from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Settings unavailable"
+        description="The admin panel could not load general settings from the backend."
+      />
+    );
+  }
+
   return (
     <Grid container spacing={3}>
       <Grid item xs={12} lg={7}>

@@ -2,18 +2,49 @@ import React from "react";
 import { Grid, LinearProgress, Paper, Stack, Typography } from "@mui/material";
 
 import MiniTable from "../../components/admin/MiniTable";
+import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import StatusChip from "../../components/StatusChip";
-import { users } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getAdminUsers } from "../../services/adminService";
 import { filterRows } from "../../utils/filterRows";
 
 export default function TrustSignalsPage({ search = "" }) {
-  const flaggedUsers = filterRows(users, search, [
+  const { data, loading, error } = useAdminQuery(getAdminUsers);
+  const users = data?.items || [];
+  const riskyUsers = users
+    .filter((user) => user.reports > 0 || user.status !== "Active")
+    .sort((left, right) => {
+      if (left.trust !== right.trust) {
+        return left.trust - right.trust;
+      }
+
+      return right.reports - left.reports;
+    });
+  const flaggedUsers = filterRows(riskyUsers, search, [
     "name",
     "status",
     "riskBand",
     "reports",
   ]);
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading trust signals"
+        description="Fetching reports, trust scores, and current moderation risk from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Trust data unavailable"
+        description="The admin panel could not load trust and safety signals from the backend."
+      />
+    );
+  }
 
   return (
     <Grid container spacing={3}>
@@ -24,35 +55,48 @@ export default function TrustSignalsPage({ search = "" }) {
           subtitle="Track account health across reports, trust scores, and moderation load."
         >
           <Stack spacing={2}>
-            {flaggedUsers.map((user) => (
+            {flaggedUsers.length ? (
+              flaggedUsers.map((user) => (
+                <Paper
+                  key={user.id}
+                  sx={{
+                    p: 2,
+                    backgroundColor: "rgba(255,255,255,0.02)",
+                  }}
+                >
+                  <Stack spacing={1}>
+                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                      <Typography variant="h4">{user.name}</Typography>
+                      <StatusChip label={user.riskBand} />
+                    </Stack>
+                    <Typography color="text.secondary">
+                      {user.reports} reports, trust score {user.trust}%, current
+                      state {user.status.toLowerCase()}.
+                    </Typography>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.max(user.trust, 8)}
+                      sx={{
+                        height: 10,
+                        borderRadius: 999,
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                      }}
+                    />
+                  </Stack>
+                </Paper>
+              ))
+            ) : (
               <Paper
-                key={user.id}
                 sx={{
                   p: 2,
                   backgroundColor: "rgba(255,255,255,0.02)",
                 }}
               >
-                <Stack spacing={1}>
-                  <Stack direction="row" justifyContent="space-between" spacing={1}>
-                    <Typography variant="h4">{user.name}</Typography>
-                    <StatusChip label={user.riskBand} />
-                  </Stack>
-                  <Typography color="text.secondary">
-                    {user.reports} reports, trust score {user.trust}%, current
-                    state {user.status.toLowerCase()}.
-                  </Typography>
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.max(user.trust, 8)}
-                    sx={{
-                      height: 10,
-                      borderRadius: 999,
-                      backgroundColor: "rgba(255,255,255,0.08)",
-                    }}
-                  />
-                </Stack>
+                <Typography color="text.secondary">
+                  No risky accounts matched the current search.
+                </Typography>
               </Paper>
-            ))}
+            )}
           </Stack>
         </SectionCard>
       </Grid>

@@ -4,12 +4,51 @@ import { Icon } from "@iconify/react";
 
 import ActionCard from "../../components/admin/ActionCard";
 import MiniTable from "../../components/admin/MiniTable";
+import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import StatusChip from "../../components/StatusChip";
-import { priceItems } from "../../data/mockData";
+import useAdminQuery from "../../hooks/useAdminQuery";
+import { getShopInfo } from "../../services/adminService";
 import { filterRows } from "../../utils/filterRows";
 
+function getShopItemType(item) {
+  const key = String(item.key || "").toLowerCase();
+
+  if (key.includes("color") || key.includes("profile") || key.includes("icon")) {
+    return "Customization";
+  }
+
+  if (key.includes("name")) {
+    return "Identity";
+  }
+
+  if (key.includes("stamp")) {
+    return "Collectible";
+  }
+
+  if (key.includes("family")) {
+    return "Community";
+  }
+
+  return "Utility";
+}
+
+function getShopItemStatus(item) {
+  if (item.limit == null) return "Repeatable";
+  if (Number(item.limit) === 1) return "Approved";
+  return "Limited";
+}
+
 export default function PriceItemsPage({ search = "" }) {
+  const { data, loading, error } = useAdminQuery(getShopInfo);
+  const priceItems = (data?.shopItems || []).map((item) => ({
+    ...item,
+    sku: item.key,
+    type: getShopItemType(item),
+    priceLabel: `${Number(item.price || 0)} coins`,
+    currency: "Coins",
+    status: getShopItemStatus(item),
+  }));
   const filteredItems = filterRows(priceItems, search, [
     "name",
     "sku",
@@ -17,6 +56,30 @@ export default function PriceItemsPage({ search = "" }) {
     "currency",
     "type",
   ]);
+  const repeatableCount = priceItems.filter((item) => item.limit == null).length;
+  const limitedCount = priceItems.filter((item) => item.limit != null).length;
+  const totalCoinValue = priceItems.reduce(
+    (sum, item) => sum + Number(item.price || 0),
+    0
+  );
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading price items"
+        description="Fetching the current shop configuration from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Price items unavailable"
+        description="The admin panel could not load shop item configuration from the backend."
+      />
+    );
+  }
 
   return (
     <Grid container spacing={3}>
@@ -30,7 +93,7 @@ export default function PriceItemsPage({ search = "" }) {
             item.name,
             item.sku,
             item.type,
-            item.price,
+            item.priceLabel,
             item.currency,
             <StatusChip key={`${item.sku}-status`} label={item.status} />,
           ])}
@@ -41,14 +104,14 @@ export default function PriceItemsPage({ search = "" }) {
           <SectionCard
             eyebrow="Pricing Strategy"
             title="Commerce Summary"
-            subtitle="Useful slices for administrators handling monetized inventory."
+            subtitle="Current item configuration from the live backend shop endpoint."
           >
             <Stack spacing={1.25}>
               {[
-                "2 bundles ready for launch",
-                "1 item hidden pending legal review",
-                "Seasonal sale starts in 3 days",
-                "3 price changes awaiting approval",
+                `${priceItems.length} price items are configured in the shop.`,
+                `${repeatableCount} items can be purchased more than once.`,
+                `${limitedCount} items have ownership limits.`,
+                `${totalCoinValue} total coins across the current catalog.`,
               ].map((item) => (
                 <Stack key={item} direction="row" spacing={1.25}>
                   <Icon
@@ -63,9 +126,9 @@ export default function PriceItemsPage({ search = "" }) {
           <ActionCard
             title="Common Actions"
             actions={[
-              "Duplicate an item into a limited-time bundle.",
-              "Update a storefront price without touching code.",
-              "Stage price changes before publishing them live.",
+              "Review coin prices before changing player economy.",
+              "Move catalog editing behind dedicated admin write endpoints.",
+              "Persist future storefront changes in Mongo instead of code config.",
             ]}
           />
         </Stack>

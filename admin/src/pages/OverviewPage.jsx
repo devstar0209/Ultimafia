@@ -2,15 +2,40 @@ import React from "react";
 import { Grid, Paper, Stack, Typography } from "@mui/material";
 import { Icon } from "@iconify/react";
 
-import MetricCard from "../components/MetricCard";
+import ActionCard from "../components/admin/ActionCard";
 import HeroBanner from "../components/admin/HeroBanner";
 import MiniTable from "../components/admin/MiniTable";
-import ActionCard from "../components/admin/ActionCard";
+import PageFeedback from "../components/admin/PageFeedback";
+import MetricCard from "../components/MetricCard";
 import SectionCard from "../components/SectionCard";
-import StatusChip from "../components/StatusChip";
-import { activityFeed, adminStats, alerts } from "../data/mockData";
+import useAdminQuery from "../hooks/useAdminQuery";
+import { getAdminOverview } from "../services/adminService";
 
 export default function OverviewPage() {
+  const { data, loading, error } = useAdminQuery(getAdminOverview);
+
+  if (loading) {
+    return (
+      <PageFeedback
+        title="Loading overview"
+        description="Pulling the latest admin metrics, alerts, and recent activity from the backend."
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <PageFeedback
+        title="Overview unavailable"
+        description="The admin overview could not be loaded from the backend right now."
+      />
+    );
+  }
+
+  const adminStats = data?.stats || [];
+  const alerts = data?.alerts || [];
+  const activityFeed = data?.activityFeed || [];
+
   return (
     <Stack spacing={3}>
       <HeroBanner />
@@ -88,40 +113,26 @@ export default function OverviewPage() {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={7}>
           <MiniTable
-            eyebrow="Top Queues"
-            title="Store and Gameplay Pulse"
-            subtitle="A cross-section of the busiest admin-managed surfaces."
-            columns={["Area", "State", "Owner", "Attention"]}
-            rows={[
-              [
-                "Price items",
-                <StatusChip key="price-items" label="Review" />,
-                "Commerce Ops",
-                "2 pending price changes",
-              ],
-              [
-                "Avatars",
-                <StatusChip key="avatars" label="Pending" />,
-                "Creative Team",
-                "11 unapproved assets",
-              ],
-              [
-                "Live games",
-                <StatusChip key="running" label="Running" />,
-                "Live Ops",
-                "3 matches under watch",
-              ],
-            ]}
+            eyebrow="Live Pulse"
+            title="Operational Snapshot"
+            subtitle="A backend-driven summary of the current admin surfaces."
+            columns={["Area", "Current", "Signal", "Detail"]}
+            rows={adminStats.map((metric) => [
+              metric.label,
+              metric.value,
+              metric.delta,
+              metric.detail,
+            ])}
           />
         </Grid>
         <Grid item xs={12} lg={5}>
           <ActionCard
-            title="Launch Checklist"
+            title="Operator Checklist"
             actions={[
-              "Wire each page to `/api/admin/*` endpoints.",
-              "Add permission gates for staff roles and page access.",
-              "Connect destructive actions to audit logging.",
-              "Persist filters, search, and saved admin views.",
+              "Review open tasks and flagged users at shift start.",
+              "Check live-game alerts before queue traffic spikes.",
+              "Confirm high-impact changes are covered by audit logging.",
+              "Keep admin access restricted to admin-role sessions.",
             ]}
           />
         </Grid>

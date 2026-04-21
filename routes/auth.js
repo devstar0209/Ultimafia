@@ -331,6 +331,7 @@ async function authSuccess(req, uid, email, discordProfile) {
         id: id,
         name: name,
         email: email,
+        admin: false,
         fbUid: uid,
         joined: Date.now(),
         lastActive: Date.now(),
