@@ -1,4 +1,5 @@
 const express = require("express");
+const shortid = require("shortid");
 
 const models = require("../db/models");
 const redis = require("../modules/redis");
@@ -295,6 +296,81 @@ router.get("/users", async function (req, res) {
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading admin users.");
+  }
+});
+
+router.patch("/users/:id/admin", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const targetUserId = String(req.params.id || "").trim();
+    const rawAdmin = req.body?.admin;
+    const nextAdmin =
+      rawAdmin === true ||
+      rawAdmin === "true" ||
+      rawAdmin === 1 ||
+      rawAdmin === "1";
+
+    if (!targetUserId) {
+      res.status(400).send("Invalid user id.");
+      return;
+    }
+
+    if (targetUserId === sessionInfo.user.id && !nextAdmin) {
+      res.status(400).send("You cannot remove your own admin access.");
+      return;
+    }
+
+    const targetUser = await models.User.findOne({
+      id: targetUserId,
+      deleted: false,
+    })
+      .select("id name admin -_id")
+      .lean();
+
+    if (!targetUser) {
+      res.status(404).send("User not found.");
+      return;
+    }
+
+    await models.User.updateOne(
+      { id: targetUserId },
+      {
+        $set: {
+          admin: nextAdmin,
+        },
+      }
+    ).exec();
+
+    await redis.cacheUserInfo(targetUserId, true);
+
+    const actionName = nextAdmin
+      ? "Granted Admin Access"
+      : "Removed Admin Access";
+
+    await models.ModAction.create({
+      id: shortid.generate(),
+      modId: sessionInfo.user.id,
+      name: actionName,
+      args: [targetUserId],
+      reason: `${actionName} for ${targetUser.name || targetUserId}`,
+      date: Date.now(),
+    });
+
+    res.send({
+      ok: true,
+      user: {
+        id: targetUserId,
+        admin: nextAdmin,
+        role: nextAdmin ? "Admin" : "Player",
+        scope: nextAdmin ? "Full admin access" : "Standard player access",
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating admin access.");
   }
 });
 

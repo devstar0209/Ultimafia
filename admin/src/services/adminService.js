@@ -15,6 +15,13 @@ export async function getAdminUsers() {
   return response.data;
 }
 
+export async function updateUserAdminAccess(userId, admin) {
+  const response = await axios.patch(`/api/admin/users/${userId}/admin`, {
+    admin,
+  });
+  return response.data;
+}
+
 export async function getAdminGames() {
   const response = await axios.get("/api/admin/games");
   return response.data;
