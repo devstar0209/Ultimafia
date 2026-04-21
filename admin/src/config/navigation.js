@@ -1,0 +1,136 @@
+export const drawerWidth = 340;
+
+export const menuGroups = [
+  {
+    key: "overview",
+    label: "Control Center",
+    icon: "solar:widget-5-bold-duotone",
+    description: "Fast operational visibility",
+    items: [
+      {
+        key: "overview-home",
+        label: "Overview",
+        path: "/overview",
+        description: "Signals, alerts, and activity",
+      },
+    ],
+  },
+  {
+    key: "users",
+    label: "User Management",
+    icon: "solar:users-group-rounded-bold-duotone",
+    description: "Accounts, permissions, trust",
+    items: [
+      {
+        key: "users-directory",
+        label: "User Directory",
+        path: "/users/directory",
+        description: "Search and manage member accounts",
+      },
+      {
+        key: "users-roles",
+        label: "Roles & Access",
+        path: "/users/roles-access",
+        description: "Permission levels and team access",
+      },
+      {
+        key: "users-trust",
+        label: "Trust Signals",
+        path: "/users/trust-signals",
+        description: "Reports, flags, and risk overview",
+      },
+    ],
+  },
+  {
+    key: "games",
+    label: "Game Operations",
+    icon: "solar:gamepad-bold-duotone",
+    description: "Lobbies, queue health, intervention",
+    items: [
+      {
+        key: "games-live",
+        label: "Live Games",
+        path: "/games/live",
+        description: "Monitor active and paused matches",
+      },
+      {
+        key: "games-queues",
+        label: "Queue Health",
+        path: "/games/queue-health",
+        description: "Traffic, fill rate, and wait time",
+      },
+      {
+        key: "games-incidents",
+        label: "Incidents",
+        path: "/games/incidents",
+        description: "Manual review and intervention log",
+      },
+    ],
+  },
+  {
+    key: "catalog",
+    label: "Store & Assets",
+    icon: "solar:shop-bold-duotone",
+    description: "Price items and avatar inventory",
+    items: [
+      {
+        key: "catalog-prices",
+        label: "Price Items",
+        path: "/catalog/price-items",
+        description: "Currencies, bundles, and pricing",
+      },
+      {
+        key: "catalog-avatars",
+        label: "Avatars",
+        path: "/catalog/avatars",
+        description: "Collections, approval, and publishing",
+      },
+    ],
+  },
+  {
+    key: "settings",
+    label: "Admin Settings",
+    icon: "solar:tuning-square-bold-duotone",
+    description: "Platform rules and automation",
+    items: [
+      {
+        key: "settings-general",
+        label: "General",
+        path: "/settings/general",
+        description: "Brand, operations, and site defaults",
+      },
+      {
+        key: "settings-security",
+        label: "Security",
+        path: "/settings/security",
+        description: "Policies, reviews, and protection",
+      },
+      {
+        key: "settings-automation",
+        label: "Automation",
+        path: "/settings/automation",
+        description: "Rules, triggers, and staff alerts",
+      },
+    ],
+  },
+];
+
+export const allPages = menuGroups.flatMap((group) =>
+  group.items.map((item) => ({
+    ...item,
+    groupKey: group.key,
+    groupLabel: group.label,
+    groupIcon: group.icon,
+  }))
+);
+
+export function findPageByPath(pathname) {
+  return allPages.find((page) => page.path === pathname) || allPages[0];
+}
+
+export function createDefaultOpenGroups() {
+  return menuGroups.reduce((accumulator, group) => {
+    accumulator[group.key] = group.key === "overview";
+    return accumulator;
+  }, {});
+}
