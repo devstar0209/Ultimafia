@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useContext } from "react";
+
+import { SiteInfoContext } from "../Contexts";
 
 export const gamesIcons = {
   Mafia: require("images/game_icons/Mafia.png"),
@@ -16,14 +18,27 @@ export const gamesIcons = {
   "Dice Wars": require("images/game_icons/DiceWars.png"),
 };
 
+export function getGameIconSrc(gameType, brandingGameLogos, gameCatalogMap) {
+  return (
+    gameCatalogMap?.[gameType]?.logoUrl ||
+    brandingGameLogos?.[gameType] ||
+    gamesIcons[gameType]
+  );
+}
+
 export default function GameIcon(props) {
+  const siteInfo = useContext(SiteInfoContext);
   const gameType = props.gameType;
   const size = props.size;
 
   return (
     <img
       className="game-icon"
-      src={gamesIcons[gameType]}
+      src={getGameIconSrc(
+        gameType,
+        siteInfo?.branding?.gameLogos,
+        siteInfo?.gameCatalogMap
+      )}
       alt={gameType}
       width={size}
       height={size}

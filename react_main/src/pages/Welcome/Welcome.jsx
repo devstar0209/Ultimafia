@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import "css/main.css";
 import { Auth } from "../../components/Auth";
 import IconGallery from "../../components/IconGallery";
-import GameIcon, { gamesIcons } from "../../components/GameIcon";
+import GameIcon, { getGameIconSrc } from "../../components/GameIcon";
 import bannerImage from "../../images/welcome_page/banner.png";
 import welcomeImage1 from "../../images/welcome_page/welcome-page_1.png";
 import welcomeImage2 from "../../images/welcome_page/welcome-page_2.png";
@@ -19,7 +19,7 @@ import axios from "axios";
 import { useSnackbar } from "hooks/useSnackbar";
 import { Loading } from "../../components/Loading";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
-import { UserContext } from "Contexts";
+import { SiteInfoContext, UserContext } from "Contexts";
 import { GameTypes } from "../../Constants";
 
 const MAFIA_FEATURES = [
@@ -225,6 +225,7 @@ if (localStorage.getItem("showChatTab") !== null) {
 
 export const Welcome = () => {
   const user = useContext(UserContext);
+  const siteInfo = useContext(SiteInfoContext);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState("Mafia");
   const isPhoneDevice = useIsPhoneDevice();
@@ -283,6 +284,8 @@ export const Welcome = () => {
 
   const gameContent = GAME_WELCOME_CONTENT[activeGame] || GAME_WELCOME_CONTENT.Mafia;
   const infoCards = GAME_FEATURES[activeGame] || MAFIA_FEATURES;
+  const activeBanner = siteInfo?.branding?.banners?.welcome || bannerImage;
+  const activeGameTitle = siteInfo?.gameCatalogMap?.[activeGame]?.title || activeGame;
 
   if (user && user.loggedIn) {
     return <Navigate to="/play" />;
@@ -318,7 +321,7 @@ export const Welcome = () => {
             py: 2,
           }}
         >
-          Play <Box component="span" sx={{ color: "primary.main" }}>{activeGame}</Box> online.
+          Play <Box component="span" sx={{ color: "primary.main" }}>{activeGameTitle}</Box> online.
         </Typography>
         <Grid2 container rowSpacing={1} columnSpacing={1} sx={{ alignItems: "stretch" }}>
           <Grid2
@@ -380,11 +383,11 @@ export const Welcome = () => {
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                     <GameIcon gameType={activeGame} size={36} />
-                    <Typography variant={isPhoneDevice ? "h5" : "h4"}>{activeGame}</Typography>
+                    <Typography variant={isPhoneDevice ? "h5" : "h4"}>{activeGameTitle}</Typography>
                   </Box>
                   <Box
                     component="img"
-                    src={bannerImage}
+                    src={activeBanner}
                     alt={`${activeGame} welcome banner`}
                     sx={{
                       width: "100%",
@@ -504,15 +507,19 @@ export const Welcome = () => {
                     >
                       <Box
                         component="img"
-                        src={gamesIcons[game]}
-                        alt={`${game} icon`}
+                        src={getGameIconSrc(
+                          game,
+                          siteInfo?.branding?.gameLogos,
+                          siteInfo?.gameCatalogMap
+                        )}
+                        alt={`${siteInfo?.gameCatalogMap?.[game]?.title || game} icon`}
                         sx={{ width: 38, height: 38, mb: 0.75 }}
                       />
                       <Typography
                         variant="caption"
                         sx={{ textAlign: "center", lineHeight: 1.2, fontWeight: 600 }}
                       >
-                        {game}
+                        {siteInfo?.gameCatalogMap?.[game]?.title || game}
                       </Typography>
                     </Box>
                   </Grid2>

@@ -100,6 +100,12 @@ export const menuGroups = [
         description: "Brand, operations, and site defaults",
       },
       {
+        key: "settings-gamecatalogs",
+        label: "Game Catalogs",
+        path: "/settings/gamecatalogs",
+        description: "Titles, slugs, and game logo assets",
+      },
+      {
         key: "settings-security",
         label: "Security",
         path: "/settings/security",

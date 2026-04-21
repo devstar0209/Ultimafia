@@ -2,6 +2,8 @@ const express = require("express");
 const logger = require("../modules/logging")(".");
 const router = express.Router();
 const models = require("../db/models");
+const gameCatalogUtils = require("../lib/gameCatalog");
+const brandingUtils = require("../lib/platformBranding");
 const donorData = require("../data/donors");
 const { violationDefinitions } = require("../data/violations");
 
@@ -105,6 +107,35 @@ router.get("/violations", function (req, res) {
   } catch (e) {
     logger.error(e);
     res.send([]);
+  }
+});
+
+router.get("/branding", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const doc = await models.PlatformBranding.findOne({
+      key: brandingUtils.BRANDING_KEY,
+    }).lean();
+
+    res.send(brandingUtils.buildBrandingPayload(doc));
+  } catch (e) {
+    logger.error(e);
+    res.send(brandingUtils.buildBrandingPayload(null));
+  }
+});
+
+router.get("/gamecatalogs", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const games = await gameCatalogUtils.syncGameCatalog(models);
+    const visibleGames = games.filter((game) => !game.hidden);
+
+    res.send({
+      items: gameCatalogUtils.buildGameCatalogPayload(visibleGames),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.send({ items: [] });
   }
 });
 

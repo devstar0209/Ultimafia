@@ -1,8 +1,14 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const formidable = require("formidable");
+const sharp = require("sharp");
 const shortid = require("shortid");
 
 const models = require("../db/models");
 const redis = require("../modules/redis");
+const gameCatalogUtils = require("../lib/gameCatalog");
+const brandingUtils = require("../lib/platformBranding");
 const routeUtils = require("./utils");
 const logger = require("../modules/logging")(".");
 
@@ -40,6 +46,132 @@ function getRiskBand(trust) {
   if (trust <= 50) return "High";
   if (trust <= 75) return "Medium";
   return "Low";
+}
+
+async function getPlatformBrandingDocument() {
+  return models.PlatformBranding.findOneAndUpdate(
+    { key: brandingUtils.BRANDING_KEY },
+    {
+      $setOnInsert: {
+        key: brandingUtils.BRANDING_KEY,
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+    }
+  ).lean();
+}
+
+function buildAdminSettingsSummary(
+  minimumGamesForRanked,
+  autoApprovalEnabled,
+  groupCount,
+  openReports,
+  activeAutomationCandidates
+) {
+  return {
+    modules: [
+      {
+        title: "Ranked Access Threshold",
+        description: `Users currently need ${minimumGamesForRanked} games before ranked access.`,
+        status: "Approved",
+      },
+      {
+        title: "Competitive Auto Approval",
+        description: autoApprovalEnabled
+          ? "Returning ranked users are auto-approved for competitive access."
+          : "Competitive auto approval is currently disabled.",
+        status: autoApprovalEnabled ? "Approved" : "Review",
+      },
+      {
+        title: "Staff Groups",
+        description: `${groupCount} permission groups are configured in Mongo.`,
+        status: "Approved",
+      },
+      {
+        title: "Moderation Workload",
+        description: `${openReports} reports are currently open or in progress.`,
+        status: openReports > 0 ? "Pending" : "Approved",
+      },
+    ],
+    policies: [
+      {
+        name: "Ranked Entry Protection",
+        scope: "Games",
+        severity: "High",
+        owner: "Live Ops",
+        status: "Approved",
+      },
+      {
+        name: "Admin Session Permission Gate",
+        scope: "Admin Panel",
+        severity: "High",
+        owner: "Platform",
+        status: "Approved",
+      },
+      {
+        name: "Flagged User Review Queue",
+        scope: "Users",
+        severity: "Medium",
+        owner: "Trust & Safety",
+        status: activeAutomationCandidates > 0 ? "Review" : "Approved",
+      },
+    ],
+    automationRules: [
+      {
+        name: "Competitive Auto Approval",
+        trigger: "Eligible ranked user signs in",
+        owner: "Platform",
+        impact: "Adds Competitive Player when auto-approval is enabled",
+        status: autoApprovalEnabled ? "Active" : "Paused",
+      },
+      {
+        name: "Flagged User Intake",
+        trigger: "Suspicious IP or shared flagged signal",
+        owner: "Trust & Safety",
+        impact: "Routes users into the flagged review workflow",
+        status: "Active",
+      },
+    ],
+  };
+}
+
+function removeUploadFile(relativePath) {
+  if (!relativePath) return;
+
+  const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+  if (fs.existsSync(absolutePath)) {
+    fs.unlinkSync(absolutePath);
+  }
+}
+
+async function createBrandingModAction(userId, name, args = []) {
+  await models.ModAction.create({
+    id: shortid.generate(),
+    modId: userId,
+    name,
+    args,
+    reason: name,
+    date: Date.now(),
+  });
+}
+
+async function getManagedGames() {
+  return gameCatalogUtils.syncGameCatalog(models);
+}
+
+function parseUploadForm(form, req) {
+  return new Promise((resolve, reject) => {
+    form.parse(req, (error, fields, files) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve([fields, files]);
+    });
+  });
 }
 
 async function getSessionInfo(req) {
@@ -634,6 +766,730 @@ router.get("/avatars", async function (req, res) {
   }
 });
 
+router.get("/settings/gamecatalogs", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const games = await getManagedGames();
+
+    res.send({
+      items: gameCatalogUtils.buildGameCatalogPayload(games),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading managed game catalogs.");
+  }
+});
+
+router.post("/settings/gamecatalogs", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const title = String(req.body?.title || "").trim();
+    const slug = gameCatalogUtils.slugifyGameTitle(req.body?.slug || title);
+
+    if (!title) {
+      res.status(400).send("Game catalog title is required.");
+      return;
+    }
+
+    if (!slug) {
+      res.status(400).send("Game catalog slug is required.");
+      return;
+    }
+
+    const existingSlug = await models.GameCatalog.findOne({ slug })
+      .select("key -_id")
+      .lean();
+
+    if (existingSlug) {
+      res.status(400).send("Game catalog slug must be unique.");
+      return;
+    }
+
+    const existingKey = await models.GameCatalog.findOne({ key: slug })
+      .select("key -_id")
+      .lean();
+
+    if (existingKey) {
+      res.status(400).send("Game catalog key must be unique.");
+      return;
+    }
+
+    const lastGameCatalog = await models.GameCatalog.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder -_id")
+      .lean();
+
+    const createdGameCatalog = await models.GameCatalog.create({
+      key: slug,
+      title,
+      slug,
+      hidden: false,
+      sortOrder: Number(lastGameCatalog?.sortOrder || 0) + 1,
+      updatedAt: Date.now(),
+      updatedBy: sessionInfo.user.id,
+    });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Game Catalog", [
+      slug,
+    ]);
+
+    res.send({
+      ok: true,
+      item: gameCatalogUtils.buildGameCatalogPayload([
+        createdGameCatalog.toObject(),
+      ])[0],
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating game catalog.");
+  }
+});
+
+router.patch("/settings/gamecatalogs/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    await getManagedGames();
+
+    const key = decodeURIComponent(String(req.params.key || "").trim());
+    const title = String(req.body?.title || "").trim();
+    const slug = gameCatalogUtils.slugifyGameTitle(req.body?.slug || "");
+
+    if (!title) {
+      res.status(400).send("Game title is required.");
+      return;
+    }
+
+    if (!slug) {
+      res.status(400).send("Game slug is required.");
+      return;
+    }
+
+    const existingGame = await models.GameCatalog.findOne({ key })
+      .select("key slug -_id")
+      .lean();
+
+    if (!existingGame) {
+      res.status(404).send("Game not found.");
+      return;
+    }
+
+    const slugConflict = await models.GameCatalog.findOne({
+      slug,
+      key: { $ne: key },
+    })
+      .select("key -_id")
+      .lean();
+
+    if (slugConflict) {
+      res.status(400).send("Game slug must be unique.");
+      return;
+    }
+
+    const updatedGame = await models.GameCatalog.findOneAndUpdate(
+      { key },
+      {
+        $set: {
+          title,
+          slug,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Managed Game", [
+      key,
+      slug,
+    ]);
+
+    res.send({
+      ok: true,
+      item: gameCatalogUtils.buildGameCatalogPayload([updatedGame])[0],
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating managed game catalog.");
+  }
+});
+
+router.patch("/settings/gamecatalogs/:key/hidden", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = decodeURIComponent(String(req.params.key || "").trim());
+    const hidden = Boolean(req.body?.hidden);
+
+    const existingGame = await models.GameCatalog.findOne({ key })
+      .select("key title -_id")
+      .lean();
+
+    if (!existingGame) {
+      res.status(404).send("Game catalog not found.");
+      return;
+    }
+
+    const updatedGame = await models.GameCatalog.findOneAndUpdate(
+      { key },
+      {
+        $set: {
+          hidden,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      hidden ? "Hid Game Catalog" : "Unhid Game Catalog",
+      [key]
+    );
+
+    res.send({
+      ok: true,
+      item: gameCatalogUtils.buildGameCatalogPayload([updatedGame])[0],
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating game catalog visibility.");
+  }
+});
+
+router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    await getManagedGames();
+
+    const key = decodeURIComponent(String(req.params.key || "").trim());
+    const existingGame = await models.GameCatalog.findOne({ key })
+      .select("key logoPath -_id")
+      .lean();
+
+    if (!existingGame) {
+      res.status(404).send("Game not found.");
+      return;
+    }
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const relativePath = gameCatalogUtils.getGameLogoRelativePath(key);
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: 512,
+        height: 512,
+        fit: sharp.fit.contain,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 92 })
+      .toFile(absolutePath);
+
+    const updatedGame = await models.GameCatalog.findOneAndUpdate(
+      { key },
+      {
+        $set: {
+          logoPath: relativePath,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Managed Game Logo", [
+      key,
+    ]);
+
+    res.send({
+      ok: true,
+      item: gameCatalogUtils.buildGameCatalogPayload([updatedGame])[0],
+    });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 5 MB.");
+      return;
+    }
+
+    logger.error(e);
+    res.status(500).send("Error uploading game logo.");
+  }
+});
+
+router.delete("/settings/gamecatalogs/:key/logo", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    await getManagedGames();
+
+    const key = decodeURIComponent(String(req.params.key || "").trim());
+    const existingGame = await models.GameCatalog.findOne({ key })
+      .select("key logoPath -_id")
+      .lean();
+
+    if (!existingGame) {
+      res.status(404).send("Game not found.");
+      return;
+    }
+
+    removeUploadFile(existingGame.logoPath);
+
+    const updatedGame = await models.GameCatalog.findOneAndUpdate(
+      { key },
+      {
+        $set: {
+          logoPath: "",
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Removed Managed Game Logo", [
+      key,
+    ]);
+
+    res.send({
+      ok: true,
+      item: gameCatalogUtils.buildGameCatalogPayload([updatedGame])[0],
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing game logo.");
+  }
+});
+
+router.delete("/settings/gamecatalogs/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = decodeURIComponent(String(req.params.key || "").trim());
+    const existingGame = await models.GameCatalog.findOne({ key })
+      .select("key logoPath title -_id")
+      .lean();
+
+    if (!existingGame) {
+      res.status(404).send("Game catalog not found.");
+      return;
+    }
+
+    removeUploadFile(existingGame.logoPath);
+    await models.GameCatalog.deleteOne({ key });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Game Catalog", [
+      key,
+    ]);
+
+    res.send({
+      ok: true,
+      key,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting game catalog.");
+  }
+});
+
+router.get("/settings/general", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const [
+      minimumGamesForRanked,
+      autoApprovalEnabled,
+      groupCount,
+      openReports,
+      activeAutomationCandidates,
+      brandingDoc,
+    ] = await Promise.all([
+      redis.getMinimumGamesForRanked(),
+      redis.getAutoApprovalEnabled(),
+      models.Group.countDocuments({}),
+      models.Report.countDocuments({ status: { $in: ["open", "in-progress"] } }),
+      models.User.countDocuments({ flagged: true, deleted: false }),
+      getPlatformBrandingDocument(),
+    ]);
+
+    res.send({
+      ...buildAdminSettingsSummary(
+        minimumGamesForRanked,
+        autoApprovalEnabled,
+        groupCount,
+        openReports,
+        activeAutomationCandidates
+      ),
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading admin general settings.");
+  }
+});
+
+router.post("/settings/branding/platform-logo", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const relativePath = brandingUtils.getPlatformLogoRelativePath();
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: 800,
+        height: 240,
+        fit: sharp.fit.inside,
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 92 })
+      .toFile(absolutePath);
+
+    const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $set: {
+          platformLogoPath: relativePath,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Updated Platform Logo", [
+      relativePath,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+    });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 5 MB.");
+      return;
+    }
+
+    logger.error(e);
+    res.status(500).send("Error uploading platform logo.");
+  }
+});
+
+router.delete("/settings/branding/platform-logo", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const brandingDoc = await getPlatformBrandingDocument();
+    removeUploadFile(brandingDoc?.platformLogoPath);
+
+    const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $set: {
+          platformLogoPath: "",
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Removed Platform Logo");
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing platform logo.");
+  }
+});
+
+router.post("/settings/branding/banners/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const bannerKey = String(req.params.key || "").trim();
+    if (!brandingUtils.BANNER_KEYS.includes(bannerKey)) {
+      res.status(400).send("Unsupported banner key.");
+      return;
+    }
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const relativePath = brandingUtils.getBannerRelativePath(bannerKey);
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: 1600,
+        height: 900,
+        fit: sharp.fit.cover,
+        position: sharp.strategy.attention,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 90 })
+      .toFile(absolutePath);
+
+    const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $set: {
+          [`banners.${bannerKey}`]: relativePath,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Updated Platform Banner", [
+      bannerKey,
+      relativePath,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+    });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 5 MB.");
+      return;
+    }
+
+    logger.error(e);
+    res.status(500).send("Error uploading banner image.");
+  }
+});
+
+router.delete("/settings/branding/banners/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const bannerKey = String(req.params.key || "").trim();
+    if (!brandingUtils.BANNER_KEYS.includes(bannerKey)) {
+      res.status(400).send("Unsupported banner key.");
+      return;
+    }
+
+    const brandingDoc = await getPlatformBrandingDocument();
+    removeUploadFile(brandingDoc?.banners?.[bannerKey]);
+
+    const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $unset: {
+          [`banners.${bannerKey}`]: 1,
+        },
+        $set: {
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Removed Platform Banner", [
+      bannerKey,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing banner image.");
+  }
+});
+
+router.post("/settings/branding/game-logos/:gameType", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const gameType = decodeURIComponent(String(req.params.gameType || "").trim());
+    if (!brandingUtils.GAME_TYPES.includes(gameType)) {
+      res.status(400).send("Unsupported game type.");
+      return;
+    }
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const relativePath = brandingUtils.getGameLogoRelativePath(gameType);
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: 512,
+        height: 512,
+        fit: sharp.fit.contain,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 92 })
+      .toFile(absolutePath);
+
+    const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $set: {
+          [`gameLogos.${gameType}`]: relativePath,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Updated Game Logo", [
+      gameType,
+      relativePath,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+    });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 5 MB.");
+      return;
+    }
+
+    logger.error(e);
+    res.status(500).send("Error uploading game logo.");
+  }
+});
+
+router.delete("/settings/branding/game-logos/:gameType", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const gameType = decodeURIComponent(String(req.params.gameType || "").trim());
+    if (!brandingUtils.GAME_TYPES.includes(gameType)) {
+      res.status(400).send("Unsupported game type.");
+      return;
+    }
+
+    const brandingDoc = await getPlatformBrandingDocument();
+    removeUploadFile(brandingDoc?.gameLogos?.[gameType]);
+
+    const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $unset: {
+          [`gameLogos.${gameType}`]: 1,
+        },
+        $set: {
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Removed Game Logo", [
+      gameType,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing game logo.");
+  }
+});
+
 router.get("/settings/summary", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
@@ -653,71 +1509,15 @@ router.get("/settings/summary", async function (req, res) {
       models.User.countDocuments({ flagged: true, deleted: false }),
     ]);
 
-    res.send({
-      modules: [
-        {
-          title: "Ranked Access Threshold",
-          description: `Users currently need ${minimumGamesForRanked} games before ranked access.`,
-          status: "Approved",
-        },
-        {
-          title: "Competitive Auto Approval",
-          description: autoApprovalEnabled
-            ? "Returning ranked users are auto-approved for competitive access."
-            : "Competitive auto approval is currently disabled.",
-          status: autoApprovalEnabled ? "Approved" : "Review",
-        },
-        {
-          title: "Staff Groups",
-          description: `${groupCount} permission groups are configured in Mongo.`,
-          status: "Approved",
-        },
-        {
-          title: "Moderation Workload",
-          description: `${openReports} reports are currently open or in progress.`,
-          status: openReports > 0 ? "Pending" : "Approved",
-        },
-      ],
-      policies: [
-        {
-          name: "Ranked Entry Protection",
-          scope: "Games",
-          severity: "High",
-          owner: "Live Ops",
-          status: "Approved",
-        },
-        {
-          name: "Admin Session Permission Gate",
-          scope: "Admin Panel",
-          severity: "High",
-          owner: "Platform",
-          status: "Approved",
-        },
-        {
-          name: "Flagged User Review Queue",
-          scope: "Users",
-          severity: "Medium",
-          owner: "Trust & Safety",
-          status: activeAutomationCandidates > 0 ? "Review" : "Approved",
-        },
-      ],
-      automationRules: [
-        {
-          name: "Competitive Auto Approval",
-          trigger: "Eligible ranked user signs in",
-          owner: "Platform",
-          impact: "Adds Competitive Player when auto-approval is enabled",
-          status: autoApprovalEnabled ? "Active" : "Paused",
-        },
-        {
-          name: "Flagged User Intake",
-          trigger: "Suspicious IP or shared flagged signal",
-          owner: "Trust & Safety",
-          impact: "Routes users into the flagged review workflow",
-          status: "Active",
-        },
-      ],
-    });
+    res.send(
+      buildAdminSettingsSummary(
+        minimumGamesForRanked,
+        autoApprovalEnabled,
+        groupCount,
+        openReports,
+        activeAutomationCandidates
+      )
+    );
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading admin settings summary.");

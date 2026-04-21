@@ -435,6 +435,34 @@ export function SiteInfoProvider({ children, setSiteInfoLoading }) {
         .then((res) =>
           updateSiteInfo({ type: "setProp", prop: "items", value: res.data })
         ),
+      axios
+        .get("/api/site/branding")
+        .then((res) =>
+          updateSiteInfo({ type: "setProp", prop: "branding", value: res.data })
+        )
+        .catch(() =>
+          updateSiteInfo({ type: "setProp", prop: "branding", value: {} })
+        ),
+      axios
+        .get("/api/site/gamecatalogs")
+        .then((res) => {
+          const items = Array.isArray(res.data?.items) ? res.data.items : [];
+          const gameCatalogMap = items.reduce((map, item) => {
+            map[item.key] = item;
+            return map;
+          }, {});
+
+          updateSiteInfo({ type: "setProp", prop: "gameCatalog", value: items });
+          updateSiteInfo({
+            type: "setProp",
+            prop: "gameCatalogMap",
+            value: gameCatalogMap,
+          });
+        })
+        .catch(() => {
+          updateSiteInfo({ type: "setProp", prop: "gameCatalog", value: [] });
+          updateSiteInfo({ type: "setProp", prop: "gameCatalogMap", value: {} });
+        }),
     ]).then(() => {
       setSiteInfoLoading(false);
     });

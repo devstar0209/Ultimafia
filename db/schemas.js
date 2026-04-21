@@ -202,6 +202,30 @@ var schemas = {
     flagged: { type: Boolean, default: false },
   }),
   CoinPurchase: coinPurchaseSchema,
+  PlatformBranding: new mongoose.Schema(
+    {
+      key: { type: String, index: true, unique: true, default: "default" },
+      platformLogoPath: { type: String, default: "" },
+      banners: { type: mongoose.Schema.Types.Mixed, default: {} },
+      gameLogos: { type: mongoose.Schema.Types.Mixed, default: {} },
+      updatedAt: { type: Number, default: Date.now },
+      updatedBy: { type: String, default: "" },
+    },
+    { minimize: false }
+  ),
+  GameCatalog: new mongoose.Schema(
+    {
+      key: { type: String, index: true, unique: true },
+      title: { type: String, default: "" },
+      slug: { type: String, index: true, unique: true },
+      logoPath: { type: String, default: "" },
+      hidden: { type: Boolean, default: false, index: true },
+      sortOrder: { type: Number, default: 0 },
+      updatedAt: { type: Number, default: Date.now },
+      updatedBy: { type: String, default: "" },
+    },
+    { minimize: false }
+  ),
   Session: new mongoose.Schema({
     expires: Date,
     lastModified: Date,

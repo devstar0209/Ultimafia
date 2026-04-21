@@ -1,5 +1,4 @@
 import React, { useContext } from "react";
-import { Box } from "@mui/material";
 
 import logovalentines from "images/logos/logo-valentines.png";
 import logopride from "images/logos/logo-pride.png";
@@ -13,16 +12,20 @@ import {
   isValentinesThemeActive,
   isWinterThemeActive,
 } from "../utils/holidayThemes";
-import { UserContext } from "../Contexts";
+import { SiteInfoContext } from "../Contexts";
 
 export default function SiteLogo({
   small = false,
   large = false,
   newTab = false,
 }) {
-  const user = useContext(UserContext);
+  const siteInfo = useContext(SiteInfoContext);
 
   const getLogoSrc = () => {
+    if (siteInfo?.branding?.platformLogoUrl) {
+      return siteInfo.branding.platformLogoUrl;
+    }
+
     if (isValentinesThemeActive()) return logovalentines; // February: Valentine's
     if (isPrideThemeActive()) return logopride; // June: Pride
     if (isHalloweenThemeActive()) return logohalloween; // October: Halloween

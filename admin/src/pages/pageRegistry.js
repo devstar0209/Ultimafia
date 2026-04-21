@@ -5,6 +5,7 @@ import GameIncidentsPage from "./games/GameIncidentsPage";
 import LiveGamesPage from "./games/LiveGamesPage";
 import QueueHealthPage from "./games/QueueHealthPage";
 import AutomationSettingsPage from "./settings/AutomationSettingsPage";
+import GameSettingsPage from "./settings/GameSettingsPage";
 import GeneralSettingsPage from "./settings/GeneralSettingsPage";
 import SecuritySettingsPage from "./settings/SecuritySettingsPage";
 import RolesAccessPage from "./users/RolesAccessPage";
@@ -22,6 +23,7 @@ const pageRegistry = {
   "catalog-prices": PriceItemsPage,
   "catalog-avatars": AvatarsPage,
   "settings-general": GeneralSettingsPage,
+  "settings-gamecatalogs": GameSettingsPage,
   "settings-security": SecuritySettingsPage,
   "settings-automation": AutomationSettingsPage,
 };
