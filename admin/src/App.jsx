@@ -9,12 +9,12 @@ function App() {
   return (
     <AdminAccessGate>
       <Routes>
-        <Route path="/" element={<Navigate to="/overview" replace />} />
-        <Route path="/overview" element={<AdminLayout />} />
-        <Route path="/users/:page" element={<AdminLayout />} />
-        <Route path="/games/:page" element={<AdminLayout />} />
-        <Route path="/catalog/:page" element={<AdminLayout />} />
-        <Route path="/settings/:page" element={<AdminLayout />} />
+        <Route path="/" element={<Navigate to="/admin/overview" replace />} />
+        <Route path="/admin/overview" element={<AdminLayout />} />
+        <Route path="/admin/users/:page" element={<AdminLayout />} />
+        <Route path="/admin/games/:page" element={<AdminLayout />} />
+        <Route path="/admin/catalog/:page" element={<AdminLayout />} />
+        <Route path="/admin/settings/:page" element={<AdminLayout />} />
         <Route path="*" element={<AdminNotFoundPage />} />
       </Routes>
     </AdminAccessGate>
