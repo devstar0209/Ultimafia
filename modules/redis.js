@@ -7,7 +7,7 @@ const constants = require("../data/constants");
 const Random = require("./../lib/Random");
 const utils = require("../lib/Utils");
 
-var client = redis.createClient({ url: "redis://localhost:6379" });
+var client = redis.createClient({ url: "redis://127.0.0.1:6379" });
 
 client.on("error", (e) => {
   throw e;

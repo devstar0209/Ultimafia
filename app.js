@@ -42,6 +42,7 @@ const passport = require("passport");
 
 const app = express();
 const frontendBuildPath = path.join(__dirname, "react_main/build_public");
+const adminBuildPath = path.join(__dirname, "admin/build");
 
 app.use(morgan("combined", { stream: logger.stream }));
 app.use(express.json());
@@ -99,8 +100,11 @@ apiRouter.use("/admin", adminRouter);
 
 app.use("/api", apiRouter);
 app.use(express.static(frontendBuildPath));
-
+app.use(express.static(adminBuildPath));
 app.get("*", (req, res) => {
+  if(req.path.startsWith("/admin")) {
+    return res.sendFile(path.join(adminBuildPath, "index.html"));
+  }
   res.sendFile(path.join(frontendBuildPath, "index.html"));
 });
 
