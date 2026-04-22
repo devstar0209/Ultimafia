@@ -9,8 +9,7 @@ module.exports = expressSession({
     path: "/",
     httpOnly: true,
     maxAge: 14 * 24 * 60 * 60 * 1000,
-    secure: false,
-    // secure: true
+    secure: true,
   },
   store: mongoStore,
 });

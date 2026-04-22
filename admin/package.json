@@ -9,6 +9,7 @@
     "@mui/icons-material": "^6.5.0",
     "@mui/material": "^6.5.0",
     "axios": "^1.11.0",
+    "helmet": "^8.1.0",
     "react": "^17.0.0",
     "react-dom": "^17.0.1",
     "react-router-dom": "^6.30.1"

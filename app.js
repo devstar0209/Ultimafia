@@ -5,6 +5,8 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
+const helmet = require("helmet");
+// const rateLimit = require("express-rate-limit");
 const logger = require("./modules/logging")(".");
 
 const indexRouter = require("./routes/index");
@@ -48,10 +50,21 @@ app.use(morgan("combined", { stream: logger.stream }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://passionmafia.io"
+  ],
+  credentials: true
+}));
 app.use(session);
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(helmet());
+app.set("trust proxy", 1);
+
+if (req.headers.origin !== "https://passionmafia.io") {
+  return res.status(403).send("Forbidden");
+}
 app.use(csrf);
 app.use(
   compression({
@@ -98,9 +111,33 @@ apiRouter.use("/items", itemsRouter);
 apiRouter.use("/fanart", fanartRouter);
 apiRouter.use("/admin", adminRouter);
 
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api", globalLimiter);
+
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+});
+app.use("/api/auth", authLimiter);
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+});
+app.use("/api/admin", adminLimiter);
+
 app.use("/api", apiRouter);
+
 app.use(express.static(frontendBuildPath));
-app.use(express.static(adminBuildPath));
+app.use("/admin", express.static(adminBuildPath));
 app.get("*", (req, res) => {
   if(req.path.startsWith("/admin")) {
     return res.sendFile(path.join(adminBuildPath, "index.html"));
@@ -108,10 +145,10 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(frontendBuildPath, "index.html"));
 });
 
-app.all("/*", function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  next();
-});
+// app.all("/*", function (req, res, next) {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   next();
+// });
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
