@@ -9,6 +9,7 @@
     "@mui/icons-material": "^6.5.0",
     "@mui/material": "^6.5.0",
     "axios": "^1.11.0",
+    "express-rate-limit": "^8.3.2",
     "helmet": "^8.1.0",
     "react": "^17.0.0",
     "react-dom": "^17.0.1",

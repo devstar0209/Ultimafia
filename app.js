@@ -6,7 +6,7 @@ const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
 const helmet = require("helmet");
-// const rateLimit = require("express-rate-limit");
+const rateLimit = require("express-rate-limit");
 const logger = require("./modules/logging")(".");
 
 const indexRouter = require("./routes/index");
