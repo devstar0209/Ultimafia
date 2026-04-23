@@ -2,12 +2,11 @@ import React, { useState, useEffect, useContext, useCallback, useRef } from "rea
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-import { UserContext } from "Contexts";
+import { UserContext, SiteInfoContext } from "Contexts";
 import { getPageNavFilterArg, PageNav } from "components/Nav";
 import { useErrorAlert } from "components/Alerts";
 import { camelCase } from "../../../utils";
 import Comments from "../../Community/Comments";
-import { GameTypes } from "../../../Constants";
 import "css/join.css";
 import { RefreshButton } from "./RefreshButton";
 import { Loading } from "components/Loading";
@@ -35,7 +34,9 @@ import GameIcon from "components/GameIcon";
 
 export default function LobbyBrowser() {
   const theme = useTheme();
-  const defaultGameType = GameTypes[0];
+  const siteInfo = useContext(SiteInfoContext);
+  const gameCatalog = siteInfo?.gameCatalog || [];
+  const defaultGameType = gameCatalog[0]?.key || "Mafia";
   const [openGamesCounts, setOpenGamesCounts] = useState({});
   const [refreshTimeoutId, setRefreshTimeoutId] = useState(null);
   const [refreshButtonIsSpinning, setRefreshButtonIsSpinning] = useState(false);
@@ -72,7 +73,8 @@ export default function LobbyBrowser() {
     };
   }, [refreshTimeoutId]);
   useEffect(() => {
-    const safeGameType = GameTypes.includes(selectedGameType)
+    const gameKeys = gameCatalog.map(g => g.key);
+    const safeGameType = gameKeys.includes(selectedGameType)
       ? selectedGameType
       : defaultGameType;
 
@@ -194,16 +196,16 @@ export default function LobbyBrowser() {
   const gameCategoryPanel = (
     <Paper sx={{ p: 1 }}>
       <Stack spacing={0.5}>
-        {GameTypes.map((gameType) => (
+        {gameCatalog.map((game) => (
           <Box
-            key={`game-category-${gameType}`}
+            key={`game-category-${game.key}`}
             component="button"
-            onClick={() => setSelectedGameType(gameType)}
+            onClick={() => setSelectedGameType(game.key)}
             sx={{
               width: "100%",
               border: "1px solid",
               borderColor:
-                selectedGameType === gameType ? "primary.main" : "divider",
+                selectedGameType === game.key ? "primary.main" : "divider",
               borderRadius: 1,
               px: 1,
               py: 0.75,
@@ -212,7 +214,7 @@ export default function LobbyBrowser() {
               gap: 1,
               cursor: "pointer",
               backgroundColor:
-                selectedGameType === gameType
+                selectedGameType === game.key
                   ? "action.selected"
                   : "background.paper",
               "&:hover": {
@@ -220,9 +222,9 @@ export default function LobbyBrowser() {
               },
             }}
           >
-            <GameIcon gameType={gameType} size={22} />
+            <GameIcon gameType={game.key} size={22} />
             <Typography variant="body2" sx={{ textAlign: "left", flex: 1 }}>
-              {gameType}
+              {game.title}
             </Typography>
             <Typography
               variant="caption"
@@ -236,7 +238,7 @@ export default function LobbyBrowser() {
                 textAlign: "center",
               }}
             >
-              {openGamesCounts[gameType] || 0}
+              {openGamesCounts[game.key] || 0}
             </Typography>
           </Box>
         ))}
