@@ -66,9 +66,6 @@ app.use(csrf);
 app.use(
   compression({
     filter: (req, res) => {
-      if (req.headers.origin !== "https://passionmafia.io") {
-        return res.status(403).send("Forbidden");
-      }
       return req.headers["x-no-compression"]
         ? false
         : compression.filter(req, res);
@@ -134,7 +131,21 @@ const adminLimiter = rateLimit({
 });
 app.use("/api/admin", adminLimiter);
 
-app.use("/api", apiRouter);
+function originGuard(req, res, next) {
+  const allowedOrigin = "https://passionmafia.io";
+  const origin = req.headers.origin;
+
+  // Allow requests with no origin (server-to-server, curl, etc.)
+  if (!origin) return next();
+
+  if (origin !== allowedOrigin) {
+    return res.status(403).send("Forbidden");
+  }
+
+  next();
+}
+
+app.use("/api", originGuard, apiRouter);
 
 app.use(express.static(frontendBuildPath));
 app.use("/admin", express.static(adminBuildPath));
