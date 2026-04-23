@@ -36,10 +36,12 @@ import {
 } from "@mui/material";
 
 import GameIcon from "components/GameIcon";
-import { GameTypes } from "Constants";
+import { SiteInfoContext } from "Contexts";
 
 export default function HostBrowser(props) {
-  const defaultGameType = "Mafia";
+  const siteInfo = useContext(SiteInfoContext);
+  const gameCatalog = siteInfo?.gameCatalog || [];
+  const defaultGameType = gameCatalog[0]?.key || "Mafia";
   const defaultNavLabel = "Popular";
   const formFields = props.formFields;
 
@@ -357,16 +359,16 @@ export default function HostBrowser(props) {
             }}
           >
             <List>
-              {GameTypes.map((game) => (
+              {gameCatalog.map((game) => (
                 <ListItem
-                  key={game}
-                  selected={gameType === game}
-                  onClick={() => handleListItemClick(game)}
+                  key={game.key}
+                  selected={gameType === game.key}
+                  onClick={() => handleListItemClick(game.key)}
                 >
                   <ListItemIcon>
-                    <GameIcon gameType={game} size={24} />
+                    <GameIcon gameType={game.key} size={24} />
                   </ListItemIcon>
-                  <ListItemText primary={game} />
+                  <ListItemText primary={game.title} />
                 </ListItem>
               ))}
             </List>
@@ -480,19 +482,19 @@ export default function HostBrowser(props) {
                 }}
               >
                 <Stack direction="column" spacing={0.5}>
-                  {GameTypes.map((game) => (
+                  {gameCatalog.map((game) => (
                     <ListItem
-                      key={game}
-                      selected={gameType === game}
-                      onClick={() => handleListItemClick(game)}
+                      key={game.key}
+                      selected={gameType === game.key}
+                      onClick={() => handleListItemClick(game.key)}
                       sx={{
                         borderRadius: "8px",
                       }}
                     >
                       <ListItemIcon>
-                        <GameIcon gameType={game} size={24} />
+                        <GameIcon gameType={game.key} size={24} />
                       </ListItemIcon>
-                      <ListItemText primary={game} />
+                      <ListItemText primary={game.title} />
                     </ListItem>
                   ))}
                 </Stack>

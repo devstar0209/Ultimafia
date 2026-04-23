@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useContext } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Box,
@@ -24,7 +24,7 @@ import LearnBattlesnakes from "./gameTypes/LearnBattlesnakes";
 import LearnDiceWars from "./gameTypes/LearnDiceWars";
 import LearnConnectFour from "./gameTypes/LearnConnectFour";
 
-import { GameTypes } from "Constants";
+import { SiteInfoContext } from "Contexts";
 import GameIcon from "components/GameIcon";
 
 const TAB_IDS = ["roles", "modifiers", "items", "mechanics", "achievements"];
@@ -101,7 +101,9 @@ function LearnTabsLayout({
 }
 
 export default function Games(props) {
-  const defaultGameType = "Mafia";
+  const siteInfo = useContext(SiteInfoContext);
+  const gameCatalog = siteInfo?.gameCatalog || [];
+  const defaultGameType = gameCatalog[0]?.key || "Mafia";
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const [gameType, setGameType] = useState(
@@ -170,11 +172,11 @@ export default function Games(props) {
               </Box>
             )}
           >
-            {GameTypes.map((game) => (
-              <MenuItem key={game} value={game}>
+            {gameCatalog.map((game) => (
+              <MenuItem key={game.key} value={game.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <GameIcon gameType={game} size={24} />
-                  {game}
+                  <GameIcon gameType={game.key} size={24} />
+                  {game.title}
                 </Box>
               </MenuItem>
             ))}

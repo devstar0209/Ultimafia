@@ -34,7 +34,7 @@ import CreateBattlesnakesSetup from "./CreateBattlesnakesSetup";
 import CreateDiceWarsSetup from "./CreateDiceWarsSetup";
 import CreateConnectFourSetup from "./CreateConnectFourSetup";
 
-import { GameTypes } from "Constants";
+import { SiteInfoContext } from "Contexts";
 import GameIcon from "components/GameIcon";
 
 const DEFAULT_GAME_SETUP_HELP = {
@@ -158,7 +158,9 @@ const GAME_SETUP_HELP = {
 
 export default function CreateSetup(props) {
   const theme = useTheme();
-  const defaultGameType = "Mafia";
+  const siteInfo = useContext(SiteInfoContext);
+  const gameCatalog = siteInfo?.gameCatalog || [];
+  const defaultGameType = gameCatalog[0]?.key || "Mafia";
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const [gameType, setGameType] = useState(
@@ -296,16 +298,16 @@ export default function CreateSetup(props) {
         }}
       >
         <List>
-          {GameTypes.map((game) => (
+          {gameCatalog.map((game) => (
             <ListItemButton
-              key={game}
-              selected={gameType === game}
-              onClick={() => handleListItemClick(game)}
+              key={game.key}
+              selected={gameType === game.key}
+              onClick={() => handleListItemClick(game.key)}
             >
               <ListItemIcon>
-                <GameIcon gameType={game} size={24} />
+                <GameIcon gameType={game.key} size={24} />
               </ListItemIcon>
-              <ListItemText primary={game} />
+              <ListItemText primary={game.title} />
             </ListItemButton>
           ))}
         </List>
