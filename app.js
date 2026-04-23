@@ -112,7 +112,7 @@ apiRouter.use("/admin", adminRouter);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -121,14 +121,14 @@ app.use("/api", globalLimiter);
 
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: 5 * 60 * 1000,
+  max: 10,
 });
 app.use("/api/auth", authLimiter);
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 300,
 });
 app.use("/api/admin", adminLimiter);
 
