@@ -5,8 +5,8 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
-// const helmet = require("helmet");
-// const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const logger = require("./modules/logging")(".");
 
 const indexRouter = require("./routes/index");
@@ -50,18 +50,18 @@ app.use(morgan("combined", { stream: logger.stream }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors());
-// app.use(cors({
-//   origin: [
-//     "https://passionmafia.io"
-//   ],
-//   credentials: true
-// }));
+
+app.use(cors({
+  origin: [
+    "https://passionmafia.io"
+  ],
+  credentials: true
+}));
 app.use(session);
 app.use(passport.initialize());
 app.use(passport.session());
-// app.use(helmet());
-// app.set("trust proxy", 1);
+app.use(helmet());
+app.set("trust proxy", 1);
 
 app.use(csrf);
 app.use(
