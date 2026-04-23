@@ -47,7 +47,7 @@ export default function Family() {
           setFamily(res.data);
           setBio(res.data.bio || "");
           setFamilyLoaded(true);
-          document.title = `${res.data.name} | UltiMafia`;
+          document.title = `${res.data.name} | PassionMafia`;
           // Debug: log trophies to console
           if (res.data.trophies && res.data.trophies.length > 0) {
             console.log("Family trophies:", res.data.trophies);

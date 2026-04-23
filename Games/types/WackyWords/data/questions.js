@@ -1,6 +1,6 @@
 module.exports = [
   "I'm $blank, I swear!",
-  "I wish I was Ultimafia user $blank",
+  "I wish I was PassionMafia user $blank",
   "A funny thing to say in a Mafia game",
   "The best song to play at 3 am is $blank",
   "A big red flag in somebody is $blank",
@@ -53,8 +53,8 @@ module.exports = [
   "You know you're addicted to Wikipedia when you start reading about $blank",
   "The title of the YouTube video with the MOST negative comments",
   "How to spot a mafia player in real life",
-  "Describe Ultimafia in 3 words",
-  "The newest feature on Ultimafia.com is $blank",
+  "Describe PassionMafia in 3 words",
+  "The newest feature on PassionMafia.io is $blank",
   "The top 3 canon events are $blank",
   "I am the one and only owner of the 24-karat gold $blank",
   "$player is campaigning for President with promises to $blank",
@@ -226,19 +226,19 @@ module.exports = [
   /* The following prompts are derived from Cards Against Humanity.
    * You can find their license at the bottom of the "Main Game" PDF downloaded from their website: https://www.cardsagainsthumanity.com/#downloads
    * Their intellectual property is under a CC BY-NC-SA 2.0 license: https://creativecommons.org/licenses/by-nc-sa/2.0/
-   * Ultimafia's CC BY-NC-SA 4.0 license is compatible with their CC BY-NC-SA license: https://github.com/Ultimafia/Ultimafia/?tab=License-1-ov-file#readme
+   * PassionMafia's CC BY-NC-SA 4.0 license is compatible with their CC BY-NC-SA license: https://github.com/PassionMafia/PassionMafia/?tab=License-1-ov-file#readme
    * Our derived version is in no way endorsed or sponsored by Cards Against Humanity.
-   * Changes were made to the questions sourced from Cards Against Humanity to make it suitable for Ultimafia's game engine.
+   * Changes were made to the questions sourced from Cards Against Humanity to make it suitable for PassionMafia's game engine.
    */
   // ==== BEGIN CARDS AGAINST HUMANITY PROMPTS ==========================================================================
   
   "$blank? Yeah, nah.",
   "★✰✰✰✰ Do NOT go here! Found $blank in my spag bol!",
   "As my New Year's resolution, I vow to give up $blank.",
-  "Brought to you by UltiMafia Gold, the Official Beer of $blank.",
+  "Brought to you by PassionMafia Gold, the Official Beer of $blank.",
   "Crikey! I've never seen $blank like this before! Let's get a bit closer.",
   "Hey guys, welcome to Shalooby's! Would you like to start the night off right with $blank?",
-  "In a new education initiative, $player will teach UltiMafia's youth about $blank.",
+  "In a new education initiative, $player will teach PassionMafia's youth about $blank.",
   "In Australia, $blank is twice as big and twice as deadly.",
   "Mate, do not go in that toilet. There's $blank in there.",
   "Mr. and Mrs. Lastname, we called you in because we're concerned about $player. Are you aware that your child is $blank?",
@@ -274,7 +274,7 @@ module.exports = [
   "Arby's: We Have $blank.",
   "Shalooby's: We Have $blank.",
   "Olive Garden: We Have $blank.",
-  "UltiMafia: We Have $blank.",
+  "PassionMafia: We Have $blank.",
   "As the mom of five rambunctious boys, I'm no stranger to $blank.",
   "$blank. Betcha can't have just one!",
   "BILLY MAYS HERE FOR $blank.",
@@ -356,7 +356,7 @@ module.exports = [
   "Rumor has it that Vladimir Putin's favorite delicacy is $blank stuffed with $blank.",
   "Sorry everyone, I just $blank.",
   "Studies show that lab rats navigate mazes 50% faster after being exposed to $blank.",
-  "Studies show that UltiMafia players win games 50% more often after being exposed to $blank.",
+  "Studies show that PassionMafia players win games 50% more often after being exposed to $blank.",
   "That's right, I killed $player. How, you ask? $blank.",
   "That's right, I killed the president. How, you ask? $blank.",
   "The class field trip was completely ruined by $blank.",
@@ -587,7 +587,7 @@ module.exports = [
   "The Five Stages of Grief: denial, anger, bargaining, $blank, acceptance.",
   "The healing process began when I joined a support group for victims of $blank.",
   "The votes are in, and the new high school mascot is $blank.",
-  "The votes are in, and the new UltiMafia mascot is $blank.",
+  "The votes are in, and the new PassionMafia mascot is $blank.",
   "This is your captain speaking. Fasten your seatbelts and prepare for $blank.",
   "Tonight on 20/20: What you don't know about $blank could kill you.",
   "What's harshing my mellow, man?",
@@ -924,7 +924,7 @@ module.exports = [
   "Can a woman really have it all? A career and $blank?",
   "New from Mattel, it's $blank Barbie!",
   "10-23, this is Officer Monroe requesting immediate backup. We've got a situation involving $blank.",
-  "HELLO WELCOME TO ULTIMAFIA ARE YOU LOOKING FOR $blank?",
+  "HELLO WELCOME TO PassionMafia ARE YOU LOOKING FOR $blank?",
   "Introducing Marvel's newest hero, Thunt the Scoundrel! His superpower is $blank.",
   "Timmy plays the drums so he doesn't have to think about $blank.",
   "You're probably wondering, how did I get here? Well, let me tell you a little story about $blank.",
@@ -1011,7 +1011,7 @@ module.exports = [
   "Today on Buzzfeed: 10 Pictures of $player That Look Like $player!",
   "Why am I so tired?",
   "What will finally make me care?",
-  "How are the developers of UltiMafia spending your $5?",
+  "How are the developers of PassionMafia spending your $5?",
   "Looking to earn big bucks? Learn how to make $blank work for you!",
   "Jellicle Cats come out tonight, Jellicle Cats come one, come all, the time for $blank is now, Jellicles come to the Jellicle Ball.",
   "$player has nominated $blank for their VP.",

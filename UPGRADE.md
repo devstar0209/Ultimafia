@@ -1,4 +1,4 @@
-# 🚀 Ultimafia 2026: Complete Upgrade & Growth Guide
+# 🚀 PassionMafia 2026: Complete Upgrade & Growth Guide
 
 **Last Updated:** April 8, 2026  
 **Status:** Comprehensive Analysis & Implementation Roadmap
@@ -22,7 +22,7 @@
 
 ## Executive Summary
 
-**Ultimafia** is a production-ready multiplayer gaming platform with 14 games, strong technical architecture, and proven monetization foundations. The project is NOT malware and has legitimate business potential.
+**PassionMafia** is a production-ready multiplayer gaming platform with 14 games, strong technical architecture, and proven monetization foundations. The project is NOT malware and has legitimate business potential.
 
 ### Current State
 - ✅ **14 playable games** (Mafia, Poker, Card games, etc.)
@@ -45,7 +45,7 @@
 ## Security & Compliance
 
 ### ✅ GOOD NEWS: No Malware Detected
-The codebase is legitimate. This is a real gaming platform built for ultimafia.com.
+The codebase is legitimate. This is a real gaming platform built for PassionMafia.io.
 
 ### 🔴 SECURITY ISSUES TO FIX (CRITICAL)
 
@@ -147,10 +147,10 @@ SMTP_PASS=app-specific-password
 
 #### 4. **Domain & URLs**
 ```env
-BASE_URL=https://ultimafia.com  # Change from localhost
+BASE_URL=https://PassionMafia.io  # Change from localhost
 NODE_ENV=production  # Not development_docker
-REACT_APP_URL=https://ultimafia.com
-REACT_APP_SOCKET_URI=ultimafia.com
+REACT_APP_URL=https://PassionMafia.io
+REACT_APP_SOCKET_URI=PassionMafia.io
 ```
 
 #### 5. **Webhooks for Logging**
@@ -193,7 +193,7 @@ Tools needed:
 Status: Design ready, needs implementation
 Steps:
   1. Create bot at Discord Developer Portal
-  2. Implement /ultimafia play command
+  2. Implement /PassionMafia play command
   3. Add bot to official Discord server
   4. Test in sandbox guilds
 ```
@@ -808,7 +808,7 @@ Annual 2026: $85,000 net (after $300k expenses)
 
 ## Conclusion
 
-**Ultimafia is a legitimate, viable gaming platform with clear monetization potential and a realistic path to $500k+ annual revenue by 2026.**
+**PassionMafia is a legitimate, viable gaming platform with clear monetization potential and a realistic path to $500k+ annual revenue by 2026.**
 
 ### Critical Success Factors
 1. ✅ Fix security issues immediately
@@ -833,5 +833,5 @@ Annual 2026: $85,000 net (after $300k expenses)
 ---
 
 **Document prepared:** April 8, 2026  
-**For:** Ultimafia Development Team  
+**For:** PassionMafia Development Team  
 **Status:** Ready for implementation

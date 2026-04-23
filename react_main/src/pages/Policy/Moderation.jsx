@@ -137,7 +137,7 @@ export default function Moderation() {
   const tabValue = getTabValue(location.pathname);
 
   useEffect(() => {
-    document.title = "Moderation | UltiMafia";
+    document.title = "Moderation | PassionMafia";
   }, []);
 
   useEffect(() => {

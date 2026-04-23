@@ -21,17 +21,17 @@ Enter password
 admin>
 ```
 
-3. Enter the ultimafia db (`$MONGO_DB`).
+3. Enter the PassionMafia db (`$MONGO_DB`).
 
 ```
-admin> use ultimafia
-switched to db ultimafia
+admin> use PassionMafia
+switched to db PassionMafia
 ```
 
 5. Add the dev property to your user.
 
 ```
-ultimafia> db.users.updateOne(
+PassionMafia> db.users.updateOne(
     { name: '<username>' },
     { $set: {dev: 'true'} })
 
@@ -44,7 +44,7 @@ ultimafia> db.users.updateOne(
 6. Check that your user has the dev property.
 
 ```
-ultimafia> db.users.find({}, {name:1, dev:1})
+PassionMafia> db.users.find({}, {name:1, dev:1})
 [
   {
     _id: ObjectId('XXX'),
@@ -61,19 +61,19 @@ Owner permissions are not needed for testing roles but it will come in handy to 
 1. Get your user ObjectId.
 
 ```
-ultimafia> db.users.find({}, {name:1})
+PassionMafia> db.users.find({}, {name:1})
 ```
 
 2. Get the group ObjectId.
 
 ```
-ultimafia> db.groups.find({name:'Owner'}, {name:1})
+PassionMafia> db.groups.find({name:'Owner'}, {name:1})
 ```
 
 3. Add the group mapping.
 
 ```
-ultimafia> db.ingroups.insertOne(
+PassionMafia> db.ingroups.insertOne(
   {
     user: ObjectId("6XXXuserId"),
     group: ObjectId("6YYYgroupId")
@@ -86,6 +86,6 @@ ultimafia> db.ingroups.insertOne(
 
 2. A test tube icon appears in the top bar.
 
-<img src="https://github.com/UltiMafia/Ultimafia/assets/24848927/a036535a-d107-4ecb-8c06-0a49629972fd" alt="test tube" width="300"/>
+<img src="https://github.com/PassionMafia/PassionMafia/assets/24848927/a036535a-d107-4ecb-8c06-0a49629972fd" alt="test tube" width="300"/>
 
 3. Click the test tube icon and bot accounts will spawn in new windows.

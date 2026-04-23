@@ -39,7 +39,7 @@ export default function CreateTexasHoldEmSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Texas Hold Em Setup | UltiMafia";
+    document.title = "Create Texas Hold Em Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {

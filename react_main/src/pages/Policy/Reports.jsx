@@ -55,7 +55,7 @@ export default function Reports({ basePath = "/policy" }) {
   const { reportId } = useParams();
 
   useEffect(() => {
-    document.title = "Reports | UltiMafia";
+    document.title = "Reports | PassionMafia";
     if (reportId) {
       loadReport(reportId);
     } else {

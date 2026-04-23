@@ -5,7 +5,7 @@ export default function LearnJotto({ Layout }) {
   const gameType = "Jotto";
 
   useEffect(() => {
-    document.title = "Learn Jotto | UltiMafia";
+    document.title = "Learn Jotto | PassionMafia";
   }, []);
 
   return (

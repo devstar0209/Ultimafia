@@ -6,7 +6,7 @@ export default function PrivacyPolicy() {
   const theme = useTheme();
 
   useEffect(() => {
-    document.title = "Privacy Policy | UltiMafia";
+    document.title = "Privacy Policy | PassionMafia";
   }, []);
 
   return (
@@ -19,7 +19,7 @@ export default function PrivacyPolicy() {
       </Typography>
 
       <Typography variant="body1" paragraph>
-        UltiMafia ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains 
+        PassionMafia ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains 
         how we collect, use, disclose, and safeguard your information when you use our website, services, and 
         applications (collectively, the "Service"). Please read this Privacy Policy carefully. By using the 
         Service, you consent to the data practices described in this policy.
@@ -178,7 +178,7 @@ export default function PrivacyPolicy() {
           </ListItem>
           <ListItem>
             <ListItemText 
-              primary="To protect the rights, property, or safety of UltiMafia, our users, or others."
+              primary="To protect the rights, property, or safety of PassionMafia, our users, or others."
             />
           </ListItem>
         </List>
@@ -613,7 +613,7 @@ export default function PrivacyPolicy() {
         </Typography>
         <Typography variant="body1" paragraph>
           The Service may contain links to third-party websites, services, or applications that are not owned or 
-          controlled by UltiMafia. This Privacy Policy does not apply to such third-party services. We encourage 
+          controlled by PassionMafia. This Privacy Policy does not apply to such third-party services. We encourage 
           you to review the privacy policies of any third-party services you access.
         </Typography>
         <Typography variant="body1" paragraph>
@@ -678,7 +678,7 @@ export default function PrivacyPolicy() {
           If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, 
           please contact us:
         <Typography variant="body1" paragraph>
-          <strong>By email:</strong> ultimafia.official@gmail.com
+          <strong>By email:</strong> PassionMafia.official@gmail.com
         </Typography>
         </Typography>
         <Typography variant="body1" paragraph>

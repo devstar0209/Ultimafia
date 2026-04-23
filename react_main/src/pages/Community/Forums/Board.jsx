@@ -29,7 +29,7 @@ export default function Board(props) {
   const errorAlert = useErrorAlert();
 
   useEffect(() => {
-    document.title = "Create Mafia Setup | UltiMafia";
+    document.title = "Create Mafia Setup | PassionMafia";
   }, []);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function Board(props) {
         setBoardInfo(res.data);
         setLoaded(true);
 
-        document.title = `${res.data.name} | UltiMafia`;
+        document.title = `${res.data.name} | PassionMafia`;
 
         props.updateForumNavInfo({
           type: "board",

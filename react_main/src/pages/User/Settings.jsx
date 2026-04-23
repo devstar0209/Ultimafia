@@ -665,7 +665,7 @@ export default function Settings() {
   ]);
 
   useEffect(() => {
-    document.title = "Settings | UltiMafia";
+    document.title = "Settings | PassionMafia";
     if (user.loaded && user.loggedIn) {
       if (!settingsLoaded) loadSettings();
       if (!accountsLoaded) loadAccounts();

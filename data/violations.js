@@ -6,7 +6,7 @@ const violationDefinitions = [
       {
         type: "paragraph",
         content:
-          "Repeatedly antagonizing, targeting, or harassing an individual user or multiple users in a deliberate and sustained manner. Targeted conduct intended to intimidate, demean, or isolate others is not welcomed at UltiMafia, regardless of whether the individual engaging in the behavior believes it is 'justified'.",
+          "Repeatedly antagonizing, targeting, or harassing an individual user or multiple users in a deliberate and sustained manner. Targeted conduct intended to intimidate, demean, or isolate others is not welcomed at PassionMafia, regardless of whether the individual engaging in the behavior believes it is 'justified'.",
       },
       {
         type: "paragraph",

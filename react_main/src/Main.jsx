@@ -510,7 +510,7 @@ function Footer() {
           fontSize: "xx-large",
         }}>
           <MuiLink
-            href="https://github.com/UltiMafia/Ultimafia"
+            href="https://github.com/PassionMafia/PassionMafia"
             rel="noopener noreferrer nofollow"
             sx={{ display: "flex", }}
           >
@@ -524,7 +524,7 @@ function Footer() {
             <i className="fab fa-patreon" />
           </MuiLink>
           <MuiLink
-            href="https://ko-fi.com/ultimafia"
+            href="https://ko-fi.com/PassionMafia"
             rel="noopener noreferrer nofollow"
             sx={{ display: "flex", }}
           >
@@ -562,7 +562,7 @@ function Footer() {
         <Stack direction={isPhoneDevice ? "column" : "row"} spacing={isPhoneDevice ? 0.5 : 2} sx={{
         }}>
           <Typography variant="body2">
-            © {year} UltiMafia
+            © {year} PassionMafia
           </Typography>
           <MuiLink
             variant="body2"
@@ -582,7 +582,7 @@ function Footer() {
           <MuiLink
             variant="body2"
             target="_blank"
-            href="https://ultimafia.com/user/2oDrE3Ueq"
+            href="https://PassionMafia.io/user/2oDrE3Ueq"
           >
             Additional music by Jumpy
           </MuiLink>

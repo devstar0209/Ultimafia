@@ -24,7 +24,7 @@ export default function CreateAcrotopiaSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Acrotopia Setup | UltiMafia";
+    document.title = "Create Acrotopia Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setNavigate, gameSettings) {

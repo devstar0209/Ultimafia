@@ -89,7 +89,7 @@ export default function LobbyBrowser() {
       });
     }
 
-    document.title = `🔪 Ultimafia Lobby`;
+    document.title = `🔪 PassionMafia Lobby`;
     setHasOneOpenGame(false);
     setHasOneOpenUrankedGame(false);
     getGameList(listType, 1);

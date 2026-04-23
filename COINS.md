@@ -1,4 +1,4 @@
-# 💰 Ultimafia Coins System: Complete Implementation Guide
+# 💰 PassionMafia Coins System: Complete Implementation Guide
 
 **Last Updated:** April 8, 2026  
 **Status:** Production-Ready + Expansion Roadmap
@@ -23,7 +23,7 @@
 
 ### What Are Coins?
 
-**Coins** are the primary soft currency in Ultimafia:
+**Coins** are the primary soft currency in PassionMafia:
 - Earned through gameplay, quests, and achievements
 - Spent on cosmetics and cosmetic upgrades
 - Cannot be purchased directly (yet)
@@ -871,7 +871,7 @@ Real Dollar Value:
 
 ## Conclusion
 
-**The coin system is the foundation of Ultimafia's monetization strategy.** By balancing free earning with premium cosmetics, the game can achieve:
+**The coin system is the foundation of PassionMafia's monetization strategy.** By balancing free earning with premium cosmetics, the game can achieve:
 
 ✅ High player retention (cosmetics incentivize playing)  
 ✅ Healthy monetization (15-25% paying players)  
@@ -888,5 +888,5 @@ Real Dollar Value:
 ---
 
 **Document prepared:** April 8, 2026  
-**For:** Ultimafia Development Team  
+**For:** PassionMafia Development Team  
 **Status:** Ready for implementation

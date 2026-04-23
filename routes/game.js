@@ -930,7 +930,7 @@ router.post("/host", async function (req, res) {
               method: "POST",
               url: process.env.DISCORD_GAME_HOOK,
               data: {
-                content: `New game! https://ultimafia.com/game/${gameId}\n${ping}${setup.name}`,
+                content: `New game! https://PassionMafia.io/game/${gameId}\n${ping}${setup.name}`,
                 username: "GameBot",
               },
             });

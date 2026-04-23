@@ -149,7 +149,7 @@ export function RoleThings() {
   }, []);
 
   useEffect(() => {
-    document.title = `${RoleName || "Role"} | UltiMafia`;
+    document.title = `${RoleName || "Role"} | PassionMafia`;
   }, [RoleName]);
 
   if (user.loaded && !user.loggedIn) return <Navigate to="/play" />;

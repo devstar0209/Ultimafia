@@ -16,7 +16,7 @@ export default function StaffHandbook() {
       </Typography>
       <Typography sx={{ mb: 2 }}>
         This handbook serves to provide guidelines and standards for staff
-        conduct on UltiMafia.com. This is a public document for users to refer to
+        conduct on PassionMafia.io. This is a public document for users to refer to
         in order to understand the expectations and responsibilities of our admin team.
         Staff can refer to this page to ensure they are upholding site values
         and executing protocol regarding staff actions and decisions.
@@ -26,7 +26,7 @@ export default function StaffHandbook() {
         2. Mission Statement
       </Typography>
       <Typography sx={{ mb: 2 }}>
-        UltiMafia seeks to create an inclusive and welcoming space for
+        PassionMafia seeks to create an inclusive and welcoming space for
         playing chat-based Mafia and related minigames. Our goal is to
         provide a fair and respectful environment where all players can enjoy
         the game free from hostility. We are dedicated to maintaining a
@@ -40,7 +40,7 @@ export default function StaffHandbook() {
       </Typography>
       <Typography sx={{ mb: 2 }}>
         Staff are responsible for maintaining the integrity, fairness, and stability
-        of the UltiMafia platform. This includes moderating games and chat,
+        of the PassionMafia platform. This includes moderating games and chat,
         enforcing site rules, responding to user reports, and addressing disruptive
         behavior in a timely and consistent manner. Staff are expected to act in
         good faith, use sound judgment, and prioritize the health of the community

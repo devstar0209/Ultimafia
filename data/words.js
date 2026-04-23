@@ -866,7 +866,7 @@ module.exports = [
   ["clock", "daily", "month", "watch"],
   // ****["minute",
 
-  // ultimafia
+  // PassionMafia
   ["town", "fool", "king", "jinx", "tree", "bomb", "chef", "cult"],
   [
     "ghost",

@@ -61,7 +61,7 @@ const GAME_WELCOME_CONTENT = {
     tileDescription: "Classic social deduction",
     headline: "The classic social deduction game, online.",
     description:
-      "UltiMafia is a community-built rendition of Mafia. Join casual and competitive matches and build fully customizable setups tailored to your group.",
+      "PassionMafia is a community-built rendition of Mafia. Join casual and competitive matches and build fully customizable setups tailored to your group.",
     features: MAFIA_FEATURES,
   },
   Resistance: {
@@ -315,7 +315,7 @@ export const Welcome = () => {
             py: 2,
           }}
         >
-          Play UltiMafia online.
+          Play PassionMafia online.
         </Typography>
         <Grid2 container rowSpacing={1} columnSpacing={1} sx={{ alignItems: "stretch" }}>
           <Grid2

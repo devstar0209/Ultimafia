@@ -449,7 +449,7 @@ function SeasonRoundSelect({ seasonNumber, roundNumber, setSearchParams }) {
   const [seasonList, setSeasonList] = useState([]);
 
   useEffect(() => {
-    document.title = "Competitive | UltiMafia";
+    document.title = "Competitive | PassionMafia";
 
     axios
       .get(`/api/competitive/seasons`)

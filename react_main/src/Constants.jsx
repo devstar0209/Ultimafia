@@ -87,7 +87,7 @@ export const MaxChatMessageLength = 240;
 export const AlertFadeTimeout = 3000;
 export const AlertFadeDuration = 500;
 
-// animal deck by ultimafia-bot ultimafia.com/deck/jWqL8KjS_
+// animal deck by PassionMafia-bot PassionMafia.io/deck/jWqL8KjS_
 export const PreferredDeckId = "jWqL8KjS_";
 
 export const minimumLoadingTime = 200;

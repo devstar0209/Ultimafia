@@ -5,7 +5,7 @@ export default function LearnBattlesnakes({ Layout }) {
   const gameType = "Battlesnakes";
 
   useEffect(() => {
-    document.title = "Learn Battlesnakes | UltiMafia";
+    document.title = "Learn Battlesnakes | PassionMafia";
   }, []);
 
   return (

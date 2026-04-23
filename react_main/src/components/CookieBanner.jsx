@@ -62,7 +62,7 @@ export default function CookieBanner() {
       <DialogTitle>We use cookies</DialogTitle>
       <DialogContent>
         <Typography variant="body2" paragraph>
-          UltiMafia uses cookies to enhance your experience, analyze site usage, 
+          PassionMafia uses cookies to enhance your experience, analyze site usage, 
           and assist in our marketing efforts. By clicking "Accept All," you agree 
           to the use of all cookies. You can also customize your preferences or 
           reject non-essential cookies.

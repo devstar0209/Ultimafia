@@ -24,7 +24,7 @@ export default function CreateJottoSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Jotto Setup | UltiMafia";
+    document.title = "Create Jotto Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {

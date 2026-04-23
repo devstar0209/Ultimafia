@@ -24,7 +24,7 @@ export default function CreateBattlesnakesSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Battlesnakes Setup | UltiMafia";
+    document.title = "Create Battlesnakes Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setNavigate, gameSettings) {

@@ -34,7 +34,7 @@ export default function LearnWackyWords({ Layout }) {
   const gameType = "Wacky Words";
 
   useEffect(() => {
-    document.title = "Learn Wacky Words | UltiMafia";
+    document.title = "Learn Wacky Words | PassionMafia";
   }, []);
 
   const mechanicsContent = (

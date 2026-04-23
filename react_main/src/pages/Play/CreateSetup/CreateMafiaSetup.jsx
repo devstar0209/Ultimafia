@@ -149,7 +149,7 @@ export default function CreateMafiaSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Mafia Setup | UltiMafia";
+    document.title = "Create Mafia Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {

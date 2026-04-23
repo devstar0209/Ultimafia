@@ -1,12 +1,12 @@
 # Role Creation Guide
 
-Firstly, thank you so much for taking the time to contribute to UltiMafia. You would first need to get your site running by following the project's [README](/README.md).
+Firstly, thank you so much for taking the time to contribute to PassionMafia. You would first need to get your site running by following the project's [README](/README.md).
 
 ## Setup
 
 #### 1. Choose a role to implement.
 
-Refer to [this issue](https://github.com/UltiMafia/Ultimafia/issues/1) for a full list of roles that require implementation. There are also links to mechanic description and system messages. Drop a comment stating which role you want to work on. You may implement roles outside of the list too.
+Refer to [this issue](https://github.com/PassionMafia/PassionMafia/issues/1) for a full list of roles that require implementation. There are also links to mechanic description and system messages. Drop a comment stating which role you want to work on. You may implement roles outside of the list too.
 
 #### 2. Locally, checkout a branch for the role you want to make.
 
@@ -95,7 +95,7 @@ You can check the `emit` function for the types of events being sent. You might 
 
 It's not necessary to test all the interactions, but at the very least test that the code compiles and the role works. If possible, test against roles that might interact/ interfere with what you added. E.g. roles that bring players into new night meetings should be tested with `Jailer`.
 
-## Integrating role into UltiMafia
+## Integrating role into PassionMafia
 
 #### 1. Commit your changes to your remote branch.
 
@@ -109,9 +109,9 @@ git push origin add-journalist
 
 (Note: in future, you will make the PR to the `dev` branch instead. The site is undergoing rapid development so the dev branch is not available yet.)
 
-#### 3. (skip for now) Once your changes have been merged into the `dev` branch, test the role on `test.ultimafia.com`.
+#### 3. (skip for now) Once your changes have been merged into the `dev` branch, test the role on `test.PassionMafia.io`.
 
-#### 4. Once your changes have been merged into the `master` branch, test your role on `ultimafia.com` and keep a look out for bug reports for it.
+#### 4. Once your changes have been merged into the `master` branch, test your role on `PassionMafia.io` and keep a look out for bug reports for it.
 
 #### 5. Send a DM to `ammico` or any moderator to open role icon requests for the role. You can do this step earlier if you wish.
 

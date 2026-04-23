@@ -43,7 +43,7 @@ export default function CreateDiceWarsSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Dice Wars Setup | UltiMafia";
+    document.title = "Create Dice Wars Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setNavigate, gameSettings) {

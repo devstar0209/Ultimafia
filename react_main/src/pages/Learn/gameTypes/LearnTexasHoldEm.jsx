@@ -5,7 +5,7 @@ export default function LearnTexasHoldEm({ Layout }) {
   const gameType = "Texas Hold Em";
 
   useEffect(() => {
-    document.title = "Learn Texas Hold Em | UltiMafia";
+    document.title = "Learn Texas Hold Em | PassionMafia";
   }, []);
 
   return (

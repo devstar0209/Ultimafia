@@ -5,7 +5,7 @@ export default function LearnConnectFour({ Layout }) {
   const gameType = "Connect Four";
 
   useEffect(() => {
-    document.title = "Learn Connect Four | UltiMafia";
+    document.title = "Learn Connect Four | PassionMafia";
   }, []);
 
   return (

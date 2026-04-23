@@ -5,7 +5,7 @@ export default function LearnCheat({ Layout }) {
   const gameType = "Cheat";
 
   useEffect(() => {
-    document.title = "Learn Cheat | UltiMafia";
+    document.title = "Learn Cheat | PassionMafia";
   }, []);
 
   return (

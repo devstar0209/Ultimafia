@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-echo "Welcome to the Ultimafia complete setup!"
+echo "Welcome to the PassionMafia complete setup!"
 echo "----------------------------------------"
 
 cp ./docs/client_env ./react_main/.env
@@ -75,7 +75,7 @@ sed -i "s/$frontFbStorageB/$frontFbStorageBRep/" "./react_main/.env"
 echo ""
 echo "Now check the firebase console, go to Project settings (gear icon)"
 echo "Then click on the 'Service Accounts' tab, and click on the 'Generate new Private key' button"
-echo "rename that file to firebase.json, and copy it into your Ultimafia directory."
+echo "rename that file to firebase.json, and copy it into your PassionMafia directory."
 echo "Press Enter when you are done."
 read endVar
 

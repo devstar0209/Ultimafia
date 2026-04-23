@@ -5,7 +5,7 @@ export default function LearnAcrotopia({ Layout }) {
   const gameType = "Acrotopia";
 
   useEffect(() => {
-    document.title = "Learn Acrotopia | UltiMafia";
+    document.title = "Learn Acrotopia | PassionMafia";
   }, []);
 
   return (

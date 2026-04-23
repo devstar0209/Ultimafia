@@ -5,7 +5,7 @@ export default function LearnRatscrew({ Layout }) {
   const gameType = "Ratscrew";
 
   useEffect(() => {
-    document.title = "Learn Ratscrew | UltiMafia";
+    document.title = "Learn Ratscrew | PassionMafia";
   }, []);
 
   return (

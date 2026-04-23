@@ -40,7 +40,7 @@ export default function CreateConnectFourSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Connect Four Setup | UltiMafia";
+    document.title = "Create Connect Four Setup | PassionMafia";
     return () => {
       isMountedRef.current = false;
     };

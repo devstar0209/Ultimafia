@@ -39,7 +39,7 @@ export default function CreateLiarsDiceSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Liars Dice Setup | UltiMafia";
+    document.title = "Create Liars Dice Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {
