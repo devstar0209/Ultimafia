@@ -17,7 +17,6 @@ import {
   Typography,
 } from "@mui/material";
 
-import ActionCard from "../../components/admin/ActionCard";
 import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import useAdminQuery from "../../hooks/useAdminQuery";
@@ -45,6 +44,9 @@ function buildModalState(item) {
     key: item?.key || "",
     title: item?.title || "",
     slug: item?.slug || "",
+    logoUrl: item?.logoUrl || "",
+    logoFile: null,
+    logoMarkedForRemoval: false,
   };
 }
 
@@ -56,6 +58,7 @@ export default function GameCatalogSettingsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [modalValues, setModalValues] = useState(buildModalState(null));
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
 
   useEffect(() => {
@@ -100,6 +103,7 @@ export default function GameCatalogSettingsPage() {
   function openCreateModal() {
     setEditingItem(null);
     setModalValues(buildModalState(null));
+    setLogoPreviewUrl("");
     setSlugTouched(false);
     setModalOpen(true);
   }
@@ -107,6 +111,7 @@ export default function GameCatalogSettingsPage() {
   function openEditModal(item) {
     setEditingItem(item);
     setModalValues(buildModalState(item));
+    setLogoPreviewUrl(item?.logoUrl || "");
     setSlugTouched(true);
     setModalOpen(true);
   }
@@ -116,6 +121,10 @@ export default function GameCatalogSettingsPage() {
     setEditingItem(null);
     setModalValues(buildModalState(null));
     setSlugTouched(false);
+    if (logoPreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(logoPreviewUrl);
+    }
+    setLogoPreviewUrl("");
   }
 
   function updateModalField(prop, value) {
@@ -133,6 +142,36 @@ export default function GameCatalogSettingsPage() {
     });
   }
 
+  function handleModalLogoFileSelect(file) {
+    if (!file) {
+      return;
+    }
+
+    if (logoPreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(logoPreviewUrl);
+    }
+
+    setModalValues((current) => ({
+      ...current,
+      logoFile: file,
+      logoMarkedForRemoval: false,
+    }));
+    setLogoPreviewUrl(URL.createObjectURL(file));
+  }
+
+  function handleModalLogoRemove() {
+    if (logoPreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(logoPreviewUrl);
+    }
+
+    setModalValues((current) => ({
+      ...current,
+      logoFile: null,
+      logoMarkedForRemoval: Boolean(current.logoUrl),
+    }));
+    setLogoPreviewUrl("");
+  }
+
   async function handleModalSubmit() {
     const actionKey = editingItem ? `save:${editingItem.key}` : "create";
     setPendingKey(actionKey);
@@ -144,9 +183,21 @@ export default function GameCatalogSettingsPage() {
         slug: modalValues.slug,
       };
 
-      const result = editingItem
+      let result = editingItem
         ? await updateAdminManagedGameCatalog(editingItem.key, payload)
         : await createAdminManagedGameCatalog(payload);
+
+      if (modalValues.logoMarkedForRemoval && editingItem) {
+        const removeResult = await removeAdminManagedGameCatalogLogo(editingItem.key);
+        result = removeResult;
+      } else if (modalValues.logoFile) {
+        const targetKey = editingItem ? editingItem.key : result.item.key;
+        const uploadResult = await uploadAdminManagedGameCatalogLogo(
+          targetKey,
+          modalValues.logoFile
+        );
+        result = uploadResult;
+      }
 
       if (editingItem) {
         applyItemUpdate(result.item);
@@ -238,50 +289,6 @@ export default function GameCatalogSettingsPage() {
     }
   }
 
-  async function handleLogoUpload(item, file) {
-    setPendingKey(`logo:${item.key}`);
-    setFeedback(null);
-
-    try {
-      const result = await uploadAdminManagedGameCatalogLogo(item.key, file);
-      applyItemUpdate(result.item);
-      setFeedback({
-        severity: "success",
-        message: `${result.item.title} logo updated.`,
-      });
-    } catch (uploadError) {
-      setFeedback({
-        severity: "error",
-        message:
-          uploadError?.response?.data || "Could not upload that logo right now.",
-      });
-    } finally {
-      setPendingKey("");
-    }
-  }
-
-  async function handleLogoRemove(item) {
-    setPendingKey(`logo:${item.key}`);
-    setFeedback(null);
-
-    try {
-      const result = await removeAdminManagedGameCatalogLogo(item.key);
-      applyItemUpdate(result.item);
-      setFeedback({
-        severity: "success",
-        message: `${result.item.title} logo removed.`,
-      });
-    } catch (removeError) {
-      setFeedback({
-        severity: "error",
-        message:
-          removeError?.response?.data || "Could not remove that logo right now.",
-      });
-    } finally {
-      setPendingKey("");
-    }
-  }
-
   const modalPending = Boolean(
     pendingKey === "create" ||
       (editingItem && pendingKey === `save:${editingItem.key}`)
@@ -290,7 +297,7 @@ export default function GameCatalogSettingsPage() {
   return (
     <>
       <Grid container spacing={3}>
-        <Grid item xs={12} xl={8}>
+        <Grid item xs={12}>
           <Stack spacing={3}>
             {feedback ? (
               <Alert severity={feedback.severity}>{feedback.message}</Alert>
@@ -322,7 +329,7 @@ export default function GameCatalogSettingsPage() {
 
                     return (
                       <Paper
-                        key={item.key}
+                        key={item.slug || item.key}
                         sx={{
                           p: 2,
                           backgroundColor: item.hidden
@@ -389,9 +396,6 @@ export default function GameCatalogSettingsPage() {
                               <Typography color="text.secondary">
                                 Slug: {item.slug}
                               </Typography>
-                              <Typography color="text.secondary">
-                                Key: {item.key}
-                              </Typography>
                             </Box>
 
                             <Stack
@@ -420,38 +424,6 @@ export default function GameCatalogSettingsPage() {
                                     ? "Show"
                                     : "Hide"}
                               </Button>
-                              <Button
-                                variant="outlined"
-                                component="label"
-                                disabled={logoPending || hiddenPending || deletePending}
-                              >
-                                {logoPending ? "Uploading..." : "Upload Logo"}
-                                <input
-                                  hidden
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    event.target.value = "";
-                                    if (file) {
-                                      handleLogoUpload(item, file);
-                                    }
-                                  }}
-                                />
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                color="inherit"
-                                disabled={
-                                  !item.logoUrl ||
-                                  logoPending ||
-                                  hiddenPending ||
-                                  deletePending
-                                }
-                                onClick={() => handleLogoRemove(item)}
-                              >
-                                Remove Logo
-                              </Button>
                               <IconButton
                                 color="error"
                                 onClick={() => handleDelete(item)}
@@ -471,16 +443,6 @@ export default function GameCatalogSettingsPage() {
             </SectionCard>
           </Stack>
         </Grid>
-        <Grid item xs={12} xl={4}>
-          <ActionCard
-            title="Catalog Summary"
-            actions={[
-              `${gameCatalogs.length} game catalogs are configured.`,
-              `${configuredLogoCount} entries currently have uploaded logos.`,
-              `${hiddenCount} entries are hidden from the public gamecatalogs endpoint.`,
-            ]}
-          />
-        </Grid>
       </Grid>
 
       <Dialog open={modalOpen} onClose={modalPending ? undefined : closeModal} fullWidth maxWidth="sm">
@@ -489,23 +451,116 @@ export default function GameCatalogSettingsPage() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label="Title"
-              value={modalValues.title}
-              onChange={(event) => updateModalField("title", event.target.value)}
-              disabled={modalPending}
-              autoFocus
-            />
-            <TextField
-              label="Slug"
-              value={modalValues.slug}
-              onChange={(event) => {
-                setSlugTouched(true);
-                updateModalField("slug", event.target.value);
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Title"
+                value={modalValues.title}
+                onChange={(event) => updateModalField("title", event.target.value)}
+                disabled={modalPending}
+                fullWidth
+                autoFocus
+              />
+              <TextField
+                label="Slug"
+                value={modalValues.slug}
+                onChange={(event) => {
+                  setSlugTouched(true);
+                  updateModalField("slug", event.target.value);
+                }}
+                helperText="Lowercase URL slug. The backend normalizes this value."
+                disabled={modalPending}
+                fullWidth
+              />
+            </Stack>
+
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                gap: 2,
+                alignItems: "flex-start",
               }}
-              helperText="Lowercase URL slug. The backend normalizes this value."
-              disabled={modalPending}
-            />
+            >
+              <Box
+                sx={{
+                  minWidth: 112,
+                  width: 112,
+                  borderRadius: 2,
+                  border: "1px dashed rgba(255,255,255,0.12)",
+                  backgroundColor: "rgba(255,255,255,0.02)",
+                  p: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 84,
+                    height: 84,
+                    borderRadius: 2,
+                    backgroundColor: "rgba(255,255,255,0.02)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                  }}
+                >
+                  {logoPreviewUrl ? (
+                    <Box
+                      component="img"
+                      src={logoPreviewUrl}
+                      alt="Selected logo preview"
+                      sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />
+                  ) : (
+                    <Icon
+                      icon="solar:gallery-wide-bold-duotone"
+                      style={{ fontSize: 28, opacity: 0.5 }}
+                    />
+                  )}
+                </Box>
+              </Box>
+
+              <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  disabled={modalPending}
+                >
+                  {modalValues.logoFile ? "Replace Logo" : "Upload Logo"}
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      handleModalLogoFileSelect(file);
+                    }}
+                  />
+                </Button>
+                {(modalValues.logoUrl || modalValues.logoFile) && (
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={handleModalLogoRemove}
+                    disabled={modalPending}
+                  >
+                    Remove Logo
+                  </Button>
+                )}
+                {modalValues.logoFile ? (
+                  <Typography variant="caption" sx={{ textAlign: "center" }}>
+                    {modalValues.logoFile.name}
+                  </Typography>
+                ) : null}
+                <Typography color="text.secondary" variant="body2">
+                  Add or replace the catalog logo here. The logo is saved when the catalog entry is created or updated.
+                </Typography>
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
