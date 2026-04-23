@@ -1374,6 +1374,127 @@ router.delete("/settings/branding/banners/:key", async function (req, res) {
   }
 });
 
+router.post("/settings/branding/banners/carousel/upload", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const bannerId = shortid.generate();
+    const relativePath = brandingUtils.getCarouselBannerRelativePath(bannerId);
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: 1600,
+        height: 900,
+        fit: sharp.fit.cover,
+        position: sharp.strategy.attention,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 90 })
+      .toFile(absolutePath);
+
+    const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $push: {
+          carouselBanners: {
+            _id: bannerId,
+            path: relativePath,
+          },
+        },
+        $set: {
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Added Carousel Banner", [
+      bannerId,
+      relativePath,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+    });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 5 MB.");
+      return;
+    }
+
+    logger.error(e);
+    res.status(500).send("Error uploading carousel banner image.");
+  }
+});
+
+router.delete("/settings/branding/banners/carousel/:bannerId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const bannerId = String(req.params.bannerId || "").trim();
+    if (!bannerId) {
+      res.status(400).send("Banner ID is required.");
+      return;
+    }
+
+    const brandingDoc = await getPlatformBrandingDocument();
+    const bannerToRemove = (brandingDoc?.carouselBanners || []).find(
+      (b) => b._id === bannerId
+    );
+
+    if (bannerToRemove) {
+      removeUploadFile(bannerToRemove.path);
+    }
+
+    const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
+      { key: brandingUtils.BRANDING_KEY },
+      {
+        $pull: {
+          carouselBanners: { _id: bannerId },
+        },
+        $set: {
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true, upsert: true }
+    ).lean();
+
+    await createBrandingModAction(sessionInfo.user.id, "Removed Carousel Banner", [
+      bannerId,
+    ]);
+
+    res.send({
+      ok: true,
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing carousel banner image.");
+  }
+});
+
 router.post("/settings/branding/game-logos/:gameType", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {

@@ -2,14 +2,12 @@ import React, { useContext, useEffect, useState } from "react";
 import { Box, Container, Typography, Paper, Grid2 } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import "css/main.css";
+import "react-responsive-carousel/lib/styles/carousel.min.css";
+import { Carousel } from "react-responsive-carousel";
 import { Auth } from "../../components/Auth";
 import IconGallery from "../../components/IconGallery";
 import GameIcon, { getGameIconSrc } from "../../components/GameIcon";
 import bannerImage from "../../images/welcome_page/banner.png";
-import welcomeImage1 from "../../images/welcome_page/welcome-page_1.png";
-import welcomeImage2 from "../../images/welcome_page/welcome-page_2.png";
-import welcomeImage3 from "../../images/welcome_page/welcome-page_3.png";
-import welcomeImage4 from "../../images/welcome_page/welcome-page_4.png";
 import {
   getAuth,
   getRedirectResult,
@@ -22,39 +20,8 @@ import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import { SiteInfoContext, UserContext } from "Contexts";
 import { GameTypes } from "../../Constants";
 
-const MAFIA_FEATURES = [
-  {
-    image: welcomeImage1,
-    text: "Experience Mafia in live-chat format. No need for bots or referees. Real-time and responsive actions facilitated by the game itself.",
-  },
-  {
-    image: welcomeImage2,
-    text: "Over 400 roles combined with countless modifiers and items allowing you to tailor your setups to any playstyle.",
-  },
-  {
-    image: welcomeImage3,
-    text: "Compete and hone your skills of deception and deduction in seasonal play. Join the community in off-season events as well.",
-  },
-  {
-    image: welcomeImage4,
-    text: "Take a break from Mafia and play all manner of card, dice, and word games.",
-  },
-];
-
 const DESKTOP_COLUMN_HEIGHT = 800;
 
-const SHARED_FEATURE_IMAGES = [
-  welcomeImage1,
-  welcomeImage2,
-  welcomeImage3,
-  welcomeImage4,
-];
-
-const buildSharedImageFeatures = (texts) =>
-  texts.map((text, index) => ({
-    image: SHARED_FEATURE_IMAGES[index] || SHARED_FEATURE_IMAGES[0],
-    text,
-  }));
 
 const GAME_WELCOME_CONTENT = {
   Mafia: {
@@ -62,7 +29,6 @@ const GAME_WELCOME_CONTENT = {
     headline: "The classic social deduction game, online.",
     description:
       "PassionMafia is a community-built rendition of Mafia. Join casual and competitive matches and build fully customizable setups tailored to your group.",
-    features: MAFIA_FEATURES,
   },
   Resistance: {
     tileDescription: "Hidden spies and missions",
@@ -138,82 +104,6 @@ const GAME_WELCOME_CONTENT = {
   },
 };
 
-const GAME_FEATURES = {
-  Mafia: MAFIA_FEATURES,
-  Resistance: buildSharedImageFeatures([
-    "Team proposals and vote phases create social reads every round.",
-    "Mission outcomes reveal partial information, so lineup tracking matters.",
-    "Spies must sabotage carefully while avoiding obvious blame.",
-    "Great for deduction-focused groups with quick round flow.",
-  ]),
-  Jotto: buildSharedImageFeatures([
-    "Use letter-match feedback to eliminate impossible words.",
-    "Each guess gives information, even when it is incorrect.",
-    "Win through logic, pattern recognition, and smart narrowing.",
-    "A clean competitive word format with fast turns.",
-  ]),
-  Acrotopia: buildSharedImageFeatures([
-    "Create witty backronyms from random acronyms.",
-    "Players vote for favorites every round.",
-    "Strong creativity and humor lead to higher scores.",
-    "Perfect for party sessions with short, replayable rounds.",
-  ]),
-  "Secret Dictator": buildSharedImageFeatures([
-    "Election rounds and policy drafting drive social pressure.",
-    "Hidden teams must bluff around incomplete information.",
-    "Executive powers shift momentum as the game progresses.",
-    "Every policy vote becomes a key trust signal.",
-  ]),
-  "Wacky Words": buildSharedImageFeatures([
-    "Answer prompts creatively to earn votes from other players.",
-    "Multiple modes keep the pacing and style fresh.",
-    "Scoring rewards humor, originality, and social reads.",
-    "Ideal for casual groups that enjoy word-play party games.",
-  ]),
-  "Liars Dice": buildSharedImageFeatures([
-    "Raise bids or call lies based on risk and probability.",
-    "Read player confidence to catch bluffs at the right time.",
-    "Special rules like spot-on calls add high-swing moments.",
-    "Last player with dice remaining takes the win.",
-  ]),
-  "Texas Hold Em": buildSharedImageFeatures([
-    "Build the strongest hand from hole cards and community cards.",
-    "Bet sizing and position create deep strategic decisions.",
-    "Bluffing and pot control matter as much as card strength.",
-    "Great for competitive tables and social poker sessions.",
-  ]),
-  Cheat: buildSharedImageFeatures([
-    "Play required cards honestly or bluff to dump your hand.",
-    "Challenge suspicious plays to punish risky lies.",
-    "Timing your calls is the key to controlling pile swings.",
-    "Fast rounds make it easy to run multiple rematches.",
-  ]),
-  Ratscrew: buildSharedImageFeatures([
-    "React quickly to valid slap patterns and claim the stack.",
-    "Challenge incorrect slaps to swing cards back.",
-    "Momentum shifts fast based on reflexes and judgment.",
-    "A high-energy card mode for rapid multiplayer sessions.",
-  ]),
-  Battlesnakes: buildSharedImageFeatures([
-    "Control movement each turn on a shared survival grid.",
-    "Grow by collecting food while denying space to rivals.",
-    "Pathing and board control decide late-game outcomes.",
-    "Last snake alive wins the arena.",
-  ]),
-  "Connect Four": buildSharedImageFeatures([
-    "Drop pieces with turn-by-turn tactical planning.",
-    "Create forks and block opponent threats early.",
-    "Spatial prediction is critical for consistent wins.",
-    "Simple rules with strong head-to-head strategy depth.",
-  ]),
-  "Dice Wars": buildSharedImageFeatures([
-    "Attack neighboring territories with dice total battles.",
-    "Connected regions grant stronger reinforcement growth.",
-    "Balance expansion pressure against defensive positioning.",
-    "Eliminate opponents and hold the board to win.",
-  ]),
-};
-
 // localStorage.setItem('firebase:debug', 'true');
 
 if (localStorage.getItem("firebase:debug") !== null) {
@@ -227,6 +117,7 @@ export const Welcome = () => {
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
   const [isLoading, setIsLoading] = useState(true);
+  const [carouselBanners, setCarouselBanners] = useState([]);
   const isPhoneDevice = useIsPhoneDevice();
   const snackbarHook = useSnackbar();
 
@@ -278,8 +169,12 @@ export const Welcome = () => {
 
   const paddingX = isPhoneDevice ? 1.5 : 5;
   const gameContent = GAME_WELCOME_CONTENT.Mafia;
-  const infoCards = GAME_FEATURES.Mafia;
   const activeBanner = siteInfo?.branding?.banners?.welcome || bannerImage;
+
+  useEffect(() => {
+    const carouselBannersFromContext = siteInfo?.branding?.banners?.carousel || [];
+    setCarouselBanners(carouselBannersFromContext);
+  }, [siteInfo?.branding?.banners?.carousel]);
 
   if (user && user.loggedIn) {
     return <Navigate to="/play" />;
@@ -393,63 +288,76 @@ export const Welcome = () => {
                     {gameContent.description}
                   </Typography>           
                 </Paper>
-                <Grid2
-                  container
-                  rowSpacing={2}
-                  columnSpacing={2}
-                  sx={{
-                    flex: { xs: "0 0 auto", md: 1 },
-                    minHeight: 0,
-                    alignItems: "stretch",
-                  }}
-                >
-                  {infoCards.map((card, index) => (
-                    <Grid2
-                      key={`feature-${index}`}
-                      size={{ xs: 12, sm: 6, md: 3 }}
-                      sx={{ display: "flex" }}
+                {carouselBanners.length > 0 ? (
+                  <Paper
+                    elevation={2}
+                    sx={{
+                      p: 0,
+                      display: "flex",
+                      flex: 1,
+                      overflow: "hidden",
+                      borderRadius: 1,
+                    }}
+                  >
+                    <Carousel
+                      showArrows
+                      showStatus={false}
+                      showThumbs={false}
+                      infiniteLoop
+                      autoPlay
+                      interval={5000}
+                      transitionTime={600}
+                      swipeable
+                      emulateTouch
+                      dynamicHeight={false}
+                      useKeyboardArrows
+                      renderIndicator={(onClickHandler, isSelected, index, label) => (
+                        <button
+                          type="button"
+                          onClick={onClickHandler}
+                          style={{
+                            background: isSelected ? "#333" : "#ccc",
+                            border: "none",
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            margin: "0 4px",
+                            padding: 0,
+                            cursor: "pointer",
+                          }}
+                          aria-label={`${label} ${index + 1}`}
+                        />
+                      )}
                     >
-                      <Paper
-                        elevation={2}
-                        sx={{
-                          p: 1.5,
-                          display: "flex",
-                          flexDirection: "column",
-                          height: "100%",
-                          flex: 1,
-                          backgroundColor: "background.paper",
-                        }}
-                      >
-                        {card.image ? (
-                          <Box
-                            component="img"
-                            src={card.image}
-                            alt={`Welcome feature ${index + 1}`}
-                            sx={{
-                              width: "100%",
-                              height: "auto",
-                              objectFit: "contain",
-                              mb: 1.5,
-                            }}
-                          />
-                        ) : (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                            <GameIcon gameType="Mafia" size={22} />
-                            <Typography variant="subtitle2">{card.title}</Typography>
-                          </Box>
-                        )}
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          paragraph
-                          sx={{ flex: 1, mb: 0 }}
-                        >
-                          {card.text}
-                        </Typography>
-                      </Paper>
-                    </Grid2>
-                  ))}
-                </Grid2>
+                      {carouselBanners.map((banner, index) => (
+                        <Box
+                          key={banner.id || banner._id || index}
+                          component="img"
+                          src={banner.url}
+                          alt={`Carousel banner ${index + 1}`}
+                          sx={{
+                            width: "100%",
+                            height: "auto",
+                            objectFit: "cover",
+                            minHeight: 150,
+                          }}
+                        />
+                      ))}
+                    </Carousel>
+                  </Paper>
+                ) : (
+                  <Grid2
+                    container
+                    rowSpacing={2}
+                    columnSpacing={2}
+                    sx={{
+                      flex: { xs: "0 0 auto", md: 1 },
+                      minHeight: 0,
+                      alignItems: "stretch",
+                    }}
+                  >
+                  </Grid2>
+                )}
               </Box>
             </Paper>
           </Grid2>

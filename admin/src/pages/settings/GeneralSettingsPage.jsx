@@ -9,6 +9,7 @@ import {
 
 import ActionCard from "../../components/admin/ActionCard";
 import ImageUploadField from "../../components/admin/ImageUploadField";
+import CarouselBannersUploadField from "../../components/admin/CarouselBannersUploadField";
 import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import StatusChip from "../../components/StatusChip";
@@ -19,17 +20,21 @@ import {
   removeAdminPlatformLogo,
   uploadAdminBannerImage,
   uploadAdminPlatformLogo,
+  uploadAdminCarouselBannerImage,
+  removeAdminCarouselBannerImage,
 } from "../../services/adminService";
 
 export default function GeneralSettingsPage() {
   const { data, loading, error } = useAdminQuery(getAdminGeneralSettings);
   const [branding, setBranding] = useState(null);
+  const [carouselBanners, setCarouselBanners] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [pendingKey, setPendingKey] = useState("");
 
   useEffect(() => {
     if (data?.branding) {
       setBranding(data.branding);
+      setCarouselBanners(data.branding?.banners?.carousel || []);
     }
   }, [data]);
 
@@ -60,6 +65,9 @@ export default function GeneralSettingsPage() {
     try {
       const result = await action();
       setBranding(result.branding);
+      if (actionKey === "carousel-banners") {
+        setCarouselBanners(result.branding?.banners?.carousel || []);
+      }
       setFeedback({
         severity: "success",
         message: successMessage,
@@ -136,6 +144,29 @@ export default function GeneralSettingsPage() {
                       "banner-welcome",
                       () => removeAdminBannerImage("welcome"),
                       "Welcome banner removed."
+                    )
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={12}>
+                <CarouselBannersUploadField
+                  title="Carousel Banners"
+                  description="Upload multiple banners to display in a carousel on the welcome page below the welcome banner."
+                  banners={carouselBanners}
+                  pending={pendingKey === "carousel-banners"}
+                  previewHeight={120}
+                  onUpload={(file) =>
+                    runBrandingAction(
+                      "carousel-banners",
+                      () => uploadAdminCarouselBannerImage(file),
+                      "Carousel banner added."
+                    )
+                  }
+                  onRemove={(bannerId) =>
+                    runBrandingAction(
+                      "carousel-banners",
+                      () => removeAdminCarouselBannerImage(bannerId),
+                      "Carousel banner removed."
                     )
                   }
                 />

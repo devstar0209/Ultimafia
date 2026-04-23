@@ -134,6 +134,23 @@ export async function removeAdminBannerImage(key) {
   return response.data;
 }
 
+export async function uploadAdminCarouselBannerImage(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    "/api/admin/settings/branding/banners/carousel/upload",
+    formData
+  );
+  return response.data;
+}
+
+export async function removeAdminCarouselBannerImage(bannerId) {
+  const response = await axios.delete(
+    `/api/admin/settings/branding/banners/carousel/${encodeURIComponent(bannerId)}`
+  );
+  return response.data;
+}
+
 export async function uploadAdminGameLogo(gameType, file) {
   const formData = new FormData();
   formData.append("image", file);
