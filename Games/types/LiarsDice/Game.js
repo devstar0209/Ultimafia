@@ -420,7 +420,7 @@ module.exports = class LiarsDiceGame extends Game {
           switch (response) {
             case 0:
               this.sendAlert(
-                `SPOT ON HACK DETECTED! ${player.name} is getting permanently banned from Ultimafia.`
+                `SPOT ON HACK DETECTED! ${player.name} is getting permanently banned from PassionMafia.`
               );
               break;
             case 1:

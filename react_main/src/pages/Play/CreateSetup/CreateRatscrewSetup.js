@@ -24,7 +24,7 @@ export default function CreateRatscrewSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Ratscrew Setup | UltiMafia";
+    document.title = "Create Ratscrew Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {

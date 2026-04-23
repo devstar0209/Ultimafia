@@ -65,7 +65,7 @@ export default function Rules() {
   const [selectedTab, setSelectedTab] = useState(0);
 
   useEffect(() => {
-    document.title = "Rules | UltiMafia";
+    document.title = "Rules | PassionMafia";
   }, []);
 
   const communityRules = violationDefinitions.filter((r) => r.category === "Community");
@@ -82,7 +82,7 @@ export default function Rules() {
   return (
     <>
       <Typography variant="h2" gutterBottom>
-        UltiMafia Rules of Conduct
+        PassionMafia Rules of Conduct
       </Typography>
       <Typography variant="body2" color="text.secondary" paragraph>
         Last Updated: February 25, 2026

@@ -61,7 +61,7 @@ export default function Shop(props) {
   const [autoBuyTriggered, setAutoBuyTriggered] = useState(false);
 
   useEffect(() => {
-    document.title = "Shop | UltiMafia";
+    document.title = "Shop | PassionMafia";
   }, []);
 
   useEffect(() => {
@@ -332,7 +332,7 @@ export default function Shop(props) {
                 setSelectedSuggestion(null);
                 setShowSuggestions(false);
               }}
-              placeholder="e.g. https://ultimafia.com/game/abc123 or abc123"
+              placeholder="e.g. https://PassionMafia.io/game/abc123 or abc123"
               InputProps={stampSuggestions.length > 0 ? {
                 endAdornment: (
                   <InputAdornment position="end">

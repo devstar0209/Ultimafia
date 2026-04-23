@@ -20,7 +20,7 @@ export default function UserSearch(props) {
   const [searchVal, setSearchVal] = useState("");
 
   useEffect(() => {
-    document.title = "Users | UltiMafia";
+    document.title = "Users | PassionMafia";
   }, []);
 
   useEffect(() => {

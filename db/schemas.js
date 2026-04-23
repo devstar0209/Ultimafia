@@ -207,6 +207,12 @@ var schemas = {
       key: { type: String, index: true, unique: true, default: "default" },
       platformLogoPath: { type: String, default: "" },
       banners: { type: mongoose.Schema.Types.Mixed, default: {} },
+      carouselBanners: [
+        {
+          _id: { type: String, required: true },
+          path: { type: String, required: true },
+        },
+      ],
       gameLogos: { type: mongoose.Schema.Types.Mixed, default: {} },
       updatedAt: { type: Number, default: Date.now },
       updatedBy: { type: String, default: "" },

@@ -5,7 +5,7 @@ export default function LearnSecretDictator({ Layout }) {
   const gameType = "Secret Dictator";
 
   useEffect(() => {
-    document.title = "Learn Secret Dictator | UltiMafia";
+    document.title = "Learn Secret Dictator | PassionMafia";
   }, []);
 
   return (

@@ -6,7 +6,7 @@ export default function TermsOfService() {
   const theme = useTheme();
 
   useEffect(() => {
-    document.title = "Terms of Service | UltiMafia";
+    document.title = "Terms of Service | PassionMafia";
   }, []);
 
   return (
@@ -19,8 +19,8 @@ export default function TermsOfService() {
       </Typography>
 
       <Typography variant="body1" paragraph>
-        Welcome to UltiMafia. These Terms of Service ("Terms") govern your access to and use of the UltiMafia website, 
-        services, and applications (collectively, the "Service") operated by UltiMafia ("we," "us," or "our"). 
+        Welcome to PassionMafia. These Terms of Service ("Terms") govern your access to and use of the PassionMafia website, 
+        services, and applications (collectively, the "Service") operated by PassionMafia ("we," "us," or "our"). 
         By accessing or using our Service, you agree to be bound by these Terms. If you disagree with any part of 
         these Terms, you may not access or use the Service.
       </Typography>
@@ -32,7 +32,7 @@ export default function TermsOfService() {
         <Typography variant="body1" paragraph>
           By creating an account, accessing, or using the Service, you acknowledge that you have read, understood, 
           and agree to be bound by these Terms and our Privacy Policy, which is incorporated herein by reference. 
-          These Terms constitute a legally binding agreement between you and UltiMafia.
+          These Terms constitute a legally binding agreement between you and PassionMafia.
         </Typography>
         <Typography variant="body1" paragraph>
           You must be at least 13 years of age to use the Service. If you are under 18 years of age, you represent 
@@ -140,7 +140,7 @@ export default function TermsOfService() {
         </Typography>
         <Typography variant="body1" paragraph>
           <strong>No Compensation:</strong> You acknowledge that you will not receive any compensation for the 
-          hosting of your User Content by UltiMafia or other users of the Service.
+          hosting of your User Content by PassionMafia or other users of the Service.
         </Typography>
       </Box>
 
@@ -282,11 +282,11 @@ export default function TermsOfService() {
         </Typography>
         <Typography variant="body1" paragraph>
           The Service may contain links to third-party websites, services, or resources that are not owned or 
-          controlled by UltiMafia. We have no control over and assume no responsibility for the content, privacy 
+          controlled by PassionMafia. We have no control over and assume no responsibility for the content, privacy 
           policies, or practices of any third-party services.
         </Typography>
         <Typography variant="body1" paragraph>
-          You acknowledge and agree that UltiMafia shall not be responsible or liable, directly or indirectly, 
+          You acknowledge and agree that PassionMafia shall not be responsible or liable, directly or indirectly, 
           for any damage or loss caused or alleged to be caused by or in connection with the use of or reliance 
           on any such content, goods, or services available on or through any such third-party services.
         </Typography>
@@ -308,7 +308,7 @@ export default function TermsOfService() {
           PURPOSE, NON-INFRINGEMENT, OR COURSE OF PERFORMANCE.
         </Typography>
         <Typography variant="body1" paragraph>
-          UltiMafia does not warrant that the Service will be uninterrupted, secure, or error-free, that defects 
+          PassionMafia does not warrant that the Service will be uninterrupted, secure, or error-free, that defects 
           will be corrected, or that the Service or the server that makes it available are free of viruses or 
           other harmful components.
         </Typography>
@@ -325,14 +325,14 @@ export default function TermsOfService() {
           10. Limitation of Liability
         </Typography>
         <Typography variant="body1" paragraph>
-          TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL ULTIMAFIA, ITS AFFILIATES, AGENTS, 
+          TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL PassionMafia, ITS AFFILIATES, AGENTS, 
           DIRECTORS, EMPLOYEES, SUPPLIERS, OR LICENSORS BE LIABLE FOR ANY INDIRECT, PUNITIVE, INCIDENTAL, SPECIAL, 
           CONSEQUENTIAL, OR EXEMPLARY DAMAGES, INCLUDING WITHOUT LIMITATION DAMAGES FOR LOSS OF PROFITS, GOODWILL, 
           USE, DATA, OR OTHER INTANGIBLE LOSSES, ARISING OUT OF OR RELATING TO THE USE OF, OR INABILITY TO USE, 
           THE SERVICE.
         </Typography>
         <Typography variant="body1" paragraph>
-          TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ULTIMAFIA ASSUMES NO LIABILITY OR RESPONSIBILITY FOR 
+          TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, PassionMafia ASSUMES NO LIABILITY OR RESPONSIBILITY FOR 
           ANY (I) ERRORS, MISTAKES, OR INACCURACIES OF CONTENT; (II) PERSONAL INJURY OR PROPERTY DAMAGE, OF ANY 
           NATURE WHATSOEVER, RESULTING FROM YOUR ACCESS TO OR USE OF OUR SERVICE; (III) ANY UNAUTHORIZED ACCESS 
           TO OR USE OF OUR SECURE SERVERS AND/OR ANY AND ALL PERSONAL INFORMATION STORED THEREIN; (IV) ANY 
@@ -342,8 +342,8 @@ export default function TermsOfService() {
           USE OF ANY CONTENT POSTED, EMAILED, TRANSMITTED, OR OTHERWISE MADE AVAILABLE VIA THE SERVICE.
         </Typography>
         <Typography variant="body1" paragraph>
-          IN NO EVENT SHALL ULTIMAFIA'S TOTAL LIABILITY TO YOU FOR ALL DAMAGES EXCEED THE AMOUNT YOU PAID TO 
-          ULTIMAFIA IN THE TWELVE (12) MONTHS PRIOR TO THE ACTION GIVING RISE TO LIABILITY, OR ONE HUNDRED 
+          IN NO EVENT SHALL PassionMafia'S TOTAL LIABILITY TO YOU FOR ALL DAMAGES EXCEED THE AMOUNT YOU PAID TO 
+          PassionMafia IN THE TWELVE (12) MONTHS PRIOR TO THE ACTION GIVING RISE TO LIABILITY, OR ONE HUNDRED 
           DOLLARS ($100), WHICHEVER IS GREATER.
         </Typography>
         <Typography variant="body1" paragraph>
@@ -359,7 +359,7 @@ export default function TermsOfService() {
           11. Indemnification
         </Typography>
         <Typography variant="body1" paragraph>
-          You agree to defend, indemnify, and hold harmless UltiMafia and its affiliates, licensors, and service 
+          You agree to defend, indemnify, and hold harmless PassionMafia and its affiliates, licensors, and service 
           providers, and their respective officers, directors, employees, contractors, agents, licensors, suppliers, 
           successors, and assigns from and against any claims, liabilities, damages, judgments, awards, losses, 
           costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to your 
@@ -416,7 +416,7 @@ export default function TermsOfService() {
         </Typography>
         <Typography variant="body1" paragraph>
           <strong>For Users in the European Union and United Kingdom:</strong> These Terms shall be governed by 
-          and construed in accordance with the laws of the jurisdiction in which UltiMafia operates, without regard 
+          and construed in accordance with the laws of the jurisdiction in which PassionMafia operates, without regard 
           to its conflict of law provisions. Any disputes arising out of or relating to these Terms or the Service 
           shall be subject to the exclusive jurisdiction of the courts of that jurisdiction. However, if you are 
           a consumer resident in the EU or UK, you may also bring proceedings in your country of residence.
@@ -429,7 +429,7 @@ export default function TermsOfService() {
           that you may assert claims in small claims court if your claims qualify.
         </Typography>
         <Typography variant="body1" paragraph>
-          You and UltiMafia agree that any dispute resolution proceedings will be conducted only on an individual 
+          You and PassionMafia agree that any dispute resolution proceedings will be conducted only on an individual 
           basis and not in a class, consolidated, or representative action.
         </Typography>
       </Box>
@@ -455,8 +455,8 @@ export default function TermsOfService() {
         </Typography>
         <Typography variant="body1" paragraph>
           These Terms, together with our Privacy Policy and Rules of Conduct, constitute the entire agreement 
-          between you and UltiMafia regarding the Service and supersede all prior and contemporaneous written or 
-          oral agreements between you and UltiMafia.
+          between you and PassionMafia regarding the Service and supersede all prior and contemporaneous written or 
+          oral agreements between you and PassionMafia.
         </Typography>
       </Box>
 

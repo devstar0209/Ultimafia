@@ -30,7 +30,7 @@ export default function Contributors(props) {
   const errorAlert = useErrorAlert();
 
   useEffect(() => {
-    document.title = "Contributors | UltiMafia";
+    document.title = "Contributors | PassionMafia";
 
     axios
       .get("/api/site/contributors")

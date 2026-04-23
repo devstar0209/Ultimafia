@@ -424,7 +424,7 @@ export default function Game() {
         stopAudio();
       };
     } else {
-      document.title = `Review Game ${gameId} | UltiMafia`;
+      document.title = `Review Game ${gameId} | PassionMafia`;
 
       axios
         .get(`/api/game/${gameId}/review/data`)
@@ -4869,7 +4869,7 @@ function FirstGameModal(props) {
   const showModal = props.showModal;
   const setShowModal = props.setShowModal;
 
-  const modalHeader = "Welcome to UltiMafia!";
+  const modalHeader = "Welcome to PassionMafia!";
 
   const modalContent = (
     <>
@@ -4940,7 +4940,7 @@ function FirstGameModal(props) {
           </a>{" "}
           and{" "}
           <a
-            href="https://ko-fi.com/ultimafia"
+            href="https://ko-fi.com/PassionMafia"
             target="_blank"
             rel="noopener noreferrer nofollow"
           >

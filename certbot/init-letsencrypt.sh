@@ -2,7 +2,7 @@
 
 dockerComposeFiles="-f docker-compose-core.yml -f docker-compose-prod.yml"
 
-domains=("ultimafia.com")
+domains=("PassionMafia.io")
 rsa_key_size=4096
 data_path="certbot"
 email="golbolco@gmail.com"

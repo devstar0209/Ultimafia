@@ -9,6 +9,7 @@ import {
 
 import ActionCard from "../../components/admin/ActionCard";
 import ImageUploadField from "../../components/admin/ImageUploadField";
+import CarouselBannersUploadField from "../../components/admin/CarouselBannersUploadField";
 import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
 import StatusChip from "../../components/StatusChip";
@@ -19,17 +20,21 @@ import {
   removeAdminPlatformLogo,
   uploadAdminBannerImage,
   uploadAdminPlatformLogo,
+  uploadAdminCarouselBannerImage,
+  removeAdminCarouselBannerImage,
 } from "../../services/adminService";
 
 export default function GeneralSettingsPage() {
   const { data, loading, error } = useAdminQuery(getAdminGeneralSettings);
   const [branding, setBranding] = useState(null);
+  const [carouselBanners, setCarouselBanners] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [pendingKey, setPendingKey] = useState("");
 
   useEffect(() => {
     if (data?.branding) {
       setBranding(data.branding);
+      setCarouselBanners(data.branding?.banners?.carousel || []);
     }
   }, [data]);
 
@@ -60,6 +65,9 @@ export default function GeneralSettingsPage() {
     try {
       const result = await action();
       setBranding(result.branding);
+      if (actionKey === "carousel-banners") {
+        setCarouselBanners(result.branding?.banners?.carousel || []);
+      }
       setFeedback({
         severity: "success",
         message: successMessage,
@@ -82,7 +90,94 @@ export default function GeneralSettingsPage() {
           {feedback ? (
             <Alert severity={feedback.severity}>{feedback.message}</Alert>
           ) : null}
+
           <SectionCard
+            eyebrow="Brand Assets"
+            title="Platform Branding"
+            subtitle="Uploads are written to the live uploads directory and applied on the public site when present."
+          >
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={12}>
+                <ImageUploadField
+                  title="Platform Logo"
+                  description="Primary site logo shown in the main shell when a custom upload is available."
+                  imageUrl={branding?.platformLogoUrl}
+                  alt="Platform logo preview"
+                  pending={pendingKey === "platform-logo"}
+                  uploadLabel="Upload Logo"
+                  previewHeight={132}
+                  onUpload={(file) =>
+                    runBrandingAction(
+                      "platform-logo",
+                      () => uploadAdminPlatformLogo(file),
+                      "Platform logo updated."
+                    )
+                  }
+                  onRemove={() =>
+                    runBrandingAction(
+                      "platform-logo",
+                      removeAdminPlatformLogo,
+                      "Platform logo removed."
+                    )
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={12}>
+                <ImageUploadField
+                  title="Welcome Banner"
+                  description="Hero banner used on the public welcome page game panel."
+                  imageUrl={branding?.banners?.welcome}
+                  alt="Welcome banner preview"
+                  pending={pendingKey === "banner-welcome"}
+                  uploadLabel="Upload Banner"
+                  previewHeight={180}
+                  objectFit="cover"
+                  onUpload={(file) =>
+                    runBrandingAction(
+                      "banner-welcome",
+                      () => uploadAdminBannerImage("welcome", file),
+                      "Welcome banner updated."
+                    )
+                  }
+                  onRemove={() =>
+                    runBrandingAction(
+                      "banner-welcome",
+                      () => removeAdminBannerImage("welcome"),
+                      "Welcome banner removed."
+                    )
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={12}>
+                <CarouselBannersUploadField
+                  title="Carousel Banners"
+                  description="Upload multiple banners to display in a carousel on the welcome page below the welcome banner."
+                  banners={carouselBanners}
+                  pending={pendingKey === "carousel-banners"}
+                  previewHeight={120}
+                  onUpload={(file) =>
+                    runBrandingAction(
+                      "carousel-banners",
+                      () => uploadAdminCarouselBannerImage(file),
+                      "Carousel banner added."
+                    )
+                  }
+                  onRemove={(bannerId) =>
+                    runBrandingAction(
+                      "carousel-banners",
+                      () => removeAdminCarouselBannerImage(bannerId),
+                      "Carousel banner removed."
+                    )
+                  }
+                />
+              </Grid>
+            </Grid>
+          </SectionCard>
+
+        </Stack>
+      </Grid>
+      <Grid item xs={12} xl={5}>
+        <SectionCard
             eyebrow="Platform Defaults"
             title="General Settings"
             subtitle="Manage live branding assets for the logo, welcome banner, and site-wide defaults."
@@ -109,78 +204,6 @@ export default function GeneralSettingsPage() {
               ))}
             </Grid>
           </SectionCard>
-
-          <SectionCard
-            eyebrow="Brand Assets"
-            title="Platform Branding"
-            subtitle="Uploads are written to the live uploads directory and applied on the public site when present. Game logos are managed from Settings > Game Catalogs."
-          >
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <ImageUploadField
-                  title="Platform Logo"
-                  description="Primary site logo shown in the main shell when a custom upload is available."
-                  imageUrl={branding?.platformLogoUrl}
-                  alt="Platform logo preview"
-                  pending={pendingKey === "platform-logo"}
-                  uploadLabel="Upload Logo"
-                  previewHeight={132}
-                  onUpload={(file) =>
-                    runBrandingAction(
-                      "platform-logo",
-                      () => uploadAdminPlatformLogo(file),
-                      "Platform logo updated."
-                    )
-                  }
-                  onRemove={() =>
-                    runBrandingAction(
-                      "platform-logo",
-                      removeAdminPlatformLogo,
-                      "Platform logo removed."
-                    )
-                  }
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <ImageUploadField
-                  title="Welcome Banner"
-                  description="Hero banner used on the public welcome page game panel."
-                  imageUrl={branding?.banners?.welcome}
-                  alt="Welcome banner preview"
-                  pending={pendingKey === "banner-welcome"}
-                  uploadLabel="Upload Banner"
-                  previewHeight={180}
-                  objectFit="cover"
-                  onUpload={(file) =>
-                    runBrandingAction(
-                      "banner-welcome",
-                      () => uploadAdminBannerImage("welcome", file),
-                      "Welcome banner updated."
-                    )
-                  }
-                  onRemove={() =>
-                    runBrandingAction(
-                      "banner-welcome",
-                      () => removeAdminBannerImage("welcome"),
-                      "Welcome banner removed."
-                    )
-                  }
-                />
-              </Grid>
-            </Grid>
-          </SectionCard>
-
-        </Stack>
-      </Grid>
-      <Grid item xs={12} xl={5}>
-        <ActionCard
-          title="General Controls"
-          actions={[
-            "Upload a custom platform logo without rebuilding the main client.",
-            "Swap the welcome banner from admin settings instead of source assets.",
-            "Manage game titles, slugs, and logos from the dedicated Game Catalogs settings page.",
-          ]}
-        />
       </Grid>
     </Grid>
   );

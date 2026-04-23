@@ -3007,7 +3007,7 @@ router.post("/appeals", async function (req, res) {
         status: "in-progress",
       });
 
-      const title = `${user.name} appealing violation: https://ultimafia.com/policy/reports/${appealReport.id}`;
+      const title = `${user.name} appealing violation: https://PassionMafia.io/policy/reports/${appealReport.id}`;
       let reportDetails = `\nNumber of open reports: ${openReportCount}\n`;
       reportDetails += `Number of in-progress reports: ${inProgressReportCount}`;
 

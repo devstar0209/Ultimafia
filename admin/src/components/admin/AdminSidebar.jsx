@@ -61,7 +61,7 @@ export default function AdminSidebar({
               UM
             </Avatar>
             <Box>
-              <Typography variant="h3">Ultimafia Admin</Typography>
+              <Typography variant="h3">PassionMafia Admin</Typography>
               <Typography color="text.secondary">
                 Multi-page operations panel
               </Typography>

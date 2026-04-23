@@ -39,7 +39,7 @@ export default function CreateCheatSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Cheat Setup | UltiMafia";
+    document.title = "Create Cheat Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {

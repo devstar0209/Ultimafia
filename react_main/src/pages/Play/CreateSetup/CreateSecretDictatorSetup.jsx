@@ -24,7 +24,7 @@ export default function CreateSecretDictatorSetup() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
-    document.title = "Create Secret Dictator Setup | UltiMafia";
+    document.title = "Create Secret Dictator Setup | PassionMafia";
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {

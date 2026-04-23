@@ -168,7 +168,7 @@ router.post("/send", async function (req, res) {
           status: "in-progress",
         });
 
-        const title = `${user.name} reporting ${reportedUserDoc.name}: https://ultimafia.com/policy/reports/${report.id}`;
+        const title = `${user.name} reporting ${reportedUserDoc.name}: https://PassionMafia.io/policy/reports/${report.id}`;
         let reportDetails = `\nNumber of open reports: ${openReportCount}\n`;
         reportDetails += `Number of in-progress reports: ${inProgressReportCount}`;
 
@@ -236,7 +236,7 @@ router.post("/volunteer", async function (req, res) {
     const trimmedReason = String(reason).trim().slice(0, 1500);
 
     try {
-      const title = `Staff application from ${user.name}: https://ultimafia.com/user/${userId}`;
+      const title = `Staff application from ${user.name}: https://PassionMafia.io/user/${userId}`;
       let details = `\nAge: ${ageNum}`;
       details += `\n\nWhy they want to be a moderator:\n${trimmedReason}`;
 
@@ -281,9 +281,9 @@ async function sendFlaggedUserDiscordAlert(userName, odlld, reason) {
     const title = `New flagged user registered: ${userName}`;
     let details = `\nUser ID: ${odlld}`;
     details += `\nReason: ${reason}`;
-    details += `\nProfile: https://ultimafia.com/user/${odlld}`;
+    details += `\nProfile: https://PassionMafia.io/user/${odlld}`;
     details += `\nTotal flagged users: ${flaggedUserCount}`;
-    details += `\nReview at: https://ultimafia.com/policy/moderation/flagged-intake`;
+    details += `\nReview at: https://PassionMafia.io/policy/moderation/flagged-intake`;
 
     const ping = "<@&1107343293848768622>\n";
 

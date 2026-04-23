@@ -28,8 +28,8 @@ alias d="docker compose -f docker-compose-core.yml -f docker-compose-prod.yml"
 Clone:
 
 ```
-git clone https://github.com/UltiMafia/Ultimafia.git
-cd UltiMafia
+git clone https://github.com/PassionMafia/PassionMafia.git
+cd PassionMafia
 ```
 
 Do NOT run `totalsetup.sh` as it will apply dev settings.
@@ -55,7 +55,7 @@ SECRET_ID=<not sure what this is for>
 RECAPTCHA_KEY=<your recaptcha key>
 
 MONGO_URL=mongodb
-MONGO_DB=ultimafia
+MONGO_DB=PassionMafia
 MONGO_USER=admin
 MONGO_PW=<strong admin password>
 

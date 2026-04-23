@@ -30,6 +30,7 @@
     "react-loading": "^2.0.3",
     "react-markdown": "^8.0.0",
     "react-mde": "^11.5.0",
+    "react-responsive-carousel": "^3.2.23",
     "react-router-dom": "^6.30.1",
     "react-sound": "^1.2.0"
   },

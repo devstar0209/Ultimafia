@@ -23,7 +23,7 @@ export default function LearnGlossary(props) {
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
-    document.title = "Learn Glossary | UltiMafia";
+    document.title = "Learn Glossary | PassionMafia";
   }, []);
 
   const commandTableRows = Object.keys(commandList)
@@ -116,7 +116,7 @@ export default function LearnGlossary(props) {
         Glossary
       </Typography>
       <Typography variant="body1" paragraph>
-        UltiMafia features a comprehensive list of terms and chat commands.
+        PassionMafia features a comprehensive list of terms and chat commands.
         Understanding these commands and terms is crucial for mastering the
         game's mechanics and strategies. To improve the definitions or add new
         ones, we encourage you to get involved through our Discord or Github

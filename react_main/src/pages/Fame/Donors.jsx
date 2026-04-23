@@ -13,7 +13,7 @@ export default function Donors(props) {
   const errorAlert = useErrorAlert();
 
   useEffect(() => {
-    document.title = "Donors | UltiMafia";
+    document.title = "Donors | PassionMafia";
 
     axios
       .get("/api/site/donors")
@@ -60,8 +60,8 @@ export default function Donors(props) {
         </Typography>
         <Typography variant="body1" paragraph>
           This page exists to thank the many people who have financially
-          supported UltiMafia at their own expense. If you have donated to
-          UltiMafia and are not listed here, please contact an admin
+          supported PassionMafia at their own expense. If you have donated to
+          PassionMafia and are not listed here, please contact an admin
           immediately!
         </Typography>
         <Typography variant="body1" paragraph>
@@ -69,7 +69,7 @@ export default function Donors(props) {
           donations from users. If you are able to, please consider donating on
           our{" "}
           <Link
-            href="https://ko-fi.com/ultimafia"
+            href="https://ko-fi.com/PassionMafia"
             target="_blank"
             rel="noopener noreferrer"
           >

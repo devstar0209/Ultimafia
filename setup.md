@@ -34,8 +34,8 @@ nvm alias default 22.17.0
 ## 3. Clone the repository
 
 ```bash
-git clone https://github.com/devstar0209/Ultimafia
-cd Ultimafia
+git clone https://github.com/devstar0209/PassionMafia
+cd PassionMafia
 ```
 
 ## 4. Create the backend environment file
@@ -64,7 +64,7 @@ SESSION_SECRET=replace-this
 LOAD_BALANCER_KEY=replace-this
 BOT_KEY=replace-this
 
-MONGO_URI=mongodb+srv://USERNAME:PASSWORD@HOST/ultimafia
+MONGO_URI=mongodb+srv://USERNAME:PASSWORD@HOST/PassionMafia
 MONGO_USER=USERNAME
 MONGO_PW=PASSWORD
 REDIS_DB=0
@@ -220,7 +220,7 @@ pm2 save
 
 ## 10. Configure Nginx
 
-Create an Nginx site config such as `/etc/nginx/sites-available/ultimafia`:
+Create an Nginx site config such as `/etc/nginx/sites-available/PassionMafia`:
 
 ```nginx
 server {
@@ -265,7 +265,7 @@ server {
 Enable the site:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/ultimafia /etc/nginx/sites-enabled/ultimafia
+sudo ln -s /etc/nginx/sites-available/PassionMafia /etc/nginx/sites-enabled/PassionMafia
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -323,7 +323,7 @@ Things to confirm:
 ## 14. Updating the app later
 
 ```bash
-cd ~/Ultimafia
+cd ~/PassionMafia
 git pull
 npm ci
 cd react_main

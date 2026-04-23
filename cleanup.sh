@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 echo "Clearing root folder of node dependencies..."
-cd /workspaces/Ultimafia
+cd /workspaces/PassionMafia
 npm cache clean --force
 rm -r node_modules/
 rm package-lock.json

@@ -12,7 +12,7 @@ module.exports = class WinByCondemning extends Card {
       "leaving their lights on at night",
       "backing up into your mailbox",
       "forgetting to water your plants",
-      "unfriending you on UltiMafia",
+      "unfriending you on PassionMafia",
       "Rickrolling you",
       "looking at you funny",
       "being wrong in Mafia once",

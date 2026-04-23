@@ -1,6 +1,6 @@
-# UltiMafia
+# PassionMafia
 
-This is the source code powering [UltiMafia.com](https://ultimafia.com), a website built to provide online chat mafia to all.
+This is the source code powering [PassionMafia.io](https://PassionMafia.io), a website built to provide online chat mafia to all.
 
 ## Table of Contents
 

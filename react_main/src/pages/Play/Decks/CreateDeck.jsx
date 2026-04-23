@@ -204,7 +204,7 @@ export default function CreateDecks() {
   }
 
   useEffect(() => {
-    document.title = "Create Anonymous Deck | UltiMafia";
+    document.title = "Create Anonymous Deck | PassionMafia";
   }, []);
 
   useEffect(() => {

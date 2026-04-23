@@ -27,7 +27,7 @@ export default function Volunteer() {
     }
     if (!reason.trim()) {
       siteInfo.showAlert(
-        "Please explain why you want to be an Admin on UltiMafia.",
+        "Please explain why you want to be an Admin on PassionMafia.",
         "error"
       );
       return;
@@ -63,7 +63,7 @@ export default function Volunteer() {
         Volunteer
       </Typography>
       <Typography variant="body2" color="text.secondary" paragraph>
-        Interested in joining the UltiMafia staff team? Fill out the form
+        Interested in joining the PassionMafia staff team? Fill out the form
         below to submit your application.
       </Typography>
 
@@ -79,13 +79,13 @@ export default function Volunteer() {
             disabled={!user.loggedIn || submitting}
           />
           <TextField
-            label="Why do you want to help lead UltiMafia?"
+            label="Why do you want to help lead PassionMafia?"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             fullWidth
             multiline
             rows={6}
-            placeholder="Explain what you can bring to UltiMafia's leadership..."
+            placeholder="Explain what you can bring to PassionMafia's leadership..."
             disabled={!user.loggedIn || submitting}
             inputProps={{ maxLength: 1500 }}
             helperText={`${reason.length}/1500 characters`}

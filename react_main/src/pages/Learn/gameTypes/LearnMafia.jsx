@@ -36,7 +36,7 @@ export default function LearnMafia({ Layout }) {
   }, [siteInfo.items, gameType]);
 
   useEffect(() => {
-    document.title = "Learn Mafia | UltiMafia";
+    document.title = "Learn Mafia | PassionMafia";
   }, []);
 
   const renderTable = (data) => (

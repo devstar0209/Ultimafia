@@ -4,4 +4,4 @@ Disallow: /nogooglebot/
 User-agent: *
 Allow: /
 
-Sitemap: https://ultimafia.com/sitemap.xml
+Sitemap: https://passionmafia.io/sitemap.xml

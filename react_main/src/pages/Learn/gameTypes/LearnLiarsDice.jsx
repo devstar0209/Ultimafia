@@ -7,7 +7,7 @@ export default function LearnLiarsDice({ Layout }) {
   const theme = useTheme();
 
   useEffect(() => {
-    document.title = "Learn Liars Dice | UltiMafia";
+    document.title = "Learn Liars Dice | PassionMafia";
   }, []);
 
   const mechanics = [

@@ -370,7 +370,7 @@ export default function Profile() {
             setMediaUrl(res.data.settings.youtube);
             setAutoplay(res.data.settings.autoplay);
           }
-          document.title = `${res.data.name}'s Profile | UltiMafia`;
+          document.title = `${res.data.name}'s Profile | PassionMafia`;
         })
         .catch((e) => {
           errorAlert(e);

@@ -48,7 +48,7 @@ export default function Calendar(props) {
   }, []);
 
   useEffect(() => {
-    document.title = "Calendar | UltiMafia";
+    document.title = "Calendar | PassionMafia";
 
     axios.get(`/api/competitive/seasons`).then((response) => {
       const seasons = response.data;

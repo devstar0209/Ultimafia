@@ -168,7 +168,7 @@ router.post("/", async function (req, res) {
         ? rawRoleId.split(":")[1]
         : rawRoleId;
       const encodedRoleName = encodeURIComponent(roleName);
-      const pageUrl = `https://ultimafia.com/learn/role/${encodedRoleName}`;
+      const pageUrl = `https://PassionMafia.io/learn/role/${encodedRoleName}`;
 
       const uploaderName = authorDoc?.name || userId;
 

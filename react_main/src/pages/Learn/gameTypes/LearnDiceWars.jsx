@@ -7,7 +7,7 @@ export default function LearnDiceWars({ Layout }) {
   const theme = useTheme();
 
   useEffect(() => {
-    document.title = "Learn Dice Wars | UltiMafia";
+    document.title = "Learn Dice Wars | PassionMafia";
   }, []);
 
   const mechanics = [
