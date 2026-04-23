@@ -62,13 +62,13 @@ app.use(passport.session());
 app.use(helmet());
 app.set("trust proxy", 1);
 
-if (req.headers.origin !== "https://passionmafia.io") {
-  return res.status(403).send("Forbidden");
-}
 app.use(csrf);
 app.use(
   compression({
     filter: (req, res) => {
+      if (req.headers.origin !== "https://passionmafia.io") {
+        return res.status(403).send("Forbidden");
+      }
       return req.headers["x-no-compression"]
         ? false
         : compression.filter(req, res);
