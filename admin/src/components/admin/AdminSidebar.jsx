@@ -42,37 +42,7 @@ export default function AdminSidebar({
         },
       }}
     >
-      <Paper
-        sx={{
-          p: 2.5,
-          background:
-            "linear-gradient(145deg, rgba(255,140,66,0.18), rgba(95,209,199,0.12))",
-        }}
-      >
-        <Stack spacing={1.5}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Avatar
-              sx={{
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                fontWeight: 800,
-              }}
-            >
-              UM
-            </Avatar>
-            <Box>
-              <Typography variant="h3">PassionMafia Admin</Typography>
-              <Typography color="text.secondary">
-                Multi-page operations panel
-              </Typography>
-            </Box>
-          </Stack>
-          <Typography color="text.secondary">
-            A dedicated workspace for administrators managing users, games,
-            store pricing, avatars, and platform settings.
-          </Typography>
-        </Stack>
-      </Paper>
+      
 
       <TextField
         fullWidth
