@@ -82,41 +82,14 @@ export default function GeneralSettingsPage() {
           {feedback ? (
             <Alert severity={feedback.severity}>{feedback.message}</Alert>
           ) : null}
-          <SectionCard
-            eyebrow="Platform Defaults"
-            title="General Settings"
-            subtitle="Manage live branding assets for the logo, welcome banner, and site-wide defaults."
-          >
-            <Grid container spacing={2}>
-              {settingsModules.map((module) => (
-                <Grid item xs={12} md={6} key={module.title}>
-                  <Paper
-                    sx={{
-                      p: 2.25,
-                      height: "100%",
-                      backgroundColor: "rgba(255,255,255,0.02)",
-                    }}
-                  >
-                    <Stack spacing={1.2}>
-                      <Typography variant="h4">{module.title}</Typography>
-                      <Typography color="text.secondary">
-                        {module.description}
-                      </Typography>
-                      <StatusChip label={module.status} />
-                    </Stack>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </SectionCard>
 
           <SectionCard
             eyebrow="Brand Assets"
             title="Platform Branding"
-            subtitle="Uploads are written to the live uploads directory and applied on the public site when present. Game logos are managed from Settings > Game Catalogs."
+            subtitle="Uploads are written to the live uploads directory and applied on the public site when present."
           >
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={12}>
                 <ImageUploadField
                   title="Platform Logo"
                   description="Primary site logo shown in the main shell when a custom upload is available."
@@ -141,7 +114,7 @@ export default function GeneralSettingsPage() {
                   }
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={12}>
                 <ImageUploadField
                   title="Welcome Banner"
                   description="Hero banner used on the public welcome page game panel."
@@ -173,14 +146,33 @@ export default function GeneralSettingsPage() {
         </Stack>
       </Grid>
       <Grid item xs={12} xl={5}>
-        <ActionCard
-          title="General Controls"
-          actions={[
-            "Upload a custom platform logo without rebuilding the main client.",
-            "Swap the welcome banner from admin settings instead of source assets.",
-            "Manage game titles, slugs, and logos from the dedicated Game Catalogs settings page.",
-          ]}
-        />
+        <SectionCard
+            eyebrow="Platform Defaults"
+            title="General Settings"
+            subtitle="Manage live branding assets for the logo, welcome banner, and site-wide defaults."
+          >
+            <Grid container spacing={2}>
+              {settingsModules.map((module) => (
+                <Grid item xs={12} md={6} key={module.title}>
+                  <Paper
+                    sx={{
+                      p: 2.25,
+                      height: "100%",
+                      backgroundColor: "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    <Stack spacing={1.2}>
+                      <Typography variant="h4">{module.title}</Typography>
+                      <Typography color="text.secondary">
+                        {module.description}
+                      </Typography>
+                      <StatusChip label={module.status} />
+                    </Stack>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          </SectionCard>
       </Grid>
     </Grid>
   );
