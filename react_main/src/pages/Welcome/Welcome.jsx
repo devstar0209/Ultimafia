@@ -18,7 +18,6 @@ import { useSnackbar } from "hooks/useSnackbar";
 import { Loading } from "../../components/Loading";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import { SiteInfoContext, UserContext } from "Contexts";
-import { GameTypes } from "../../Constants";
 
 const DESKTOP_COLUMN_HEIGHT = 800;
 
@@ -378,8 +377,8 @@ export const Welcome = () => {
               }}
             >
               <Grid2 container rowSpacing={1} columnSpacing={1}>
-                {GameTypes.map((game) => (
-                  <Grid2 key={game} size={{ xs: 6 }}>
+                {(siteInfo?.gameCatalog || []).map((game) => (
+                  <Grid2 key={game.key} size={{ xs: 6 }}>
                     <Box
                       component="div"
                       sx={{
@@ -399,11 +398,11 @@ export const Welcome = () => {
                       <Box
                         component="img"
                         src={getGameIconSrc(
-                          game,
+                          game.key,
                           siteInfo?.branding?.gameLogos,
                           siteInfo?.gameCatalogMap
                         )}
-                        alt={`${siteInfo?.gameCatalogMap?.[game]?.title || game} icon`}
+                        alt={`${game.title || game.key} icon`}
                         sx={{
                           width: "100%",
                           height: "100%",
