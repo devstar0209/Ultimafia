@@ -7,8 +7,13 @@ const bodyParser = require("body-parser");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const compression = require("compression");
+const cors = require("cors");
+const passport = require("passport");
+
 const logger = require("./modules/logging")(".");
 
+// Routers
 const indexRouter = require("./routes/index");
 const authRouter = require("./routes/auth");
 const gameRouter = require("./routes/game");
@@ -33,52 +38,63 @@ const competitiveRouter = require("./routes/competitive");
 const vanityUrlRouter = require("./routes/vanityUrl");
 const familyRouter = require("./routes/family");
 const fanartRouter = require("./routes/fanart");
-const compression = require("compression");
-const cors = require("cors");
 const itemsRouter = require("./routes/items");
 const adminRouter = require("./routes/admin");
 
 const session = require("./modules/session");
 const csrf = require("./modules/csrf");
-const passport = require("passport");
 
 const app = express();
+
 const frontendBuildPath = path.join(__dirname, "react_main/build_public");
 const adminBuildPath = path.join(__dirname, "admin/build");
 
+app.set("trust proxy", 1);
+
+// ========================
+// MIDDLEWARE
+// ========================
 app.use(morgan("combined", { stream: logger.stream }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
+
 app.use(cors({
-  origin: [
-    "https://passionmafia.io"
-  ],
+  origin: ["https://passionmafia.io"],
   credentials: true
 }));
+
+app.use(helmet());
+
 app.use(session);
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(helmet());
-app.set("trust proxy", 1);
 
 app.use(csrf);
-app.use(
-  compression({
-    filter: (req, res) => {
-      return req.headers["x-no-compression"]
-        ? false
-        : compression.filter(req, res);
-    },
-  })
-);
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, process.env.UPLOAD_PATH), {
-    maxAge: 3600,
-  })
-);
 
+app.use(compression());
+
+// ========================
+// RATE LIMITING
+// ========================
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000, // increased to avoid blocking legit users
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+});
+
+// ========================
+// API ROUTES
+// ========================
 const apiRouter = express.Router();
 
 apiRouter.use("/", indexRouter);
@@ -108,36 +124,17 @@ apiRouter.use("/items", itemsRouter);
 apiRouter.use("/fanart", fanartRouter);
 apiRouter.use("/admin", adminRouter);
 
-
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
+// Apply limiters
 app.use("/api", globalLimiter);
-
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-});
 app.use("/api/auth", authLimiter);
-
-const adminLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-});
 app.use("/api/admin", adminLimiter);
 
+// Origin guard
 function originGuard(req, res, next) {
   const allowedOrigin = "https://passionmafia.io";
   const origin = req.headers.origin;
 
-  // Allow requests with no origin (server-to-server, curl, etc.)
   if (!origin) return next();
-
   if (origin !== allowedOrigin) {
     return res.status(403).send("Forbidden");
   }
@@ -147,39 +144,53 @@ function originGuard(req, res, next) {
 
 app.use("/api", originGuard, apiRouter);
 
-app.use(express.static(frontendBuildPath));
+// ========================
+// STATIC FILES (CRITICAL ORDER)
+// ========================
+
+// Serve admin FIRST under /admin
 app.use("/admin", express.static(adminBuildPath));
+
+// Serve main frontend
+app.use(express.static(frontendBuildPath));
+
+// Uploads
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, process.env.UPLOAD_PATH), {
+    maxAge: "1h",
+  })
+);
+
+// ========================
+// SPA FALLBACK (FIXES MIME ERROR)
+// ========================
 app.get("*", (req, res) => {
-  if(req.path.startsWith("/admin")) {
+  // ❌ prevent JS/CSS from being hijacked
+  if (req.path.includes(".")) {
+    return res.status(404).end();
+  }
+
+  if (req.path.startsWith("/admin")) {
     return res.sendFile(path.join(adminBuildPath, "index.html"));
   }
-  res.sendFile(path.join(frontendBuildPath, "index.html"));
+
+  return res.sendFile(path.join(frontendBuildPath, "index.html"));
 });
 
-// app.all("/*", function (req, res, next) {
-//   res.header("Access-Control-Allow-Origin", "*");
-//   next();
-// });
-
-// catch 404 and forward to error handler
-app.use(function (req, res, next) {
+// ========================
+// ERROR HANDLING
+// ========================
+app.use((req, res, next) => {
   next(createError(404));
 });
 
-// error handler
-app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
-  if (err.status == 404) {
-    res.status(404);
-    res.send("404");
-  } else {
-    res.locals.message = err.message;
-    res.locals.error = req.app.get("env") == "development" ? err : {};
-
-    // render the error page
-    res.status(err.status || 500);
-    res.send("Error");
+app.use((err, req, res, next) => {
+  if (err.status === 404) {
+    return res.status(404).send("404");
   }
+
+  res.status(err.status || 500).send("Error");
 });
 
 module.exports = app;
