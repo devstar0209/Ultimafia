@@ -5,8 +5,8 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
-const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
+// const helmet = require("helmet");
+// const rateLimit = require("express-rate-limit");
 const logger = require("./modules/logging")(".");
 
 const indexRouter = require("./routes/index");
@@ -50,17 +50,18 @@ app.use(morgan("combined", { stream: logger.stream }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors({
-  origin: [
-    "https://passionmafia.io"
-  ],
-  credentials: true
-}));
+app.use(cors());
+// app.use(cors({
+//   origin: [
+//     "https://passionmafia.io"
+//   ],
+//   credentials: true
+// }));
 app.use(session);
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(helmet());
-app.set("trust proxy", 1);
+// app.use(helmet());
+// app.set("trust proxy", 1);
 
 app.use(csrf);
 app.use(
@@ -109,41 +110,27 @@ apiRouter.use("/fanart", fanartRouter);
 apiRouter.use("/admin", adminRouter);
 
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// const globalLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 100,
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
-app.use("/api", globalLimiter);
+// app.use("/api", globalLimiter);
 
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-});
-app.use("/api/auth", authLimiter);
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 20,
+// });
+// app.use("/api/auth", authLimiter);
 
-const adminLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
-});
-app.use("/api/admin", adminLimiter);
-
-function originGuard(req, res, next) {
-  const allowedOrigin = "https://passionmafia.io";
-  const origin = req.headers.origin;
-
-  // Allow requests with no origin (server-to-server, curl, etc.)
-  if (!origin) return next();
-
-  if (origin !== allowedOrigin) {
-    return res.status(403).send("Forbidden");
-  }
-
-  next();
-}
+// const adminLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 50,
+// });
+// app.use("/api/admin", adminLimiter);
 
 app.use("/api", apiRouter);
 
