@@ -172,3 +172,8 @@ export async function getShopInfo() {
   const response = await axios.get("/api/shop/info");
   return response.data;
 }
+
+export async function updateAdminDefaultSettings(settings) {
+  const response = await axios.patch("/api/admin/settings/defaults", settings);
+  return response.data;
+}

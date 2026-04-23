@@ -232,6 +232,27 @@ var schemas = {
     },
     { minimize: false }
   ),
+  DefaultSettings: new mongoose.Schema(
+    {
+      key: { type: String, index: true, unique: true, default: "default" },
+      registerCoinsReward: { type: Number, default: 0 },
+      // Currency Settings
+      initialRedHeartCapacity: { type: Number, default: 15 },
+      initialGoldHeartCapacity: { type: Number, default: 0 },
+      maxBonusRedHearts: { type: Number, default: 5 },
+      redHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
+      goldHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
+      // Ranked/Competitive Settings
+      minimumGamesForRanked: { type: Number, default: 5 },
+      minimumPointsForCompetitive: { type: Number, default: 150 },
+      openDaysPerCompetitiveRound: { type: Number, default: 9 },
+      reviewDaysPerCompetitiveRound: { type: Number, default: 4 },
+      pointsNominalAmount: { type: Number, default: 60 },
+      updatedAt: { type: Number, default: Date.now },
+      updatedBy: { type: String, default: "" },
+    },
+    { minimize: false }
+  ),
   Session: new mongoose.Schema({
     expires: Date,
     lastModified: Date,

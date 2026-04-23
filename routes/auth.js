@@ -327,6 +327,11 @@ async function authSuccess(req, uid, email, discordProfile) {
       }
 
       id = shortid.generate();
+      
+      // Get register coins reward from default settings
+      const defaultSettings = await models.DefaultSettings.findOne({ key: "default" });
+      const registerCoinsReward = defaultSettings?.registerCoinsReward || 0;
+      
       user = new models.User({
         id: id,
         name: name,
@@ -341,6 +346,7 @@ async function authSuccess(req, uid, email, discordProfile) {
         discordName: discordProfile?.global_name,
         redHearts: constants.initialRedHeartCapacity,
         goldHearts: constants.initialGoldHeartCapacity,
+        coins: registerCoinsReward,
       });
 
       if (process.env.NODE_ENV.includes("development")) {

@@ -10,6 +10,7 @@ const redis = require("../modules/redis");
 const gameCatalogUtils = require("../lib/gameCatalog");
 const brandingUtils = require("../lib/platformBranding");
 const routeUtils = require("./utils");
+const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
 
 const router = express.Router();
@@ -1136,6 +1137,7 @@ router.get("/settings/general", async function (req, res) {
       openReports,
       activeAutomationCandidates,
       brandingDoc,
+      defaultSettings,
     ] = await Promise.all([
       redis.getMinimumGamesForRanked(),
       redis.getAutoApprovalEnabled(),
@@ -1143,6 +1145,7 @@ router.get("/settings/general", async function (req, res) {
       models.Report.countDocuments({ status: { $in: ["open", "in-progress"] } }),
       models.User.countDocuments({ flagged: true, deleted: false }),
       getPlatformBrandingDocument(),
+      models.DefaultSettings.findOne({ key: "default" }),
     ]);
 
     res.send({
@@ -1154,10 +1157,86 @@ router.get("/settings/general", async function (req, res) {
         activeAutomationCandidates
       ),
       branding: brandingUtils.buildBrandingPayload(brandingDoc),
+      defaultSettings: {
+        registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
+        initialRedHeartCapacity: defaultSettings?.initialRedHeartCapacity || 15,
+        initialGoldHeartCapacity: defaultSettings?.initialGoldHeartCapacity || 0,
+        maxBonusRedHearts: defaultSettings?.maxBonusRedHearts || 5,
+        redHeartRefreshIntervalMillis: defaultSettings?.redHeartRefreshIntervalMillis || 82800000,
+        goldHeartRefreshIntervalMillis: defaultSettings?.goldHeartRefreshIntervalMillis || 82800000,
+        minimumGamesForRanked: defaultSettings?.minimumGamesForRanked || 5,
+        minimumPointsForCompetitive: defaultSettings?.minimumPointsForCompetitive || 150,
+        openDaysPerCompetitiveRound: defaultSettings?.openDaysPerCompetitiveRound || 9,
+        reviewDaysPerCompetitiveRound: defaultSettings?.reviewDaysPerCompetitiveRound || 4,
+        pointsNominalAmount: defaultSettings?.pointsNominalAmount || 60,
+      },
     });
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading admin general settings.");
+  }
+});
+
+router.patch("/settings/defaults", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const {
+      registerCoinsReward,
+      initialRedHeartCapacity,
+      initialGoldHeartCapacity,
+      maxBonusRedHearts,
+      redHeartRefreshIntervalMillis,
+      goldHeartRefreshIntervalMillis,
+      minimumGamesForRanked,
+      minimumPointsForCompetitive,
+      openDaysPerCompetitiveRound,
+      reviewDaysPerCompetitiveRound,
+      pointsNominalAmount,
+    } = req.body;
+
+    const updated = await models.DefaultSettings.findOneAndUpdate(
+      { key: "default" },
+      {
+        registerCoinsReward: Number(registerCoinsReward || 0),
+        initialRedHeartCapacity: Number(initialRedHeartCapacity || 15),
+        initialGoldHeartCapacity: Number(initialGoldHeartCapacity || 0),
+        maxBonusRedHearts: Number(maxBonusRedHearts || 5),
+        redHeartRefreshIntervalMillis: Number(redHeartRefreshIntervalMillis || 82800000),
+        goldHeartRefreshIntervalMillis: Number(goldHeartRefreshIntervalMillis || 82800000),
+        minimumGamesForRanked: Number(minimumGamesForRanked || 5),
+        minimumPointsForCompetitive: Number(minimumPointsForCompetitive || 150),
+        openDaysPerCompetitiveRound: Number(openDaysPerCompetitiveRound || 9),
+        reviewDaysPerCompetitiveRound: Number(reviewDaysPerCompetitiveRound || 4),
+        pointsNominalAmount: Number(pointsNominalAmount || 60),
+        updatedAt: Date.now(),
+        updatedBy: req.user?.id || "unknown",
+      },
+      { upsert: true, new: true }
+    );
+
+    // Invalidate cache so next request picks up new values
+    defaultSettings.invalidateCache();
+
+    res.send({
+      defaultSettings: {
+        registerCoinsReward: updated.registerCoinsReward,
+        initialRedHeartCapacity: updated.initialRedHeartCapacity,
+        initialGoldHeartCapacity: updated.initialGoldHeartCapacity,
+        maxBonusRedHearts: updated.maxBonusRedHearts,
+        redHeartRefreshIntervalMillis: updated.redHeartRefreshIntervalMillis,
+        goldHeartRefreshIntervalMillis: updated.goldHeartRefreshIntervalMillis,
+        minimumGamesForRanked: updated.minimumGamesForRanked,
+        minimumPointsForCompetitive: updated.minimumPointsForCompetitive,
+        openDaysPerCompetitiveRound: updated.openDaysPerCompetitiveRound,
+        reviewDaysPerCompetitiveRound: updated.reviewDaysPerCompetitiveRound,
+        pointsNominalAmount: updated.pointsNominalAmount,
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating default settings.");
   }
 });
 
