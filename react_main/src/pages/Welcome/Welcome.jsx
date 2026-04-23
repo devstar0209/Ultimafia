@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Box, Container, Typography, Paper, Grid2 } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import "css/main.css";
@@ -227,7 +227,6 @@ export const Welcome = () => {
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedGame, setSelectedGame] = useState("Mafia");
   const isPhoneDevice = useIsPhoneDevice();
   const snackbarHook = useSnackbar();
 
@@ -278,14 +277,9 @@ export const Welcome = () => {
   }, []);
 
   const paddingX = isPhoneDevice ? 1.5 : 5;
-  const activeGame = useMemo(() => {
-    return GameTypes.includes(selectedGame) ? selectedGame : "Mafia";
-  }, [selectedGame]);
-
-  const gameContent = GAME_WELCOME_CONTENT[activeGame] || GAME_WELCOME_CONTENT.Mafia;
-  const infoCards = GAME_FEATURES[activeGame] || MAFIA_FEATURES;
+  const gameContent = GAME_WELCOME_CONTENT.Mafia;
+  const infoCards = GAME_FEATURES.Mafia;
   const activeBanner = siteInfo?.branding?.banners?.welcome || bannerImage;
-  const activeGameTitle = siteInfo?.gameCatalogMap?.[activeGame]?.title || activeGame;
 
   if (user && user.loggedIn) {
     return <Navigate to="/play" />;
@@ -321,7 +315,7 @@ export const Welcome = () => {
             py: 2,
           }}
         >
-          Play <Box component="span" sx={{ color: "primary.main" }}>{activeGameTitle}</Box> online.
+          Play UltiMafia online.
         </Typography>
         <Grid2 container rowSpacing={1} columnSpacing={1} sx={{ alignItems: "stretch" }}>
           <Grid2
@@ -381,14 +375,10 @@ export const Welcome = () => {
                     flexDirection: "column",
                   }}
                 >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                    <GameIcon gameType={activeGame} size={36} />
-                    <Typography variant={isPhoneDevice ? "h5" : "h4"}>{activeGameTitle}</Typography>
-                  </Box>
                   <Box
                     component="img"
                     src={activeBanner}
-                    alt={`${activeGame} welcome banner`}
+                    alt="Welcome banner"
                     sx={{
                       width: "100%",
                       height: "auto",
@@ -401,10 +391,7 @@ export const Welcome = () => {
                   </Typography>
                   <Typography variant="body1" color="text.secondary" paragraph sx={{ mb: 0 }}>
                     {gameContent.description}
-                  </Typography>
-                  <Box sx={{ mt: 2 }}>
-                    <IconGallery />
-                  </Box>
+                  </Typography>           
                 </Paper>
                 <Grid2
                   container
@@ -418,7 +405,7 @@ export const Welcome = () => {
                 >
                   {infoCards.map((card, index) => (
                     <Grid2
-                      key={`${activeGame}-${index}`}
+                      key={`feature-${index}`}
                       size={{ xs: 12, sm: 6, md: 3 }}
                       sx={{ display: "flex" }}
                     >
@@ -437,7 +424,7 @@ export const Welcome = () => {
                           <Box
                             component="img"
                             src={card.image}
-                            alt={`${activeGame} welcome feature ${index + 1}`}
+                            alt={`Welcome feature ${index + 1}`}
                             sx={{
                               width: "100%",
                               height: "auto",
@@ -447,7 +434,7 @@ export const Welcome = () => {
                           />
                         ) : (
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                            <GameIcon gameType={activeGame} size={22} />
+                            <GameIcon gameType="Mafia" size={22} />
                             <Typography variant="subtitle2">{card.title}</Typography>
                           </Box>
                         )}
@@ -486,23 +473,19 @@ export const Welcome = () => {
                 {GameTypes.map((game) => (
                   <Grid2 key={game} size={{ xs: 6 }}>
                     <Box
-                      component="button"
-                      onClick={() => setSelectedGame(game)}
+                      component="div"
                       sx={{
                         width: "100%",
                         border: "1px solid",
                         borderColor: "divider",
                         borderRadius: 1,
-                        p: 1,
-                        backgroundColor: "background.paper",
-                        cursor: "pointer",
+                        p: 0.75,
+                        backgroundColor: "transparent",
+                        boxShadow: "none",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
-                        minHeight: 102,
-                        "&:hover": {
-                          backgroundColor: "action.hover",
-                        },
+                        minHeight: 88,
                       }}
                     >
                       <Box
@@ -513,14 +496,13 @@ export const Welcome = () => {
                           siteInfo?.gameCatalogMap
                         )}
                         alt={`${siteInfo?.gameCatalogMap?.[game]?.title || game} icon`}
-                        sx={{ width: 38, height: 38, mb: 0.75 }}
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 2,
+                          objectFit: "contain",
+                        }}
                       />
-                      <Typography
-                        variant="caption"
-                        sx={{ textAlign: "center", lineHeight: 1.2, fontWeight: 600 }}
-                      >
-                        {siteInfo?.gameCatalogMap?.[game]?.title || game}
-                      </Typography>
                     </Box>
                   </Grid2>
                 ))}
