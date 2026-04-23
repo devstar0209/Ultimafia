@@ -110,27 +110,27 @@ apiRouter.use("/fanart", fanartRouter);
 apiRouter.use("/admin", adminRouter);
 
 
-// const globalLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 100,
-//   standardHeaders: true,
-//   legacyHeaders: false,
-// });
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// app.use("/api", globalLimiter);
+app.use("/api", globalLimiter);
 
 
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 20,
-// });
-// app.use("/api/auth", authLimiter);
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+});
+app.use("/api/auth", authLimiter);
 
-// const adminLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 50,
-// });
-// app.use("/api/admin", adminLimiter);
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+});
+app.use("/api/admin", adminLimiter);
 
 app.use("/api", apiRouter);
 
