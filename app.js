@@ -135,7 +135,7 @@ apiRouter.use("/admin", adminRouter);
 app.use("/api", apiRouter);
 
 app.use(express.static(frontendBuildPath));
-app.use("/admin", express.static(adminBuildPath));
+app.use(express.static(adminBuildPath));
 app.get("*", (req, res) => {
   if(req.path.startsWith("/admin")) {
     return res.sendFile(path.join(adminBuildPath, "index.html"));
