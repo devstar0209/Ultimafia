@@ -149,14 +149,23 @@ async function getShopItems() {
   }
 
   try {
-    // Fetch from database
-    const dbItems = await models.ShopItem.find({})
+    // Fetch from database, excluding hidden items
+    // Use $or to include items that are either explicitly not hidden or don't have the field
+    const dbItems = await models.ShopItem.find({ $or: [{ hidden: false }, { hidden: { $exists: false } }] })
       .sort("sortOrder")
       .lean();
 
-    // Merge with handlers
+    // Map database items to shop items format
     const shopItems = dbItems.map((item) => ({
-      ...item
+      name: item.name || "",
+      desc: item.desc || "",
+      key: item.key || "",
+      hidden: item.hidden,
+      price: Number(item.price || 0),
+      limit: item.limit || null,
+      disabled: false,
+      propagateItemUpdates: {},
+      onBuy: async function (userId) {},
     }));
 
     shopItemsCache = shopItems;
@@ -173,8 +182,6 @@ function invalidateShopItemsCache() {
   shopItemsCache = null;
   shopItemsCacheTime = 0;
 }
-
-module.exports.invalidateShopItemsCache = invalidateShopItemsCache;
 
 router.get("/info", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
@@ -816,3 +823,11 @@ router.post("/stamp/toggle-hide", async function (req, res) {
 });
 
 module.exports = router;
+
+// Export cache invalidation function
+router.invalidateShopItemsCache = function() {
+  shopItemsCache = null;
+  shopItemsCacheTime = 0;
+};
+
+module.exports.invalidateShopItemsCache = router.invalidateShopItemsCache;

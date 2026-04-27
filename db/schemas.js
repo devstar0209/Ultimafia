@@ -1068,6 +1068,7 @@ var schemas = {
     desc: { type: String, default: "" },
     price: { type: Number, default: 0 },
     limit: { type: Number, default: null }, // null = unlimited, 1 = one-time purchase, >1 = purchasable N times
+    hidden: { type: Boolean, default: false, index: true },
     sortOrder: { type: Number, default: 0, index: true },
     createdAt: { type: Number, default: Date.now, index: true },
     updatedAt: { type: Number, default: Date.now },

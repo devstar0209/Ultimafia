@@ -21,6 +21,8 @@ import {
   TextField,
   Typography,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import { Icon } from "@iconify/react";
 
@@ -74,6 +76,7 @@ export default function PriceItemsPage() {
     description: "",
     price: 0,
     limit: null,
+    hidden: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(null);
@@ -105,7 +108,7 @@ export default function PriceItemsPage() {
 
   function openCreateDialog() {
     setEditingItem(null);
-    setFormData({ key: "", name: "", description: "", price: 0, limit: null });
+    setFormData({ key: "", name: "", description: "", price: 0, limit: null, hidden: false });
     setDialogOpen(true);
   }
 
@@ -117,6 +120,7 @@ export default function PriceItemsPage() {
       description: item.description || "",
       price: item.price,
       limit: item.limit,
+      hidden: item.hidden || false,
     });
     setDialogOpen(true);
   }
@@ -124,7 +128,7 @@ export default function PriceItemsPage() {
   function closeDialog() {
     setDialogOpen(false);
     setEditingItem(null);
-    setFormData({ key: "", name: "", description: "", price: 0, limit: null });
+    setFormData({ key: "", name: "", description: "", price: 0, limit: null, hidden: false });
   }
 
   async function handleSaveItem() {
@@ -149,6 +153,7 @@ export default function PriceItemsPage() {
           description: formData.description,
           price: Number(formData.price || 0),
           limit: formData.limit == null ? null : Number(formData.limit),
+          hidden: Boolean(formData.hidden),
         });
 
         setFeedback({
@@ -165,6 +170,7 @@ export default function PriceItemsPage() {
                   description: response.item.description,
                   price: response.item.price,
                   limit: response.item.limit,
+                  hidden: response.item.hidden,
                 }
               : item
           )
@@ -177,6 +183,7 @@ export default function PriceItemsPage() {
           description: formData.description,
           price: Number(formData.price || 0),
           limit: formData.limit == null ? null : Number(formData.limit),
+          hidden: Boolean(formData.hidden),
         });
 
         setFeedback({
@@ -276,13 +283,14 @@ export default function PriceItemsPage() {
                     <TableCell>Type</TableCell>
                     <TableCell align="right">Price</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell align="center">Visibility</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
+                      <TableCell colSpan={7} align="center">
                         <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                           No price items configured
                         </Typography>
@@ -320,6 +328,14 @@ export default function PriceItemsPage() {
                             label={getStatusLabel(item.limit)}
                             size="small"
                             color={item.limit == null ? "warning" : "default"}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.hidden ? "Hidden" : "Visible"}
+                            size="small"
+                            color={item.hidden ? "error" : "success"}
                             variant="outlined"
                           />
                         </TableCell>
@@ -421,6 +437,17 @@ export default function PriceItemsPage() {
               fullWidth
               inputProps={{ min: 1 }}
               helperText="Leave empty for unlimited, 1 for one-time, or enter a number"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.hidden}
+                  onChange={(e) =>
+                    setFormData({ ...formData, hidden: e.target.checked })
+                  }
+                />
+              }
+              label="Hide from players"
             />
           </Stack>
         </DialogContent>

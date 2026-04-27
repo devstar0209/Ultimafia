@@ -1733,7 +1733,7 @@ router.get("/shop/items", async function (req, res) {
 
     const shopItems = await models.ShopItem.find({})
       .sort("sortOrder")
-      .select("_id key name desc price limit sortOrder")
+      .select("_id key name desc price limit hidden sortOrder")
       .lean();
 
     res.send({
@@ -1744,6 +1744,7 @@ router.get("/shop/items", async function (req, res) {
         description: item.desc || "",
         price: Number(item.price || 0),
         limit: item.limit,
+        hidden: Boolean(item.hidden || false),
         sortOrder: item.sortOrder || 0,
       })),
     });
@@ -1759,7 +1760,7 @@ router.post("/shop/items", async function (req, res) {
     const sessionInfo = await verifyAdminAccess(req, res);
     if (!sessionInfo) return;
 
-    const { key, name, description, price, limit } = req.body;
+    const { key, name, description, price, limit, hidden } = req.body;
 
     if (!key || !name) {
       return res.status(400).send("Key and name are required.");
@@ -1776,6 +1777,7 @@ router.post("/shop/items", async function (req, res) {
       desc: String(description || "").trim(),
       price: Number(price || 0),
       limit: limit == null ? null : Number(limit),
+      hidden: Boolean(hidden || false),
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
     });
 
@@ -1796,6 +1798,7 @@ router.post("/shop/items", async function (req, res) {
         description: item.desc,
         price: item.price,
         limit: item.limit,
+        hidden: item.hidden,
         sortOrder: item.sortOrder,
       },
     });
@@ -1812,7 +1815,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
     if (!sessionInfo) return;
 
     const { itemId } = req.params;
-    const { name, description, price, limit } = req.body;
+    const { name, description, price, limit, hidden } = req.body;
 
     const item = await models.ShopItem.findById(itemId);
     if (!item) {
@@ -1820,10 +1823,11 @@ router.patch("/shop/items/:itemId", async function (req, res) {
     }
 
     const updates = {};
-    if (name) updates.name = String(name).trim();
+    if (name !== undefined) updates.name = String(name).trim();
     if (description !== undefined) updates.desc = String(description || "").trim();
     if (price !== undefined) updates.price = Number(price || 0);
     if (limit !== undefined) updates.limit = limit == null ? null : Number(limit);
+    if (hidden !== undefined) updates.hidden = Boolean(hidden);
 
     const updated = await models.ShopItem.findByIdAndUpdate(itemId, updates, {
       new: true,
@@ -1846,6 +1850,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
         description: updated.desc,
         price: updated.price,
         limit: updated.limit,
+        hidden: updated.hidden,
         sortOrder: updated.sortOrder,
       },
     });
