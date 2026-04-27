@@ -35,6 +35,7 @@ const compression = require("compression");
 const cors = require("cors");
 const itemsRouter = require("./routes/items");
 const adminRouter = require("./routes/admin");
+const adminCompetitiveRouter = require("./routes/adminCompetitive");
 
 const session = require("./modules/session");
 const csrf = require("./modules/csrf");
@@ -96,6 +97,7 @@ apiRouter.use("/family", familyRouter);
 apiRouter.use("/items", itemsRouter);
 apiRouter.use("/fanart", fanartRouter);
 apiRouter.use("/admin", adminRouter);
+apiRouter.use("/admin/competitive", adminCompetitiveRouter);
 
 app.use("/api", apiRouter);
 app.use(express.static(frontendBuildPath));

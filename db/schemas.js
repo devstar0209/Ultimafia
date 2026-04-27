@@ -899,6 +899,33 @@ var schemas = {
     paused: { type: Boolean, default: false },
     completed: { type: Boolean, default: false },
     numRounds: { type: Number },
+    setupsPerRound: { type: Number, default: 2 },
+  }),
+  RankedGameTerms: new mongoose.Schema({
+    key: { type: String, index: true, unique: true, default: "default" },
+    // Disqualification Rules
+    maxLeaveCount: { type: Number, default: 3 },
+    maxReportCount: { type: Number, default: 2 },
+    maxBanCount: { type: Number, default: 1 },
+    // Timeout Settings
+    joinGameTimeoutMinutes: { type: Number, default: 5 },
+    afkTimeoutMinutes: { type: Number, default: 10 },
+    // Scoring Rules
+    winPoints: { type: Number, default: 100 },
+    lossPoints: { type: Number, default: 10 },
+    drawPoints: { type: Number, default: 50 },
+    afkPenaltyPoints: { type: Number, default: -25 },
+    leavePenaltyPoints: { type: Number, default: -50 },
+    // Season Rules
+    minGamesRequiredPerSeason: { type: Number, default: 5 },
+    minWinsRequiredPerSeason: { type: Number, default: 1 },
+    seasonResetFrequencyDays: { type: Number, default: 90 },
+    // Matchmaking
+    ratingRangeDifference: { type: Number, default: 300 }, // Max rating diff for matchmaking
+    // Mod Actions
+    createdAt: { type: Number, default: Date.now },
+    updatedAt: { type: Number, default: Date.now },
+    updatedBy: { type: String, default: "" },
   }),
   CompetitiveRound: new mongoose.Schema({
     season: { type: Number },
@@ -1263,6 +1290,7 @@ schemas.Poke.index({ userA: 1, userB: 1 }, { unique: true });
 schemas.Poke.index({ to: 1, status: 1 });
 
 schemas.CompetitiveRound.index({ season: 1, number: 1 }, { unique: true });
+schemas.RankedGameTerms.index({ key: 1 }, { unique: true });
 schemas.CompetitiveSeasonStanding.index(
   { userId: 1, season: 1 },
   { unique: true }

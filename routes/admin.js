@@ -1725,3 +1725,4 @@ router.get("/settings/summary", async function (req, res) {
 });
 
 module.exports = router;
+module.exports.verifyAdminAccess = verifyAdminAccess;

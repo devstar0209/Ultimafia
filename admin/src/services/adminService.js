@@ -177,3 +177,73 @@ export async function updateAdminDefaultSettings(settings) {
   const response = await axios.patch("/api/admin/settings/defaults", settings);
   return response.data;
 }
+
+// Competitive Seasons
+export async function getAdminCompetitiveSeasons() {
+  const response = await axios.get("/api/admin/competitive/seasons");
+  return response.data;
+}
+
+export async function createAdminCompetitiveSeason(payload) {
+  const response = await axios.post("/api/admin/competitive/seasons/create", payload);
+  return response.data;
+}
+
+export async function pauseAdminCompetitiveSeason(seasonNumber) {
+  const response = await axios.post(
+    `/api/admin/competitive/seasons/${seasonNumber}/pause`
+  );
+  return response.data;
+}
+
+// Competitive Setups
+export async function getAdminCompetitiveSetups() {
+  const response = await axios.get("/api/admin/competitive/setups");
+  return response.data;
+}
+
+export async function toggleAdminCompetitiveSetup(setupId) {
+  const response = await axios.patch(
+    `/api/admin/competitive/setups/${setupId}/toggle`
+  );
+  return response.data;
+}
+
+export async function createAdminCompetitiveSetup(payload) {
+  const response = await axios.post("/api/admin/competitive/setups", payload);
+  return response.data;
+}
+
+export async function updateAdminCompetitiveSetup(setupId, payload) {
+  const response = await axios.patch(
+    `/api/admin/competitive/setups/${setupId}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function deleteAdminCompetitiveSetup(setupId) {
+  const response = await axios.delete(
+    `/api/admin/competitive/setups/${setupId}`
+  );
+  return response.data;
+}
+
+export async function getAdminApprovedCompetitiveSetups() {
+  const response = await axios.get("/api/admin/competitive/setups/approved");
+  return response.data;
+}
+
+// Ranked Game Terms
+export async function getAdminRankedTerms() {
+  const response = await axios.get("/api/admin/competitive/ranked-terms");
+  return response.data;
+}
+
+export async function updateAdminRankedTerms(terms) {
+  const response = await axios.patch(
+    "/api/admin/competitive/ranked-terms",
+    terms
+  );
+  return response.data;
+}
