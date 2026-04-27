@@ -1,6 +1,7 @@
 const express = require("express");
 const braintree = require("braintree");
 const axios = require("axios");
+const fs = require("fs");
 const routeUtils = require("./utils");
 const redis = require("../modules/redis");
 const models = require("../db/models");
@@ -183,15 +184,41 @@ function invalidateShopItemsCache() {
   shopItemsCacheTime = 0;
 }
 
+function buildAvatarImageUrl(avatarKey) {
+  return `/uploads/store/avatars/${avatarKey}.webp`;
+}
+
 router.get("/info", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     var userId = await routeUtils.verifyLoggedIn(req);
-    var user = await models.User.findOne({ id: userId });
+    var user = await models.User.findOne({ id: userId }).select(
+      "coins itemsOwned settings"
+    );
     
     const shopItems = await getShopItems();
+    const avatarItems = shopItems
+      .filter((item) => String(item.key || "").startsWith("avatar-"))
+      .map((item) => {
+        const key = String(item.key || "");
+        const absolutePath = `${process.env.UPLOAD_PATH}/store/avatars/${key}.webp`;
+        return {
+          key,
+          name: item.name,
+          price: Number(item.price || 0),
+          description: item.desc || "",
+          owned: Number(user?.itemsOwned?.[key] || 0) > 0,
+          available: fs.existsSync(absolutePath),
+          imageUrl: buildAvatarImageUrl(key),
+        };
+      });
 
-    res.send({ shopItems: shopItems, balance: user.coins });
+    res.send({
+      shopItems: shopItems,
+      avatarItems,
+      equippedAvatarKey: String(user?.settings?.equippedAvatarKey || ""),
+      balance: Number(user?.coins || 0),
+    });
   } catch (e) {
     logger.error(e);
     res.status(500);

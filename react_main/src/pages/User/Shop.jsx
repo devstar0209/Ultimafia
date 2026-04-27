@@ -42,7 +42,12 @@ function parseGameId(input) {
 }
 
 export default function Shop(props) {
-  const [shopInfo, setShopInfo] = useState({ shopItems: [], balance: 0 });
+  const [shopInfo, setShopInfo] = useState({
+    shopItems: [],
+    avatarItems: [],
+    equippedAvatarKey: "",
+    balance: 0,
+  });
   const [loaded, setLoaded] = useState(false);
 
   const [recipient, setRecipient] = useState("");
@@ -155,11 +160,42 @@ export default function Shop(props) {
           };
         }
 
+        const nextOwnedCount = (user.itemsOwned[item.key] || 0) + 1;
         user.set(
           update(user.state, {
             itemsOwned: itemsOwnedChanges,
           })
         );
+
+        if (item.key.startsWith("avatar-") && nextOwnedCount > 0) {
+          return axios.post("/api/user/avatar/equip", { avatarKey: item.key });
+        }
+      })
+      .then((equipRes) => {
+        if (!equipRes) return;
+        setShopInfo((prev) => ({
+          ...prev,
+          equippedAvatarKey: equipRes.data.avatarKey || prev.equippedAvatarKey,
+          avatarItems: prev.avatarItems.map((avatar) =>
+            avatar.key === equipRes.data.avatarKey
+              ? { ...avatar, owned: true }
+              : avatar
+          ),
+        }));
+        siteInfo.showAlert("Avatar equipped.", "success");
+      })
+      .catch(errorAlert);
+  }
+
+  function onEquipAvatar(avatarKey) {
+    axios
+      .post("/api/user/avatar/equip", { avatarKey })
+      .then((res) => {
+        setShopInfo((prev) => ({
+          ...prev,
+          equippedAvatarKey: res.data.avatarKey || avatarKey,
+        }));
+        siteInfo.showAlert("Avatar equipped.", "success");
       })
       .catch(errorAlert);
   }
@@ -303,6 +339,75 @@ export default function Shop(props) {
       <Grid2 container spacing={1}>
         {shopItems}
       </Grid2>
+
+      {shopInfo.avatarItems.length > 0 && (
+        <>
+          <Divider flexItem orientation="horizontal" />
+          <Paper sx={{ p: 2 }}>
+            <Stack direction="column" spacing={2}>
+              <Typography variant="h3">Profile Avatars</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Buy avatar assets in the shop, then equip one as your profile image.
+              </Typography>
+              <Grid2 container spacing={1}>
+                {shopInfo.avatarItems.map((avatar) => {
+                  const isEquipped = shopInfo.equippedAvatarKey === avatar.key;
+                  return (
+                    <Grid2
+                      key={avatar.key}
+                      size={{
+                        xs: 6,
+                        sm: 3,
+                        md: 2,
+                      }}
+                    >
+                      <Card variant="outlined" sx={{ height: "100%" }}>
+                        <CardContent>
+                          <Stack direction="column" spacing={1} style={{ alignItems: "center" }}>
+                            <Box
+                              sx={{
+                                width: 72,
+                                height: 72,
+                                borderRadius: "50%",
+                                backgroundColor: "rgba(255,255,255,0.06)",
+                                backgroundImage: avatar.available
+                                  ? `url(${avatar.imageUrl}?t=${siteInfo.cacheVal})`
+                                  : "none",
+                                backgroundSize: "cover",
+                                backgroundPosition: "center",
+                              }}
+                            />
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              sx={{
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Typography>{avatar.price}</Typography>
+                              <img src={coin} style={{ width: "20px", height: "20px" }} />
+                            </Stack>
+                            {avatar.owned && (
+                              <Button
+                                variant={isEquipped ? "contained" : "outlined"}
+                                disabled={isEquipped}
+                                onClick={() => onEquipAvatar(avatar.key)}
+                              >
+                                {isEquipped ? "Equipped" : "Equip"}
+                              </Button>
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid2>
+                  );
+                })}
+              </Grid2>
+            </Stack>
+          </Paper>
+        </>
+      )}
 
       <Dialog
         open={stampDialogOpen}

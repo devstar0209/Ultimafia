@@ -101,7 +101,7 @@ export const menuGroups = [
         key: "catalog-avatars",
         label: "Avatars",
         path: "/catalog/avatars",
-        description: "Collections, approval, and publishing",
+        description: "User profile avatars",
       },
     ],
   },

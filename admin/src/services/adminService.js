@@ -37,8 +37,53 @@ export async function getAdminIncidents() {
   return response.data;
 }
 
-export async function getAdminAvatars() {
-  const response = await axios.get("/api/admin/avatars");
+export async function getAdminAvatars(params = {}) {
+  const response = await axios.get("/api/admin/avatars", { params });
+  return response.data;
+}
+
+export async function createAdminAvatar(payload) {
+  const response = await axios.post("/api/admin/avatars", payload);
+  return response.data;
+}
+
+export async function updateAdminAvatar(key, payload) {
+  const response = await axios.patch(
+    `/api/admin/avatars/${encodeURIComponent(key)}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function toggleAdminAvatarHidden(key, hidden) {
+  const response = await axios.patch(
+    `/api/admin/avatars/${encodeURIComponent(key)}/hidden`,
+    { hidden }
+  );
+  return response.data;
+}
+
+export async function uploadAdminAvatarImage(key, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `/api/admin/avatars/${encodeURIComponent(key)}/image`,
+    formData
+  );
+  return response.data;
+}
+
+export async function removeAdminAvatarImage(key) {
+  const response = await axios.delete(
+    `/api/admin/avatars/${encodeURIComponent(key)}/image`
+  );
+  return response.data;
+}
+
+export async function deleteAdminAvatar(key) {
+  const response = await axios.delete(
+    `/api/admin/avatars/${encodeURIComponent(key)}`
+  );
   return response.data;
 }
 
