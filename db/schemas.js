@@ -1062,6 +1062,16 @@ var schemas = {
       toJSON: { virtuals: true },
     }
   ),
+  ShopItem: new mongoose.Schema({
+    key: { type: String, index: true, unique: true },
+    name: { type: String },
+    desc: { type: String, default: "" },
+    price: { type: Number, default: 0 },
+    limit: { type: Number, default: null }, // null = unlimited, 1 = one-time purchase, >1 = purchasable N times
+    sortOrder: { type: Number, default: 0, index: true },
+    createdAt: { type: Number, default: Date.now, index: true },
+    updatedAt: { type: Number, default: Date.now },
+  }),
 };
 
 schemas.ForumVote.virtual("user", {
@@ -1316,5 +1326,9 @@ schemas.ViolationTicket.index({ userId: 1, createdAt: -1 });
 schemas.ViolationTicket.index({ userId: 1, violationId: 1 });
 schemas.ViolationTicket.index({ userId: 1, activeUntil: 1 });
 schemas.ViolationTicket.index({ userId: 1, violationName: 1, activeUntil: 1 });
+
+// ShopItem index
+schemas.ShopItem.index({ key: 1 }, { unique: true });
+schemas.ShopItem.index({ sortOrder: 1 });
 
 module.exports = schemas;

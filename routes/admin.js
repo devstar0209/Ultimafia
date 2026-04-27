@@ -12,6 +12,7 @@ const brandingUtils = require("../lib/platformBranding");
 const routeUtils = require("./utils");
 const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
+const shopModule = require("./shop");
 
 const router = express.Router();
 
@@ -1721,6 +1722,166 @@ router.get("/settings/summary", async function (req, res) {
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading admin settings summary.");
+  }
+});
+
+// Price Items / Shop Management
+router.get("/shop/items", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const shopItems = await models.ShopItem.find({})
+      .sort("sortOrder")
+      .select("_id key name desc price limit sortOrder")
+      .lean();
+
+    res.send({
+      items: shopItems.map((item) => ({
+        id: item._id,
+        key: item.key,
+        name: item.name,
+        description: item.desc || "",
+        price: Number(item.price || 0),
+        limit: item.limit,
+        sortOrder: item.sortOrder || 0,
+      })),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading shop items.");
+  }
+});
+
+router.post("/shop/items", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { key, name, description, price, limit } = req.body;
+
+    if (!key || !name) {
+      return res.status(400).send("Key and name are required.");
+    }
+
+    const lastItem = await models.ShopItem.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder")
+      .lean();
+
+    const item = await models.ShopItem.create({
+      key: String(key).trim().toLowerCase(),
+      name: String(name).trim(),
+      desc: String(description || "").trim(),
+      price: Number(price || 0),
+      limit: limit == null ? null : Number(limit),
+      sortOrder: Number(lastItem?.sortOrder || 0) + 1,
+    });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Shop Item", [
+      `Key: ${item.key}`,
+      `Name: ${item.name}`,
+    ]);
+
+    // Invalidate shop items cache
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        id: item._id,
+        key: item.key,
+        name: item.name,
+        description: item.desc,
+        price: item.price,
+        limit: item.limit,
+        sortOrder: item.sortOrder,
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating shop item.");
+  }
+});
+
+router.patch("/shop/items/:itemId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { itemId } = req.params;
+    const { name, description, price, limit } = req.body;
+
+    const item = await models.ShopItem.findById(itemId);
+    if (!item) {
+      return res.status(404).send("Shop item not found.");
+    }
+
+    const updates = {};
+    if (name) updates.name = String(name).trim();
+    if (description !== undefined) updates.desc = String(description || "").trim();
+    if (price !== undefined) updates.price = Number(price || 0);
+    if (limit !== undefined) updates.limit = limit == null ? null : Number(limit);
+
+    const updated = await models.ShopItem.findByIdAndUpdate(itemId, updates, {
+      new: true,
+    }).lean();
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Shop Item", [
+      `Key: ${item.key}`,
+      `Name: ${updated.name}`,
+    ]);
+
+    // Invalidate shop items cache
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        id: updated._id,
+        key: updated.key,
+        name: updated.name,
+        description: updated.desc,
+        price: updated.price,
+        limit: updated.limit,
+        sortOrder: updated.sortOrder,
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating shop item.");
+  }
+});
+
+router.delete("/shop/items/:itemId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { itemId } = req.params;
+
+    const item = await models.ShopItem.findById(itemId);
+    if (!item) {
+      return res.status(404).send("Shop item not found.");
+    }
+
+    await models.ShopItem.deleteOne({ _id: itemId });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Shop Item", [
+      `Key: ${item.key}`,
+      `Name: ${item.name}`,
+    ]);
+
+    // Invalidate shop items cache
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting shop item.");
   }
 });
 

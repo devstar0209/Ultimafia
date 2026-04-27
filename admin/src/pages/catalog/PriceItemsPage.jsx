@@ -1,73 +1,95 @@
-import React from "react";
-import { Grid, Stack, Typography } from "@mui/material";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  CircularProgress,
+} from "@mui/material";
 import { Icon } from "@iconify/react";
 
-import ActionCard from "../../components/admin/ActionCard";
-import MiniTable from "../../components/admin/MiniTable";
 import PageFeedback from "../../components/admin/PageFeedback";
 import SectionCard from "../../components/SectionCard";
-import StatusChip from "../../components/StatusChip";
 import useAdminQuery from "../../hooks/useAdminQuery";
-import { getShopInfo } from "../../services/adminService";
-import { filterRows } from "../../utils/filterRows";
+import {
+  getAdminShopItems,
+  createAdminShopItem,
+  updateAdminShopItem,
+  deleteAdminShopItem,
+} from "../../services/adminService";
 
-function getShopItemType(item) {
-  const key = String(item.key || "").toLowerCase();
+function getShopItemType(key) {
+  const keyLower = String(key || "").toLowerCase();
 
-  if (key.includes("color") || key.includes("profile") || key.includes("icon")) {
+  if (keyLower.includes("color") || keyLower.includes("profile") || keyLower.includes("icon")) {
     return "Customization";
   }
 
-  if (key.includes("name")) {
+  if (keyLower.includes("name")) {
     return "Identity";
   }
 
-  if (key.includes("stamp")) {
+  if (keyLower.includes("stamp")) {
     return "Collectible";
   }
 
-  if (key.includes("family")) {
+  if (keyLower.includes("family")) {
     return "Community";
   }
 
   return "Utility";
 }
 
-function getShopItemStatus(item) {
-  if (item.limit == null) return "Repeatable";
-  if (Number(item.limit) === 1) return "Approved";
-  return "Limited";
+function getStatusLabel(limit) {
+  if (limit == null) return "Unlimited";
+  if (limit === 1) return "One-Time";
+  return `Limited (${limit})`;
 }
 
-export default function PriceItemsPage({ search = "" }) {
-  const { data, loading, error } = useAdminQuery(getShopInfo);
-  const priceItems = (data?.shopItems || []).map((item) => ({
-    ...item,
-    sku: item.key,
-    type: getShopItemType(item),
-    priceLabel: `${Number(item.price || 0)} coins`,
-    currency: "Coins",
-    status: getShopItemStatus(item),
-  }));
-  const filteredItems = filterRows(priceItems, search, [
-    "name",
-    "sku",
-    "status",
-    "currency",
-    "type",
-  ]);
-  const repeatableCount = priceItems.filter((item) => item.limit == null).length;
-  const limitedCount = priceItems.filter((item) => item.limit != null).length;
-  const totalCoinValue = priceItems.reduce(
-    (sum, item) => sum + Number(item.price || 0),
-    0
-  );
+export default function PriceItemsPage() {
+  const { data, loading, error, refetch } = useAdminQuery(getAdminShopItems);
+  const [items, setItems] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [formData, setFormData] = useState({
+    key: "",
+    name: "",
+    description: "",
+    price: 0,
+    limit: null,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+
+  useEffect(() => {
+    if (data?.items) {
+      setItems(data.items);
+    }
+  }, [data]);
 
   if (loading) {
     return (
       <PageFeedback
         title="Loading price items"
-        description="Fetching the current shop configuration from the backend."
+        description="Fetching the shop item configuration from the backend."
       />
     );
   }
@@ -81,58 +103,380 @@ export default function PriceItemsPage({ search = "" }) {
     );
   }
 
+  function openCreateDialog() {
+    setEditingItem(null);
+    setFormData({ key: "", name: "", description: "", price: 0, limit: null });
+    setDialogOpen(true);
+  }
+
+  function openEditDialog(item) {
+    setEditingItem(item);
+    setFormData({
+      key: item.key,
+      name: item.name,
+      description: item.description || "",
+      price: item.price,
+      limit: item.limit,
+    });
+    setDialogOpen(true);
+  }
+
+  function closeDialog() {
+    setDialogOpen(false);
+    setEditingItem(null);
+    setFormData({ key: "", name: "", description: "", price: 0, limit: null });
+  }
+
+  async function handleSaveItem() {
+    if (!formData.name.trim()) {
+      setFeedback({ severity: "error", message: "Item name is required" });
+      return;
+    }
+
+    if (!formData.key.trim() && !editingItem) {
+      setFeedback({ severity: "error", message: "Item key is required" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFeedback(null);
+
+    try {
+      if (editingItem) {
+        // Update existing
+        const response = await updateAdminShopItem(editingItem.id, {
+          name: formData.name,
+          description: formData.description,
+          price: Number(formData.price || 0),
+          limit: formData.limit == null ? null : Number(formData.limit),
+        });
+
+        setFeedback({
+          severity: "success",
+          message: `"${response.item.name}" updated successfully`,
+        });
+
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === editingItem.id
+              ? {
+                  ...item,
+                  name: response.item.name,
+                  description: response.item.description,
+                  price: response.item.price,
+                  limit: response.item.limit,
+                }
+              : item
+          )
+        );
+      } else {
+        // Create new
+        const response = await createAdminShopItem({
+          key: formData.key,
+          name: formData.name,
+          description: formData.description,
+          price: Number(formData.price || 0),
+          limit: formData.limit == null ? null : Number(formData.limit),
+        });
+
+        setFeedback({
+          severity: "success",
+          message: `"${response.item.name}" created successfully`,
+        });
+
+        setItems([...items, response.item]);
+      }
+
+      closeDialog();
+      refetch();
+    } catch (err) {
+      setFeedback({
+        severity: "error",
+        message: err?.response?.data?.error || "Could not save item",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleDeleteItem(itemId, itemName) {
+    setDeleting(itemId);
+    setFeedback(null);
+
+    try {
+      await deleteAdminShopItem(itemId);
+
+      setFeedback({
+        severity: "success",
+        message: `"${itemName}" deleted successfully`,
+      });
+
+      setItems((prev) => prev.filter((item) => item.id !== itemId));
+      setDeleteConfirmOpen(null);
+      refetch();
+    } catch (err) {
+      setFeedback({
+        severity: "error",
+        message: err?.response?.data?.error || "Could not delete item",
+      });
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  const totalCoinValue = items.reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const unlimitedCount = items.filter((item) => item.limit == null).length;
+
   return (
     <Grid container spacing={3}>
-      <Grid item xs={12} xl={8}>
-        <MiniTable
+      <Grid item xs={12}>
+        {feedback && (
+          <Alert severity={feedback.severity}>{feedback.message}</Alert>
+        )}
+
+        <SectionCard
           eyebrow="Commerce"
           title="Price Items"
           subtitle="Manage store items, bundles, featured pricing, and release windows."
-          columns={["Item", "SKU", "Type", "Price", "Currency", "Status"]}
-          rows={filteredItems.map((item) => [
-            item.name,
-            item.sku,
-            item.type,
-            item.priceLabel,
-            item.currency,
-            <StatusChip key={`${item.sku}-status`} label={item.status} />,
-          ])}
-        />
+        >
+          <Stack spacing={2}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Typography variant="subtitle2">
+                  {items.length} item{items.length !== 1 ? "s" : ""} total
+                </Typography>
+                <Chip
+                  label={`${totalCoinValue} coins`}
+                  color="info"
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={`${unlimitedCount} unlimited`}
+                  color="warning"
+                  size="small"
+                  variant="outlined"
+                />
+              </Stack>
+              <Button
+                variant="contained"
+                startIcon={<Icon icon="mdi:plus" />}
+                onClick={openCreateDialog}
+              >
+                New Item
+              </Button>
+            </Box>
+
+            <TableContainer component={Paper} variant="outlined">
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#000" }}>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Key</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell align="right">Price</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                          No price items configured
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <Stack>
+                            <strong>{item.name}</strong>
+                            {item.description && (
+                              <Typography variant="caption" color="text.secondary">
+                                {item.description}
+                              </Typography>
+                            )}
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                            {item.key}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{getShopItemType(item.key)}</TableCell>
+                        <TableCell align="right">
+                          <Chip
+                            label={`${item.price}`}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={getStatusLabel(item.limit)}
+                            size="small"
+                            color={item.limit == null ? "warning" : "default"}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <IconButton
+                              size="small"
+                              onClick={() => openEditDialog(item)}
+                              title="Edit item"
+                            >
+                              <Icon icon="mdi:pencil" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setDeleteConfirmOpen(item)}
+                              title="Delete item"
+                            >
+                              <Icon icon="mdi:trash-can" />
+                            </IconButton>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <Box sx={{ p: 2, backgroundColor: "#000", borderRadius: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                💡 <strong>Note:</strong> Set limit to null for unlimited purchases,
+                1 for one-time purchases, or any number for limited purchases.
+              </Typography>
+            </Box>
+          </Stack>
+        </SectionCard>
       </Grid>
-      <Grid item xs={12} xl={4}>
-        <Stack spacing={3}>
-          <SectionCard
-            eyebrow="Pricing Strategy"
-            title="Commerce Summary"
-            subtitle="Current item configuration from the live backend shop endpoint."
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingItem ? "Edit Price Item" : "Create New Price Item"}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2}>
+            {!editingItem && (
+              <TextField
+                label="Item Key"
+                value={formData.key}
+                onChange={(e) =>
+                  setFormData({ ...formData, key: e.target.value })
+                }
+                fullWidth
+                placeholder="e.g., textColors, nameChange"
+                helperText="Unique identifier (cannot be changed after creation)"
+              />
+            )}
+            <TextField
+              label="Item Name"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              fullWidth
+              placeholder="e.g., Name and Text Colors"
+            />
+            <TextField
+              label="Description"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="Item description"
+            />
+            <TextField
+              label="Price (Coins)"
+              type="number"
+              value={formData.price}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
+              fullWidth
+              inputProps={{ min: 0 }}
+            />
+            <TextField
+              label="Purchase Limit"
+              type="number"
+              value={formData.limit === null ? "" : formData.limit}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  limit: e.target.value === "" ? null : e.target.value,
+                })
+              }
+              fullWidth
+              inputProps={{ min: 1 }}
+              helperText="Leave empty for unlimited, 1 for one-time, or enter a number"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDialog}>Cancel</Button>
+          <Button
+            onClick={handleSaveItem}
+            variant="contained"
+            disabled={isSubmitting}
           >
-            <Stack spacing={1.25}>
-              {[
-                `${priceItems.length} price items are configured in the shop.`,
-                `${repeatableCount} items can be purchased more than once.`,
-                `${limitedCount} items have ownership limits.`,
-                `${totalCoinValue} total coins across the current catalog.`,
-              ].map((item) => (
-                <Stack key={item} direction="row" spacing={1.25}>
-                  <Icon
-                    icon="solar:tag-price-bold-duotone"
-                    style={{ fontSize: 18 }}
-                  />
-                  <Typography>{item}</Typography>
-                </Stack>
-              ))}
-            </Stack>
-          </SectionCard>
-          <ActionCard
-            title="Common Actions"
-            actions={[
-              "Review coin prices before changing player economy.",
-              "Move catalog editing behind dedicated admin write endpoints.",
-              "Persist future storefront changes in Mongo instead of code config.",
-            ]}
-          />
-        </Stack>
-      </Grid>
+            {isSubmitting ? (
+              <CircularProgress size={20} />
+            ) : editingItem ? (
+              "Update"
+            ) : (
+              "Create"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={Boolean(deleteConfirmOpen)}
+        onClose={() => setDeleteConfirmOpen(null)}
+        maxWidth="sm"
+      >
+        <DialogTitle>Delete Price Item</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <Typography>
+              Are you sure you want to delete "{deleteConfirmOpen?.name}"?
+            </Typography>
+            <Alert severity="warning">
+              This action cannot be undone. The item will be permanently removed from the shop.
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(null)}>Cancel</Button>
+          <Button
+            onClick={() =>
+              handleDeleteItem(deleteConfirmOpen.id, deleteConfirmOpen.name)
+            }
+            variant="contained"
+            color="error"
+            disabled={deleting === deleteConfirmOpen?.id}
+          >
+            {deleting === deleteConfirmOpen?.id ? (
+              <CircularProgress size={20} />
+            ) : (
+              "Delete"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 }

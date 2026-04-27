@@ -135,239 +135,54 @@ async function checkStampEligibility(userId, gameId) {
   return { gameType: game.type, role };
 }
 
-const shopItems = [
-  {
-    name: "Name and Text Colors",
-    desc: "Set the colors of your name and text in games and chat",
-    key: "textColors",
-    price: 20,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Profile Customization",
-    desc: "Change the panel color and banner image on your profile",
-    key: "customProfile",
-    price: 20,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Name Change",
-    desc: "Change your name once per purchase",
-    key: "nameChange",
-    price: 20,
-    limit: null,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "3 Character Username",
-    desc: "Set your name to one that is 3 characters long",
-    key: "threeCharName",
-    price: 100,
-    limit: 1,
-    propagateItemUpdates: {
-      nameChange: 1,
-    },
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "2 Character Username",
-    desc: "Set your name to one that is 2 characters long",
-    key: "twoCharName",
-    price: 400,
-    limit: 1,
-    propagateItemUpdates: {
-      nameChange: 1,
-    },
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "1 Character Username",
-    desc: "Set your name to one that is 1 character long",
-    key: "oneCharName",
-    price: 800,
-    limit: 1,
-    propagateItemUpdates: {
-      nameChange: 1,
-    },
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Custom Death Message",
-    desc: "Set the system message that appears on death. Comes with 2 free death message changes.",
-    key: "deathMessageEnabled",
-    price: 50,
-    limit: 1,
-    propagateItemUpdates: {
-      deathMessageChange: 2,
-    },
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Death Message Change",
-    desc: "Change your death message, requires enabling custom death messages.",
-    key: "deathMessageChange",
-    price: 10,
-    disableOn: (user) => !user.itemsOwned.deathMessageEnabled,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Anonymous Deck",
-    desc: "Create name decks for anonymous games.",
-    key: "anonymousDeck",
-    price: 70,
-    limit: constants.maxOwnedAnonymousDecks,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Custom Emotes",
-    desc: "Create custom emotes that you can use in game.",
-    key: "customEmotes",
-    price: 5,
-    limit: constants.maxOwnedCustomEmotes,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "MORE Custom Emotes",
-    desc: "Once you've bought all of the cheaper ones, get more custom emotes here.",
-    key: "customEmotesExtra",
-    price: 25,
-    limit: constants.maxOwnedCustomEmotesExtra,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Archived Games",
-    desc: "Gain the ability to archive games and have them displayed on your profile!",
-    key: "archivedGames",
-    price: 100,
-    limit: 1,
-    propagateItemUpdates: {
-      archivedGamesMax: 5,
-    },
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Maximum Archived Games",
-    desc: "Increases the amount of games that you can archive.",
-    key: "archivedGamesMax",
-    price: 30,
-    limit: constants.maxArchivedGamesMax,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Bonus Red Heart Capacity",
-    desc: "Increases the amount of red hearts that you can hold.",
-    key: "bonusRedHearts",
-    price: 10,
-    limit: constants.maxBonusRedHearts,
-    onBuy: async function (userId) {
-      // Immediately give the user their red heart
-      await models.User.updateOne(
-        { id: userId },
-        { $inc: { redHearts: 1 } }
-      ).exec();
-    },
-  },
-  {
-    name: "Square",
-    desc: "Unlock the ability to become a square (currently profile only)",
-    key: "avatarShape",
-    price: 20,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Vanity URL",
-    desc: "Set a custom URL for your profile (1-20 characters)",
-    key: "vanityUrl",
-    price: 100,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Custom Site Primary Color",
-    desc: "Change the primary color of the site to whatever you'd like",
-    key: "customPrimaryColor",
-    price: 100,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Icon Filter",
-    desc: "Unlock the ability to apply a filter to all icons on the site",
-    key: "iconFilter",
-    price: 40,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Profile Background",
-    desc: "Upload a custom background image to replace the default pattern on all pages",
-    key: "profileBackground",
-    price: 20,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Create Family",
-    desc: "Create a Crime Family and top the leaderboard",
-    key: "createFamily",
-    price: 1000,
-    limit: 1,
-    onBuy: async function (userId) {},
-  },
-  {
-    name: "Scrapbook Stamp",
-    desc: "Commemorate a Mafia game win with a stamp of your role. Displayed on your profile scrapbook.",
-    key: "stamp",
-    price: 5,
-    limit: null,
-    validate: async function (userId, body) {
-      const gameId = String(body.gameId || "").trim();
-      if (!gameId) throw new Error("Please provide a game ID.");
+// Cache for shop items fetched from database
+let shopItemsCache = null;
+let shopItemsCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-      const existing = await models.Stamp.findOne({ userId, gameId });
-      if (existing) throw new Error("You already have a stamp from this game.");
+async function getShopItems() {
+  const now = Date.now();
+  
+  // Return cached items if still valid
+  if (shopItemsCache && now - shopItemsCacheTime < CACHE_TTL) {
+    return shopItemsCache;
+  }
 
-      const result = await checkStampEligibility(userId, gameId);
-      return { gameId, gameType: result.gameType, role: result.role };
-    },
-    onBuy: async function (userId, context) {
-      const userDoc = await models.User.findOne({ id: userId }).select("_id");
-      try {
-        await models.Stamp.create({
-          user: userDoc._id,
-          userId,
-          gameId: context.gameId,
-          gameType: context.gameType,
-          role: context.role,
-        });
-      } catch (e) {
-        if (e.code === 11000) {
-          throw new Error("You already have a stamp from this game.");
-        }
-        throw e;
-      }
-    },
-  },
-];
+  try {
+    // Fetch from database
+    const dbItems = await models.ShopItem.find({})
+      .sort("sortOrder")
+      .lean();
+
+    // Merge with handlers
+    const shopItems = dbItems.map((item) => ({
+      ...item
+    }));
+
+    shopItemsCache = shopItems;
+    shopItemsCacheTime = now;
+    return shopItems;
+  } catch (e) {
+    logger.error("Error fetching shop items from database:", e);
+    // Fallback to empty array if database fails
+    return [];
+  }
+}
+
+function invalidateShopItemsCache() {
+  shopItemsCache = null;
+  shopItemsCacheTime = 0;
+}
+
+module.exports.invalidateShopItemsCache = invalidateShopItemsCache;
 
 router.get("/info", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     var userId = await routeUtils.verifyLoggedIn(req);
     var user = await models.User.findOne({ id: userId });
-
-    //let customDisable = item.disableOn && item.disableOn(user);
-
-    /*
-    let shopItemsParsed = shopItems.map((item) => {
-      let limitReached =
-        item.limit != null && user.itemsOwned[item.key] >= item.limit;
-      item.disabled = item.disabled || limitReached || false;
-      return item;
-    });*/
+    
+    const shopItems = await getShopItems();
 
     res.send({ shopItems: shopItems, balance: user.coins });
   } catch (e) {
@@ -731,6 +546,9 @@ router.post(
     try {
       var userId = await routeUtils.verifyLoggedIn(req);
       var itemIndex = Number(req.body.item);
+      
+      const shopItems = await getShopItems();
+      
       if (itemIndex < 0 || itemIndex >= shopItems.length) {
         res.status(500);
         res.send("Invalid item purchased.");

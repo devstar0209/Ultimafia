@@ -247,3 +247,24 @@ export async function updateAdminRankedTerms(terms) {
   );
   return response.data;
 }
+
+// Shop Items Management
+export async function getAdminShopItems() {
+  const response = await axios.get("/api/admin/shop/items");
+  return response.data;
+}
+
+export async function createAdminShopItem(payload) {
+  const response = await axios.post("/api/admin/shop/items", payload);
+  return response.data;
+}
+
+export async function updateAdminShopItem(itemId, payload) {
+  const response = await axios.patch(`/api/admin/shop/items/${itemId}`, payload);
+  return response.data;
+}
+
+export async function deleteAdminShopItem(itemId) {
+  const response = await axios.delete(`/api/admin/shop/items/${itemId}`);
+  return response.data;
+}
