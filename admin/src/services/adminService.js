@@ -37,8 +37,53 @@ export async function getAdminIncidents() {
   return response.data;
 }
 
-export async function getAdminAvatars() {
-  const response = await axios.get("/api/admin/avatars");
+export async function getAdminAvatars(params = {}) {
+  const response = await axios.get("/api/admin/avatars", { params });
+  return response.data;
+}
+
+export async function createAdminAvatar(payload) {
+  const response = await axios.post("/api/admin/avatars", payload);
+  return response.data;
+}
+
+export async function updateAdminAvatar(key, payload) {
+  const response = await axios.patch(
+    `/api/admin/avatars/${encodeURIComponent(key)}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function toggleAdminAvatarHidden(key, hidden) {
+  const response = await axios.patch(
+    `/api/admin/avatars/${encodeURIComponent(key)}/hidden`,
+    { hidden }
+  );
+  return response.data;
+}
+
+export async function uploadAdminAvatarImage(key, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `/api/admin/avatars/${encodeURIComponent(key)}/image`,
+    formData
+  );
+  return response.data;
+}
+
+export async function removeAdminAvatarImage(key) {
+  const response = await axios.delete(
+    `/api/admin/avatars/${encodeURIComponent(key)}/image`
+  );
+  return response.data;
+}
+
+export async function deleteAdminAvatar(key) {
+  const response = await axios.delete(
+    `/api/admin/avatars/${encodeURIComponent(key)}`
+  );
   return response.data;
 }
 
@@ -170,5 +215,101 @@ export async function removeAdminGameLogo(gameType) {
 
 export async function getShopInfo() {
   const response = await axios.get("/api/shop/info");
+  return response.data;
+}
+
+export async function updateAdminDefaultSettings(settings) {
+  const response = await axios.patch("/api/admin/settings/defaults", settings);
+  return response.data;
+}
+
+// Competitive Seasons
+export async function getAdminCompetitiveSeasons() {
+  const response = await axios.get("/api/admin/competitive/seasons");
+  return response.data;
+}
+
+export async function createAdminCompetitiveSeason(payload) {
+  const response = await axios.post("/api/admin/competitive/seasons/create", payload);
+  return response.data;
+}
+
+export async function pauseAdminCompetitiveSeason(seasonNumber) {
+  const response = await axios.post(
+    `/api/admin/competitive/seasons/${seasonNumber}/pause`
+  );
+  return response.data;
+}
+
+// Competitive Setups
+export async function getAdminCompetitiveSetups() {
+  const response = await axios.get("/api/admin/competitive/setups");
+  return response.data;
+}
+
+export async function toggleAdminCompetitiveSetup(setupId) {
+  const response = await axios.patch(
+    `/api/admin/competitive/setups/${setupId}/toggle`
+  );
+  return response.data;
+}
+
+export async function createAdminCompetitiveSetup(payload) {
+  const response = await axios.post("/api/admin/competitive/setups", payload);
+  return response.data;
+}
+
+export async function updateAdminCompetitiveSetup(setupId, payload) {
+  const response = await axios.patch(
+    `/api/admin/competitive/setups/${setupId}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function deleteAdminCompetitiveSetup(setupId) {
+  const response = await axios.delete(
+    `/api/admin/competitive/setups/${setupId}`
+  );
+  return response.data;
+}
+
+export async function getAdminApprovedCompetitiveSetups() {
+  const response = await axios.get("/api/admin/competitive/setups/approved");
+  return response.data;
+}
+
+// Ranked Game Terms
+export async function getAdminRankedTerms() {
+  const response = await axios.get("/api/admin/competitive/ranked-terms");
+  return response.data;
+}
+
+export async function updateAdminRankedTerms(terms) {
+  const response = await axios.patch(
+    "/api/admin/competitive/ranked-terms",
+    terms
+  );
+  return response.data;
+}
+
+// Shop Items Management
+export async function getAdminShopItems() {
+  const response = await axios.get("/api/admin/shop/items");
+  return response.data;
+}
+
+export async function createAdminShopItem(payload) {
+  const response = await axios.post("/api/admin/shop/items", payload);
+  return response.data;
+}
+
+export async function updateAdminShopItem(itemId, payload) {
+  const response = await axios.patch(`/api/admin/shop/items/${itemId}`, payload);
+  return response.data;
+}
+
+export async function deleteAdminShopItem(itemId) {
+  const response = await axios.delete(`/api/admin/shop/items/${itemId}`);
   return response.data;
 }

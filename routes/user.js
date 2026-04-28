@@ -2128,6 +2128,63 @@ router.post("/avatar", async function (req, res) {
   }
 });
 
+router.post("/avatar/equip", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const avatarKey = String(req.body.avatarKey || "").trim().toLowerCase();
+
+    if (!avatarKey || !avatarKey.startsWith("avatar-")) {
+      res.status(400);
+      res.send("Invalid avatar key.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false }).select(
+      "itemsOwned settings -_id"
+    );
+    if (!user) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    if (Number(user.itemsOwned?.[avatarKey] || 0) < 1) {
+      res.status(403);
+      res.send("You must purchase this avatar first.");
+      return;
+    }
+
+    const avatarSourcePath = `${process.env.UPLOAD_PATH}/store/avatars/${avatarKey}.webp`;
+    if (!fs.existsSync(avatarSourcePath)) {
+      res.status(404);
+      res.send("Avatar asset is unavailable.");
+      return;
+    }
+
+    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
+      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
+
+    fs.copyFileSync(avatarSourcePath, `${process.env.UPLOAD_PATH}/${userId}_avatar.webp`);
+
+    await models.User.updateOne(
+      { id: userId },
+      {
+        $set: {
+          avatar: true,
+          "settings.equippedAvatarKey": avatarKey,
+        },
+      }
+    );
+    await redis.cacheUserInfo(userId, true);
+
+    res.send({ ok: true, avatarKey });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error equipping avatar.");
+  }
+});
+
 router.post("/profileBackground", async function (req, res) {
   try {
     var userId = await routeUtils.verifyLoggedIn(req);

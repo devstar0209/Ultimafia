@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import update from "immutability-helper";
 
@@ -42,7 +42,12 @@ function parseGameId(input) {
 }
 
 export default function Shop(props) {
-  const [shopInfo, setShopInfo] = useState({ shopItems: [], balance: 0 });
+  const [shopInfo, setShopInfo] = useState({
+    shopItems: [],
+    avatarItems: [],
+    equippedAvatarKey: "",
+    balance: 0,
+  });
   const [loaded, setLoaded] = useState(false);
 
   const [recipient, setRecipient] = useState("");
@@ -58,6 +63,7 @@ export default function Shop(props) {
   const errorAlert = useErrorAlert();
   const isPhoneDevice = useIsPhoneDevice();
   const location = useLocation();
+  const navigate = useNavigate();
   const [autoBuyTriggered, setAutoBuyTriggered] = useState(false);
 
   useEffect(() => {
@@ -89,6 +95,8 @@ export default function Shop(props) {
     setAutoBuyTriggered(true);
     onBuyItem(index);
   }, [loaded, location.search]);
+
+
 
   const handleTransferCoins = () => {
     if (!recipient || !amount) {
@@ -155,11 +163,42 @@ export default function Shop(props) {
           };
         }
 
+        const nextOwnedCount = (user.itemsOwned[item.key] || 0) + 1;
         user.set(
           update(user.state, {
             itemsOwned: itemsOwnedChanges,
           })
         );
+
+        if (item.key.startsWith("avatar-") && nextOwnedCount > 0) {
+          return axios.post("/api/user/avatar/equip", { avatarKey: item.key });
+        }
+      })
+      .then((equipRes) => {
+        if (!equipRes) return;
+        setShopInfo((prev) => ({
+          ...prev,
+          equippedAvatarKey: equipRes.data.avatarKey || prev.equippedAvatarKey,
+          avatarItems: prev.avatarItems.map((avatar) =>
+            avatar.key === equipRes.data.avatarKey
+              ? { ...avatar, owned: true }
+              : avatar
+          ),
+        }));
+        siteInfo.showAlert("Avatar equipped.", "success");
+      })
+      .catch(errorAlert);
+  }
+
+  function onEquipAvatar(avatarKey) {
+    axios
+      .post("/api/user/avatar/equip", { avatarKey })
+      .then((res) => {
+        setShopInfo((prev) => ({
+          ...prev,
+          equippedAvatarKey: res.data.avatarKey || avatarKey,
+        }));
+        siteInfo.showAlert("Avatar equipped.", "success");
       })
       .catch(errorAlert);
   }
@@ -298,12 +337,80 @@ export default function Shop(props) {
         </Stack>
       </Paper>
 
-      <Divider flexItem orientation="horizontal" />
+      <Grid2 container spacing={1}>
+        <Grid2
+          size={{
+            xs: 12,
+            sm: 6,
+          }}
+        >
+          <Card
+            variant="outlined"
+            sx={{
+              height: "100%",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                bgcolor: "action.hover",
+                borderColor: "primary.main",
+              },
+            }}
+          >
+            <CardActionArea
+              onClick={() => navigate("/user/shop/avatars")}
+              sx={{ height: "100%" }}
+            >
+              <CardContent>
+                <Stack direction="column" spacing={1} alignItems="center">
+                  <Typography variant="h3">Buy Avatars</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Purchase and equip profile avatars
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid2>
+        <Grid2
+          size={{
+            xs: 12,
+            sm: 6,
+          }}
+        >
+          <Card
+            variant="outlined"
+            sx={{
+              height: "100%",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                bgcolor: "action.hover",
+                borderColor: "primary.main",
+              },
+            }}
+          >
+            <CardActionArea
+              onClick={() => navigate("/user/shop")}
+              sx={{ height: "100%" }}
+            >
+              <CardContent>
+                <Stack direction="column" spacing={1} alignItems="center">
+                  <Typography variant="h3">Buy Emoticons</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Shop for emoticons to use in the chat during games
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid2>
+      </Grid2>
+
+
 
       <Grid2 container spacing={1}>
         {shopItems}
       </Grid2>
-
       <Dialog
         open={stampDialogOpen}
         onClose={() => {

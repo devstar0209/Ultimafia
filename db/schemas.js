@@ -232,6 +232,27 @@ var schemas = {
     },
     { minimize: false }
   ),
+  DefaultSettings: new mongoose.Schema(
+    {
+      key: { type: String, index: true, unique: true, default: "default" },
+      registerCoinsReward: { type: Number, default: 0 },
+      // Currency Settings
+      initialRedHeartCapacity: { type: Number, default: 15 },
+      initialGoldHeartCapacity: { type: Number, default: 0 },
+      maxBonusRedHearts: { type: Number, default: 5 },
+      redHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
+      goldHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
+      // Ranked/Competitive Settings
+      minimumGamesForRanked: { type: Number, default: 5 },
+      minimumPointsForCompetitive: { type: Number, default: 150 },
+      openDaysPerCompetitiveRound: { type: Number, default: 9 },
+      reviewDaysPerCompetitiveRound: { type: Number, default: 4 },
+      pointsNominalAmount: { type: Number, default: 60 },
+      updatedAt: { type: Number, default: Date.now },
+      updatedBy: { type: String, default: "" },
+    },
+    { minimize: false }
+  ),
   Session: new mongoose.Schema({
     expires: Date,
     lastModified: Date,
@@ -878,6 +899,33 @@ var schemas = {
     paused: { type: Boolean, default: false },
     completed: { type: Boolean, default: false },
     numRounds: { type: Number },
+    setupsPerRound: { type: Number, default: 2 },
+  }),
+  RankedGameTerms: new mongoose.Schema({
+    key: { type: String, index: true, unique: true, default: "default" },
+    // Disqualification Rules
+    maxLeaveCount: { type: Number, default: 3 },
+    maxReportCount: { type: Number, default: 2 },
+    maxBanCount: { type: Number, default: 1 },
+    // Timeout Settings
+    joinGameTimeoutMinutes: { type: Number, default: 5 },
+    afkTimeoutMinutes: { type: Number, default: 10 },
+    // Scoring Rules
+    winPoints: { type: Number, default: 100 },
+    lossPoints: { type: Number, default: 10 },
+    drawPoints: { type: Number, default: 50 },
+    afkPenaltyPoints: { type: Number, default: -25 },
+    leavePenaltyPoints: { type: Number, default: -50 },
+    // Season Rules
+    minGamesRequiredPerSeason: { type: Number, default: 5 },
+    minWinsRequiredPerSeason: { type: Number, default: 1 },
+    seasonResetFrequencyDays: { type: Number, default: 90 },
+    // Matchmaking
+    ratingRangeDifference: { type: Number, default: 300 }, // Max rating diff for matchmaking
+    // Mod Actions
+    createdAt: { type: Number, default: Date.now },
+    updatedAt: { type: Number, default: Date.now },
+    updatedBy: { type: String, default: "" },
   }),
   CompetitiveRound: new mongoose.Schema({
     season: { type: Number },
@@ -1014,6 +1062,17 @@ var schemas = {
       toJSON: { virtuals: true },
     }
   ),
+  ShopItem: new mongoose.Schema({
+    key: { type: String, index: true, unique: true },
+    name: { type: String },
+    desc: { type: String, default: "" },
+    price: { type: Number, default: 0 },
+    limit: { type: Number, default: null }, // null = unlimited, 1 = one-time purchase, >1 = purchasable N times
+    hidden: { type: Boolean, default: false, index: true },
+    sortOrder: { type: Number, default: 0, index: true },
+    createdAt: { type: Number, default: Date.now, index: true },
+    updatedAt: { type: Number, default: Date.now },
+  }),
 };
 
 schemas.ForumVote.virtual("user", {
@@ -1242,6 +1301,7 @@ schemas.Poke.index({ userA: 1, userB: 1 }, { unique: true });
 schemas.Poke.index({ to: 1, status: 1 });
 
 schemas.CompetitiveRound.index({ season: 1, number: 1 }, { unique: true });
+schemas.RankedGameTerms.index({ key: 1 }, { unique: true });
 schemas.CompetitiveSeasonStanding.index(
   { userId: 1, season: 1 },
   { unique: true }
@@ -1267,5 +1327,9 @@ schemas.ViolationTicket.index({ userId: 1, createdAt: -1 });
 schemas.ViolationTicket.index({ userId: 1, violationId: 1 });
 schemas.ViolationTicket.index({ userId: 1, activeUntil: 1 });
 schemas.ViolationTicket.index({ userId: 1, violationName: 1, activeUntil: 1 });
+
+// ShopItem index
+schemas.ShopItem.index({ key: 1 }, { unique: true });
+schemas.ShopItem.index({ sortOrder: 1 });
 
 module.exports = schemas;

@@ -10,7 +10,8 @@
     "start": "pm2 start pm2-dev.json",
     "stop": "pm2 kill",
     "logs": "pm2 logs www",
-    "test": "mocha --recursive --parallel --exit"
+    "test": "mocha --recursive --parallel --exit",
+    "seed:shop": "node ./migrations/seedShopItems.js"
   },
   "dependencies": {
     "@octokit/core": "^7.0.3",

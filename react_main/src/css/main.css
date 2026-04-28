@@ -31,7 +31,7 @@
   --scheme-color: #181a1b;
   --scheme-color-sec: #1f2123;
   --scheme-color-background: #3b3b3b;
-  --scheme-color-text: #ffffff;
+  --scheme-color-text: #ffffffb3;
   --scheme-color-border: #404548;
   --scheme-color-code: #3d3d3d;
   --gradient-color: var(--gradient-color-dark);
@@ -53,7 +53,7 @@
     --scheme-color: rgb(36, 36, 36);
     --scheme-color-sec: rgb(46, 46, 50);
     --scheme-color-background: #3b3b3b;
-    --scheme-color-text: #ffffff;
+    --scheme-color-text: #ffffffb3;
     --scheme-color-border: #404548;
     --scheme-color-code: #3d3d3d;
     --gradient-color: var(--gradient-color-dark);

@@ -6,6 +6,7 @@ import { Link, Route, Routes, Navigate } from "react-router-dom";
 import Profile from "./Profile";
 import Settings from "./Settings";
 import Shop from "./Shop";
+import AvatarShop from "./AvatarShop";
 import Inbox from "./Inbox";
 import Family from "./Family";
 import { UserContext, SiteInfoContext, GameContext } from "Contexts";
@@ -285,6 +286,7 @@ export default function User(props) {
       <Route path="/" element={<Profile />} />
       <Route path="settings/*" element={<Settings />} />
       <Route path="shop" element={<Shop />} />
+      <Route path="shop/avatars" element={<AvatarShop />} />
       <Route path="inbox" element={<Inbox />} />
       <Route path="family/:familyId" element={<Family />} />
       <Route path=":userId" element={<Profile />} />
@@ -302,6 +304,7 @@ export function Avatar(props) {
   const imageUrl = props.imageUrl;
   const edit = props.edit;
   const onUpload = props.onUpload;
+  const onEditClick = props.onEditClick;
   const active = props.active;
   const dead = props.dead;
   const avatarId = props.avatarId;
@@ -425,6 +428,7 @@ export function Avatar(props) {
         <AvatarUpload
           className="edit"
           name="avatar"
+          onClick={onEditClick}
           onFileUpload={onUpload}
           isSquare={isSquare}
         >

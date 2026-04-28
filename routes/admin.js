@@ -10,7 +10,9 @@ const redis = require("../modules/redis");
 const gameCatalogUtils = require("../lib/gameCatalog");
 const brandingUtils = require("../lib/platformBranding");
 const routeUtils = require("./utils");
+const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
+const shopModule = require("./shop");
 
 const router = express.Router();
 
@@ -144,6 +146,16 @@ function removeUploadFile(relativePath) {
   if (fs.existsSync(absolutePath)) {
     fs.unlinkSync(absolutePath);
   }
+}
+
+function normalizeAvatarKey(rawKey = "") {
+  const trimmed = String(rawKey || "").trim().toLowerCase();
+  if (!trimmed) return "";
+  return trimmed.startsWith("avatar-") ? trimmed : `avatar-${trimmed}`;
+}
+
+function getAvatarAssetRelativePath(avatarKey) {
+  return `store/avatars/${avatarKey}.webp`;
 }
 
 async function createBrandingModAction(userId, name, args = []) {
@@ -691,78 +703,360 @@ router.get("/avatars", async function (req, res) {
   try {
     if (!(await verifyAdminAccess(req, res))) return;
 
-    const users = await models.User.find({
-      deleted: false,
-      $or: [
-        { avatar: true },
-        { banner: true },
-        { profileBackground: true },
-      ],
-    })
-      .sort("-lastActive")
-      .limit(100)
-      .select("id name avatar banner profileBackground lastActive -_id")
-      .lean();
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 10)));
+    const search = String(req.query?.search || "").trim();
 
-    const entries = [];
-    const collectionCounts = {
-      "Profile Avatars": 0,
-      Banners: 0,
-      "Profile Backgrounds": 0,
-    };
-
-    for (const user of users) {
-      if (user.avatar) {
-        collectionCounts["Profile Avatars"] += 1;
-        entries.push({
-          id: `${user.id}-avatar`,
-          name: `${user.name} Avatar`,
-          collection: "Profile Avatars",
-          artist: user.name,
-          rarity: "User Upload",
-          status: "Active",
-          updated: formatRelativeTime(user.lastActive),
-        });
-      }
-
-      if (user.banner) {
-        collectionCounts.Banners += 1;
-        entries.push({
-          id: `${user.id}-banner`,
-          name: `${user.name} Banner`,
-          collection: "Banners",
-          artist: user.name,
-          rarity: "User Upload",
-          status: "Active",
-          updated: formatRelativeTime(user.lastActive),
-        });
-      }
-
-      if (user.profileBackground) {
-        collectionCounts["Profile Backgrounds"] += 1;
-        entries.push({
-          id: `${user.id}-background`,
-          name: `${user.name} Background`,
-          collection: "Profile Backgrounds",
-          artist: user.name,
-          rarity: "User Upload",
-          status: "Active",
-          updated: formatRelativeTime(user.lastActive),
-        });
-      }
+    const query = { key: /^avatar-/i };
+    if (search) {
+      query.$or = [
+        { key: new RegExp(search, "i") },
+        { name: new RegExp(search, "i") },
+        { desc: new RegExp(search, "i") },
+      ];
     }
 
-    const collections = Object.entries(collectionCounts).map(([name, count]) => ({
-      name,
-      count: `${count} assets`,
-      theme: `Live count for ${name.toLowerCase()}.`,
-      releaseWindow: "Managed from current user profile data",
+    const [total, avatarShopItems, allAvatarItems] = await Promise.all([
+      models.ShopItem.countDocuments(query),
+      models.ShopItem.find(query)
+        .sort("sortOrder")
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .select("_id key name desc price limit hidden sortOrder updatedAt -_id")
+        .lean(),
+      models.ShopItem.find({ key: /^avatar-/i })
+        .select("hidden -_id")
+        .lean(),
+    ]);
+
+    const entries = avatarShopItems.map((item) => ({
+      id: item.key,
+      key: item.key,
+      name: item.name || item.key,
+      description: item.desc || "",
+      price: Number(item.price || 0),
+      limit: item.limit == null ? null : Number(item.limit),
+      hidden: Boolean(item.hidden),
+      sortOrder: Number(item.sortOrder || 0),
+      imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(item.key)),
+      collection: "Profile Avatars",
+      artist: "Store Asset",
+      rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
+      status: item.hidden ? "Hidden" : "Published",
+      updated: formatRelativeTime(item.updatedAt || Date.now()),
     }));
 
-    res.send({ entries, collections });
+    const publishedCount = allAvatarItems.filter((item) => !item.hidden).length;
+    const hiddenCount = allAvatarItems.length - publishedCount;
+
+    const collections = [
+      {
+        name: "Profile Avatars",
+        count: `${allAvatarItems.length} assets`,
+        theme: "Store-managed profile image catalog for users.",
+        releaseWindow: `${publishedCount} published / ${hiddenCount} hidden`,
+      },
+    ];
+
+    res.send({
+      entries,
+      collections,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    });
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading avatar assets.");
+  }
+});
+
+router.post("/avatars", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeAvatarKey(req.body?.key);
+    const name = String(req.body?.name || "").trim();
+    const description = String(req.body?.description || "").trim();
+    const price = Number(req.body?.price || 0);
+    const limit =
+      req.body?.limit == null || req.body?.limit === ""
+        ? null
+        : Number(req.body?.limit);
+    const hidden = Boolean(req.body?.hidden);
+
+    if (!key || !/^avatar-[a-z0-9-]+$/.test(key)) {
+      res.status(400).send("Avatar key must start with avatar- and use letters, numbers, or hyphens.");
+      return;
+    }
+    if (!name) {
+      res.status(400).send("Avatar name is required.");
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      res.status(400).send("Avatar price must be a positive number.");
+      return;
+    }
+    if (limit != null && (!Number.isFinite(limit) || limit < 1)) {
+      res.status(400).send("Avatar limit must be null or a number greater than 0.");
+      return;
+    }
+
+    const exists = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (exists) {
+      res.status(400).send("Avatar key already exists.");
+      return;
+    }
+
+    const lastItem = await models.ShopItem.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder")
+      .lean();
+
+    const created = await models.ShopItem.create({
+      key,
+      name,
+      desc: description,
+      price,
+      limit,
+      hidden,
+      sortOrder: Number(lastItem?.sortOrder || 0) + 1,
+      updatedAt: Date.now(),
+    });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Avatar Item", [
+      key,
+      name,
+    ]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        key: created.key,
+        name: created.name,
+        description: created.desc || "",
+        price: Number(created.price || 0),
+        limit: created.limit == null ? null : Number(created.limit),
+        hidden: Boolean(created.hidden),
+        sortOrder: Number(created.sortOrder || 0),
+        imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(created.key)),
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating avatar item.");
+  }
+});
+
+router.patch("/avatars/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeAvatarKey(req.params.key);
+    if (!key) {
+      res.status(400).send("Invalid avatar key.");
+      return;
+    }
+
+    const updates = {};
+    if (req.body?.name !== undefined) updates.name = String(req.body.name || "").trim();
+    if (req.body?.description !== undefined)
+      updates.desc = String(req.body.description || "").trim();
+    if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
+    if (req.body?.limit !== undefined)
+      updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
+    if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
+    updates.updatedAt = Date.now();
+
+    if (updates.name !== undefined && !updates.name) {
+      res.status(400).send("Avatar name is required.");
+      return;
+    }
+    if (updates.price !== undefined && (!Number.isFinite(updates.price) || updates.price < 0)) {
+      res.status(400).send("Avatar price must be a positive number.");
+      return;
+    }
+    if (
+      updates.limit !== undefined &&
+      updates.limit != null &&
+      (!Number.isFinite(updates.limit) || updates.limit < 1)
+    ) {
+      res.status(400).send("Avatar limit must be null or a number greater than 0.");
+      return;
+    }
+
+    const updated = await models.ShopItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
+      .select("key name desc price limit hidden sortOrder")
+      .lean();
+    if (!updated) {
+      res.status(404).send("Avatar item not found.");
+      return;
+    }
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Avatar Item", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        key: updated.key,
+        name: updated.name,
+        description: updated.desc || "",
+        price: Number(updated.price || 0),
+        limit: updated.limit == null ? null : Number(updated.limit),
+        hidden: Boolean(updated.hidden),
+        sortOrder: Number(updated.sortOrder || 0),
+        imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(updated.key)),
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating avatar item.");
+  }
+});
+
+router.patch("/avatars/:key/hidden", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeAvatarKey(req.params.key);
+    const hidden = Boolean(req.body?.hidden);
+    const updated = await models.ShopItem.findOneAndUpdate(
+      { key },
+      { $set: { hidden, updatedAt: Date.now() } },
+      { new: true }
+    )
+      .select("key hidden -_id")
+      .lean();
+    if (!updated) {
+      res.status(404).send("Avatar item not found.");
+      return;
+    }
+
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      hidden ? "Hid Avatar Item" : "Unhid Avatar Item",
+      [key]
+    );
+    shopModule.invalidateShopItemsCache();
+    res.send({ ok: true, key, hidden: updated.hidden });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating avatar visibility.");
+  }
+});
+
+router.post("/avatars/:key/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeAvatarKey(req.params.key);
+    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Avatar item not found.");
+      return;
+    }
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const relativePath = getAvatarAssetRelativePath(key);
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: 256,
+        height: 256,
+        fit: sharp.fit.cover,
+        position: sharp.strategy.attention,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 92 })
+      .toFile(absolutePath);
+
+    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Avatar Item Image", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, imageUrl: brandingUtils.toPublicUrl(relativePath) });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 5 MB.");
+      return;
+    }
+    logger.error(e);
+    res.status(500).send("Error uploading avatar image.");
+  }
+});
+
+router.delete("/avatars/:key/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeAvatarKey(req.params.key);
+    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Avatar item not found.");
+      return;
+    }
+
+    removeUploadFile(getAvatarAssetRelativePath(key));
+    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Removed Avatar Item Image", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing avatar image.");
+  }
+});
+
+router.delete("/avatars/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeAvatarKey(req.params.key);
+    const existing = await models.ShopItem.findOne({ key }).select("key name -_id").lean();
+    if (!existing) {
+      res.status(404).send("Avatar item not found.");
+      return;
+    }
+
+    removeUploadFile(getAvatarAssetRelativePath(key));
+    await models.ShopItem.deleteOne({ key }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Avatar Item", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, name: existing.name });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting avatar item.");
   }
 });
 
@@ -1136,6 +1430,7 @@ router.get("/settings/general", async function (req, res) {
       openReports,
       activeAutomationCandidates,
       brandingDoc,
+      defaultSettings,
     ] = await Promise.all([
       redis.getMinimumGamesForRanked(),
       redis.getAutoApprovalEnabled(),
@@ -1143,6 +1438,7 @@ router.get("/settings/general", async function (req, res) {
       models.Report.countDocuments({ status: { $in: ["open", "in-progress"] } }),
       models.User.countDocuments({ flagged: true, deleted: false }),
       getPlatformBrandingDocument(),
+      models.DefaultSettings.findOne({ key: "default" }),
     ]);
 
     res.send({
@@ -1154,10 +1450,86 @@ router.get("/settings/general", async function (req, res) {
         activeAutomationCandidates
       ),
       branding: brandingUtils.buildBrandingPayload(brandingDoc),
+      defaultSettings: {
+        registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
+        initialRedHeartCapacity: defaultSettings?.initialRedHeartCapacity || 15,
+        initialGoldHeartCapacity: defaultSettings?.initialGoldHeartCapacity || 0,
+        maxBonusRedHearts: defaultSettings?.maxBonusRedHearts || 5,
+        redHeartRefreshIntervalMillis: defaultSettings?.redHeartRefreshIntervalMillis || 82800000,
+        goldHeartRefreshIntervalMillis: defaultSettings?.goldHeartRefreshIntervalMillis || 82800000,
+        minimumGamesForRanked: defaultSettings?.minimumGamesForRanked || 5,
+        minimumPointsForCompetitive: defaultSettings?.minimumPointsForCompetitive || 150,
+        openDaysPerCompetitiveRound: defaultSettings?.openDaysPerCompetitiveRound || 9,
+        reviewDaysPerCompetitiveRound: defaultSettings?.reviewDaysPerCompetitiveRound || 4,
+        pointsNominalAmount: defaultSettings?.pointsNominalAmount || 60,
+      },
     });
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading admin general settings.");
+  }
+});
+
+router.patch("/settings/defaults", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const {
+      registerCoinsReward,
+      initialRedHeartCapacity,
+      initialGoldHeartCapacity,
+      maxBonusRedHearts,
+      redHeartRefreshIntervalMillis,
+      goldHeartRefreshIntervalMillis,
+      minimumGamesForRanked,
+      minimumPointsForCompetitive,
+      openDaysPerCompetitiveRound,
+      reviewDaysPerCompetitiveRound,
+      pointsNominalAmount,
+    } = req.body;
+
+    const updated = await models.DefaultSettings.findOneAndUpdate(
+      { key: "default" },
+      {
+        registerCoinsReward: Number(registerCoinsReward || 0),
+        initialRedHeartCapacity: Number(initialRedHeartCapacity || 15),
+        initialGoldHeartCapacity: Number(initialGoldHeartCapacity || 0),
+        maxBonusRedHearts: Number(maxBonusRedHearts || 5),
+        redHeartRefreshIntervalMillis: Number(redHeartRefreshIntervalMillis || 82800000),
+        goldHeartRefreshIntervalMillis: Number(goldHeartRefreshIntervalMillis || 82800000),
+        minimumGamesForRanked: Number(minimumGamesForRanked || 5),
+        minimumPointsForCompetitive: Number(minimumPointsForCompetitive || 150),
+        openDaysPerCompetitiveRound: Number(openDaysPerCompetitiveRound || 9),
+        reviewDaysPerCompetitiveRound: Number(reviewDaysPerCompetitiveRound || 4),
+        pointsNominalAmount: Number(pointsNominalAmount || 60),
+        updatedAt: Date.now(),
+        updatedBy: req.user?.id || "unknown",
+      },
+      { upsert: true, new: true }
+    );
+
+    // Invalidate cache so next request picks up new values
+    defaultSettings.invalidateCache();
+
+    res.send({
+      defaultSettings: {
+        registerCoinsReward: updated.registerCoinsReward,
+        initialRedHeartCapacity: updated.initialRedHeartCapacity,
+        initialGoldHeartCapacity: updated.initialGoldHeartCapacity,
+        maxBonusRedHearts: updated.maxBonusRedHearts,
+        redHeartRefreshIntervalMillis: updated.redHeartRefreshIntervalMillis,
+        goldHeartRefreshIntervalMillis: updated.goldHeartRefreshIntervalMillis,
+        minimumGamesForRanked: updated.minimumGamesForRanked,
+        minimumPointsForCompetitive: updated.minimumPointsForCompetitive,
+        openDaysPerCompetitiveRound: updated.openDaysPerCompetitiveRound,
+        reviewDaysPerCompetitiveRound: updated.reviewDaysPerCompetitiveRound,
+        pointsNominalAmount: updated.pointsNominalAmount,
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating default settings.");
   }
 });
 
@@ -1645,4 +2017,170 @@ router.get("/settings/summary", async function (req, res) {
   }
 });
 
+// Price Items / Shop Management
+router.get("/shop/items", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const shopItems = await models.ShopItem.find({})
+      .sort("sortOrder")
+      .select("_id key name desc price limit hidden sortOrder")
+      .lean();
+
+    res.send({
+      items: shopItems.map((item) => ({
+        id: item._id,
+        key: item.key,
+        name: item.name,
+        description: item.desc || "",
+        price: Number(item.price || 0),
+        limit: item.limit,
+        hidden: Boolean(item.hidden || false),
+        sortOrder: item.sortOrder || 0,
+      })),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading shop items.");
+  }
+});
+
+router.post("/shop/items", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { key, name, description, price, limit, hidden } = req.body;
+
+    if (!key || !name) {
+      return res.status(400).send("Key and name are required.");
+    }
+
+    const lastItem = await models.ShopItem.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder")
+      .lean();
+
+    const item = await models.ShopItem.create({
+      key: String(key).trim().toLowerCase(),
+      name: String(name).trim(),
+      desc: String(description || "").trim(),
+      price: Number(price || 0),
+      limit: limit == null ? null : Number(limit),
+      hidden: Boolean(hidden || false),
+      sortOrder: Number(lastItem?.sortOrder || 0) + 1,
+    });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Shop Item", [
+      `Key: ${item.key}`,
+      `Name: ${item.name}`,
+    ]);
+
+    // Invalidate shop items cache
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        id: item._id,
+        key: item.key,
+        name: item.name,
+        description: item.desc,
+        price: item.price,
+        limit: item.limit,
+        hidden: item.hidden,
+        sortOrder: item.sortOrder,
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating shop item.");
+  }
+});
+
+router.patch("/shop/items/:itemId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { itemId } = req.params;
+    const { name, description, price, limit, hidden } = req.body;
+
+    const item = await models.ShopItem.findById(itemId);
+    if (!item) {
+      return res.status(404).send("Shop item not found.");
+    }
+
+    const updates = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (description !== undefined) updates.desc = String(description || "").trim();
+    if (price !== undefined) updates.price = Number(price || 0);
+    if (limit !== undefined) updates.limit = limit == null ? null : Number(limit);
+    if (hidden !== undefined) updates.hidden = Boolean(hidden);
+
+    const updated = await models.ShopItem.findByIdAndUpdate(itemId, updates, {
+      new: true,
+    }).lean();
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Shop Item", [
+      `Key: ${item.key}`,
+      `Name: ${updated.name}`,
+    ]);
+
+    // Invalidate shop items cache
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        id: updated._id,
+        key: updated.key,
+        name: updated.name,
+        description: updated.desc,
+        price: updated.price,
+        limit: updated.limit,
+        hidden: updated.hidden,
+        sortOrder: updated.sortOrder,
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating shop item.");
+  }
+});
+
+router.delete("/shop/items/:itemId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { itemId } = req.params;
+
+    const item = await models.ShopItem.findById(itemId);
+    if (!item) {
+      return res.status(404).send("Shop item not found.");
+    }
+
+    await models.ShopItem.deleteOne({ _id: itemId });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Shop Item", [
+      `Key: ${item.key}`,
+      `Name: ${item.name}`,
+    ]);
+
+    // Invalidate shop items cache
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting shop item.");
+  }
+});
+
 module.exports = router;
+module.exports.verifyAdminAccess = verifyAdminAccess;

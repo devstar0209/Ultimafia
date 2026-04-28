@@ -4,9 +4,12 @@ import AvatarsPage from "./catalog/AvatarsPage";
 import GameIncidentsPage from "./games/GameIncidentsPage";
 import LiveGamesPage from "./games/LiveGamesPage";
 import QueueHealthPage from "./games/QueueHealthPage";
+import CompetitiveSetupsPage from "./games/CompetitiveSetupsPage";
 import AutomationSettingsPage from "./settings/AutomationSettingsPage";
+import CompetitiveSeasonsPage from "./settings/CompetitiveSeasonsPage";
 import GameSettingsPage from "./settings/GameSettingsPage";
 import GeneralSettingsPage from "./settings/GeneralSettingsPage";
+import RankedTermsPage from "./settings/RankedTermsPage";
 import SecuritySettingsPage from "./settings/SecuritySettingsPage";
 import RolesAccessPage from "./users/RolesAccessPage";
 import TrustSignalsPage from "./users/TrustSignalsPage";
@@ -20,6 +23,9 @@ const pageRegistry = {
   "games-live": LiveGamesPage,
   "games-queues": QueueHealthPage,
   "games-incidents": GameIncidentsPage,
+  "games-competitive-setups": CompetitiveSetupsPage,
+  "games-competitive-seasons": CompetitiveSeasonsPage,
+  "games-ranked-terms": RankedTermsPage,
   "catalog-prices": PriceItemsPage,
   "catalog-avatars": AvatarsPage,
   "settings-general": GeneralSettingsPage,
