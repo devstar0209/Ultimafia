@@ -45,6 +45,21 @@ const coinPurchaseSchema = new mongoose.Schema({
 });
 coinPurchaseSchema.index({ provider: 1, externalId: 1 }, { unique: true });
 
+const paymentMethodSchema = new mongoose.Schema({
+  provider: { type: String, index: true, unique: true }, // "nowpayments", "braintree", "stripe"
+  mode: { type: String, enum: ["test", "prod"], default: "test" }, // test or prod mode
+  active: { type: Boolean, default: false },
+  apiKey: { type: String, default: "" },
+  baseUrl: { type: String, default: "" },
+  defaultCurrencies: { type: String, default: "" }, // comma-separated list
+  ipnUrl: { type: String, default: "" },
+  webhookUrl: { type: String, default: "" },
+  createdAt: { type: Number, default: Date.now },
+  updatedAt: { type: Number, default: Date.now },
+  updatedBy: { type: String, default: "" },
+});
+paymentMethodSchema.index({ provider: 1 }, { unique: true });
+
 var schemas = {
   User: new mongoose.Schema({
     id: { type: String, index: true },
@@ -202,6 +217,7 @@ var schemas = {
     flagged: { type: Boolean, default: false },
   }),
   CoinPurchase: coinPurchaseSchema,
+  PaymentMethod: paymentMethodSchema,
   PlatformBranding: new mongoose.Schema(
     {
       key: { type: String, index: true, unique: true, default: "default" },

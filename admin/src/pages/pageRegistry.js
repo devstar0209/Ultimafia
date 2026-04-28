@@ -9,6 +9,7 @@ import AutomationSettingsPage from "./settings/AutomationSettingsPage";
 import CompetitiveSeasonsPage from "./settings/CompetitiveSeasonsPage";
 import GameSettingsPage from "./settings/GameSettingsPage";
 import GeneralSettingsPage from "./settings/GeneralSettingsPage";
+import PaymentMethodsSettingsPage from "./settings/PaymentMethodsSettingsPage";
 import RankedTermsPage from "./settings/RankedTermsPage";
 import SecuritySettingsPage from "./settings/SecuritySettingsPage";
 import RolesAccessPage from "./users/RolesAccessPage";
@@ -30,6 +31,7 @@ const pageRegistry = {
   "catalog-avatars": AvatarsPage,
   "settings-general": GeneralSettingsPage,
   "settings-gamecatalogs": GameSettingsPage,
+  "settings-payment-methods": PaymentMethodsSettingsPage,
   "settings-security": SecuritySettingsPage,
   "settings-automation": AutomationSettingsPage,
 };
