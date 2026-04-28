@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import update from "immutability-helper";
 
@@ -63,6 +63,7 @@ export default function Shop(props) {
   const errorAlert = useErrorAlert();
   const isPhoneDevice = useIsPhoneDevice();
   const location = useLocation();
+  const navigate = useNavigate();
   const [autoBuyTriggered, setAutoBuyTriggered] = useState(false);
 
   useEffect(() => {
@@ -94,6 +95,8 @@ export default function Shop(props) {
     setAutoBuyTriggered(true);
     onBuyItem(index);
   }, [loaded, location.search]);
+
+
 
   const handleTransferCoins = () => {
     if (!recipient || !amount) {
@@ -334,81 +337,80 @@ export default function Shop(props) {
         </Stack>
       </Paper>
 
-      <Divider flexItem orientation="horizontal" />
+      <Grid2 container spacing={1}>
+        <Grid2
+          size={{
+            xs: 12,
+            sm: 6,
+          }}
+        >
+          <Card
+            variant="outlined"
+            sx={{
+              height: "100%",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                bgcolor: "action.hover",
+                borderColor: "primary.main",
+              },
+            }}
+          >
+            <CardActionArea
+              onClick={() => navigate("/user/shop/avatars")}
+              sx={{ height: "100%" }}
+            >
+              <CardContent>
+                <Stack direction="column" spacing={1} alignItems="center">
+                  <Typography variant="h3">Buy Avatars</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Purchase and equip profile avatars
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid2>
+        <Grid2
+          size={{
+            xs: 12,
+            sm: 6,
+          }}
+        >
+          <Card
+            variant="outlined"
+            sx={{
+              height: "100%",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                bgcolor: "action.hover",
+                borderColor: "primary.main",
+              },
+            }}
+          >
+            <CardActionArea
+              onClick={() => navigate("/user/shop")}
+              sx={{ height: "100%" }}
+            >
+              <CardContent>
+                <Stack direction="column" spacing={1} alignItems="center">
+                  <Typography variant="h3">Buy Emoticons</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Shop for emoticons to use in the chat during games
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid2>
+      </Grid2>
+
+
 
       <Grid2 container spacing={1}>
         {shopItems}
       </Grid2>
-
-      {shopInfo.avatarItems.length > 0 && (
-        <>
-          <Divider flexItem orientation="horizontal" />
-          <Paper sx={{ p: 2 }}>
-            <Stack direction="column" spacing={2}>
-              <Typography variant="h3">Profile Avatars</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Buy avatar assets in the shop, then equip one as your profile image.
-              </Typography>
-              <Grid2 container spacing={1}>
-                {shopInfo.avatarItems.map((avatar) => {
-                  const isEquipped = shopInfo.equippedAvatarKey === avatar.key;
-                  return (
-                    <Grid2
-                      key={avatar.key}
-                      size={{
-                        xs: 6,
-                        sm: 3,
-                        md: 2,
-                      }}
-                    >
-                      <Card variant="outlined" sx={{ height: "100%" }}>
-                        <CardContent>
-                          <Stack direction="column" spacing={1} style={{ alignItems: "center" }}>
-                            <Box
-                              sx={{
-                                width: 72,
-                                height: 72,
-                                borderRadius: "50%",
-                                backgroundColor: "rgba(255,255,255,0.06)",
-                                backgroundImage: avatar.available
-                                  ? `url(${avatar.imageUrl}?t=${siteInfo.cacheVal})`
-                                  : "none",
-                                backgroundSize: "cover",
-                                backgroundPosition: "center",
-                              }}
-                            />
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              sx={{
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <Typography>{avatar.price}</Typography>
-                              <img src={coin} style={{ width: "20px", height: "20px" }} />
-                            </Stack>
-                            {avatar.owned && (
-                              <Button
-                                variant={isEquipped ? "contained" : "outlined"}
-                                disabled={isEquipped}
-                                onClick={() => onEquipAvatar(avatar.key)}
-                              >
-                                {isEquipped ? "Equipped" : "Equip"}
-                              </Button>
-                            )}
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    </Grid2>
-                  );
-                })}
-              </Grid2>
-            </Stack>
-          </Paper>
-        </>
-      )}
-
       <Dialog
         open={stampDialogOpen}
         onClose={() => {

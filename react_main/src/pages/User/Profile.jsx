@@ -161,6 +161,10 @@ export default function Profile() {
   const [trophies, setTrophies] = useState([]);
   const [karmaInfo, setKarmaInfo] = useState({});
   const [settings, setSettings] = useState({});
+  const [avatarSelectionOpen, setAvatarSelectionOpen] = useState(false);
+  const [avatarShopItems, setAvatarShopItems] = useState([]);
+  const [avatarShopLoading, setAvatarShopLoading] = useState(false);
+  const [equippingAvatarKey, setEquippingAvatarKey] = useState("");
   const [recentGames, setRecentGames] = useState([]);
   const [recentGamesPage, setRecentGamesPage] = useState(1);
   const [recentGamesMaxPage, setRecentGamesMaxPage] = useState(1);
@@ -433,6 +437,51 @@ export default function Profile() {
           else errorAlert(e);
         });
     }
+  }
+
+  function openAvatarSelectionDialog() {
+    setAvatarShopLoading(true);
+    axios
+      .get("/api/shop/info")
+      .then((res) => {
+        setAvatarShopItems(res.data.avatarItems || []);
+        setAvatarSelectionOpen(true);
+      })
+      .catch((e) => {
+        errorAlert(e);
+      })
+      .finally(() => {
+        setAvatarShopLoading(false);
+      });
+
+    return false;
+  }
+
+  function closeAvatarSelectionDialog() {
+    setAvatarSelectionOpen(false);
+    setAvatarShopItems([]);
+    setEquippingAvatarKey("");
+  }
+
+  function onEquipAvatar(avatarKey) {
+    if (!avatarKey) return;
+
+    setEquippingAvatarKey(avatarKey);
+    axios
+      .post("/api/user/avatar/equip", { avatarKey })
+      .then((res) => {
+        setAvatar(true);
+        setSettings((prev) => ({ ...prev, equippedAvatarKey: avatarKey }));
+        siteInfo.clearCache();
+        siteInfo.showAlert("Avatar selected.", "success");
+        closeAvatarSelectionDialog();
+      })
+      .catch((e) => {
+        errorAlert(e.response?.data || e);
+      })
+      .finally(() => {
+        setEquippingAvatarKey("");
+      });
   }
 
   function onFriendUserClick() {
@@ -1224,6 +1273,7 @@ export default function Profile() {
               bustCache={bustCache}
               name={name}
               edit={isSelf}
+              onEditClick={openAvatarSelectionDialog}
               onUpload={onFileUpload}
               border={`4px var(--scheme-color) solid`}
               isSquare={settings.avatarShape === "square"}
@@ -1440,6 +1490,100 @@ export default function Profile() {
         open={moderationDrawerOpen}
         setOpen={setModerationDrawerOpen}
         prefilledArgs={{ userId: profileUserId }}
+      />
+      <Modal
+        show={avatarSelectionOpen}
+        onBgClick={closeAvatarSelectionDialog}
+        header={<Typography variant="h3">Select Profile Avatar</Typography>}
+        content={
+          <Stack direction="column" spacing={2} sx={{ minWidth: 320, maxWidth: 520 }}>
+            {avatarShopLoading ? (
+              <Typography>Loading avatar selection…</Typography>
+            ) : (
+              <>
+                {avatarShopItems.filter((item) => item.owned).length > 0 ? (
+                  <Stack direction="column" spacing={2}>
+                    <Typography>
+                      Choose one of your purchased profile avatars to equip.
+                    </Typography>
+                    {avatarShopItems
+                      .filter((item) => item.owned)
+                      .map((avatar) => {
+                        const isEquipped =
+                          avatar.key === settings.equippedAvatarKey;
+                        return (
+                          <Box
+                            key={avatar.key}
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              p: 1,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box
+                                sx={{
+                                  width: 56,
+                                  height: 56,
+                                  borderRadius: "50%",
+                                  backgroundColor: "rgba(255,255,255,0.06)",
+                                  backgroundImage: avatar.available
+                                    ? `url(${avatar.imageUrl}?t=${siteInfo.cacheVal})`
+                                    : "none",
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                  border: "1px solid rgba(255,255,255,0.08)",
+                                }}
+                              />
+                              <Box>
+                                <Typography>{avatar.name}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {avatar.price} coins
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Button
+                              variant={isEquipped ? "contained" : "outlined"}
+                              disabled={isEquipped || equippingAvatarKey === avatar.key}
+                              onClick={() => onEquipAvatar(avatar.key)}
+                            >
+                              {isEquipped ? "Equipped" : "Equip"}
+                            </Button>
+                          </Box>
+                        );
+                      })}
+                  </Stack>
+                ) : (
+                  <Stack direction="column" spacing={2}>
+                    <Typography>
+                      You haven’t purchased any profile avatars yet.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Buy avatars in the shop and then equip one here.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        closeAvatarSelectionDialog();
+                        navigate("/user/shop/avatars");
+                      }}
+                    >
+                      Buy Avatar
+                    </Button>
+                  </Stack>
+                )}
+              </>
+            )}
+          </Stack>
+        }
+        footer={
+          <Stack direction="row" justifyContent="flex-end">
+            <Button onClick={closeAvatarSelectionDialog}>Close</Button>
+          </Stack>
+        }
       />
       <Grid container rowSpacing={1} columnSpacing={1} className="profile">
         <Grid item xs={12}>
