@@ -126,7 +126,7 @@ export const menuGroups = [
       {
         key: "settings-payment-methods",
         label: "Payment Methods",
-        path: "/settings/payment-methods",
+        path: "/admin/settings/payment-methods",
         description: "API keys, webhooks, and provider config",
       },
       {
