@@ -68,19 +68,19 @@ export const menuGroups = [
       {
         key: "games-competitive-setups",
         label: "Competitive Setups",
-        path: "/games/competitive-setups",
+        path: "/admin/games/competitive-setups",
         description: "Approve setups for competitive play",
       },
       {
         key: "games-competitive-seasons",
         label: "Competitive Seasons",
-        path: "/games/competitive-seasons",
+        path: "/admin/games/competitive-seasons",
         description: "Create and manage ranked seasons",
       },
       {
         key: "games-ranked-terms",
         label: "Ranked Rules",
-        path: "/games/ranked-terms",
+        path: "/admin/games/ranked-terms",
         description: "Scoring, timeouts, and matchmaking",
       },
     ],
@@ -100,7 +100,7 @@ export const menuGroups = [
       {
         key: "catalog-avatars",
         label: "Avatars",
-        path: "/catalog/avatars",
+        path: "/admin/catalog/avatars",
         description: "User profile avatars",
       },
     ],
