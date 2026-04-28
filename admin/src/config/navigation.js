@@ -124,6 +124,12 @@ export const menuGroups = [
         description: "Titles, slugs, and game logo assets",
       },
       {
+        key: "settings-payment-methods",
+        label: "Payment Methods",
+        path: "/settings/payment-methods",
+        description: "API keys, webhooks, and provider config",
+      },
+      {
         key: "settings-security",
         label: "Security",
         path: "/admin/settings/security",

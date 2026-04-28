@@ -313,3 +313,29 @@ export async function deleteAdminShopItem(itemId) {
   const response = await axios.delete(`/api/admin/shop/items/${itemId}`);
   return response.data;
 }
+
+// Payment Methods Settings
+export async function getAdminPaymentMethods() {
+  const response = await axios.get("/api/admin/settings/payment-methods");
+  return response.data;
+}
+
+export async function getAdminPaymentMethod(provider) {
+  const response = await axios.get(`/api/admin/settings/payment-methods/${provider}`);
+  return response.data;
+}
+
+export async function updateAdminPaymentMethod(provider, payload) {
+  const response = await axios.post(
+    `/api/admin/settings/payment-methods/${provider}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function deleteAdminPaymentMethod(provider) {
+  const response = await axios.delete(
+    `/api/admin/settings/payment-methods/${provider}`
+  );
+  return response.data;
+}

@@ -2017,6 +2017,193 @@ router.get("/settings/summary", async function (req, res) {
   }
 });
 
+// Payment Methods Settings
+router.get("/settings/payment-methods", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const paymentMethods = await models.PaymentMethod.find({})
+      .sort("provider")
+      .lean();
+
+    res.send({
+      items: paymentMethods.map((pm) => ({
+        id: pm._id,
+        provider: pm.provider,
+        mode: pm.mode,
+        active: pm.active,
+        apiKey: pm.apiKey ? "***" : "",
+        baseUrl: pm.baseUrl,
+        defaultCurrencies: pm.defaultCurrencies,
+        ipnUrl: pm.ipnUrl,
+        webhookUrl: pm.webhookUrl,
+        createdAt: pm.createdAt,
+        updatedAt: pm.updatedAt,
+        updatedBy: pm.updatedBy,
+      })),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading payment methods.");
+  }
+});
+
+router.get("/settings/payment-methods/:provider", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const provider = String(req.params.provider || "").toLowerCase().trim();
+
+    if (!provider) {
+      res.status(400).send("Provider is required.");
+      return;
+    }
+
+    const paymentMethod = await models.PaymentMethod.findOne({ provider }).lean();
+
+    if (!paymentMethod) {
+      res.status(404).send("Payment method not found.");
+      return;
+    }
+
+    res.send({
+      provider: paymentMethod.provider,
+      mode: paymentMethod.mode,
+      active: paymentMethod.active,
+      apiKey: paymentMethod.apiKey,
+      baseUrl: paymentMethod.baseUrl,
+      defaultCurrencies: paymentMethod.defaultCurrencies,
+      ipnUrl: paymentMethod.ipnUrl,
+      webhookUrl: paymentMethod.webhookUrl,
+      createdAt: paymentMethod.createdAt,
+      updatedAt: paymentMethod.updatedAt,
+      updatedBy: paymentMethod.updatedBy,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading payment method.");
+  }
+});
+
+router.post("/settings/payment-methods/:provider", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const provider = String(req.params.provider || "").toLowerCase().trim();
+    const mode = String(req.body?.mode || "test").toLowerCase();
+    const active = Boolean(req.body?.active);
+    const apiKey = String(req.body?.apiKey || "").trim();
+    const baseUrl = String(req.body?.baseUrl || "").trim();
+    const defaultCurrencies = String(req.body?.defaultCurrencies || "").trim();
+    const ipnUrl = String(req.body?.ipnUrl || "").trim();
+    const webhookUrl = String(req.body?.webhookUrl || "").trim();
+
+    if (!provider) {
+      res.status(400).send("Provider is required.");
+      return;
+    }
+
+    if (!["test", "prod"].includes(mode)) {
+      res.status(400).send("Mode must be 'test' or 'prod'.");
+      return;
+    }
+
+    const validProviders = ["nowpayments", "braintree", "stripe"];
+    if (!validProviders.includes(provider)) {
+      res.status(400).send(`Provider must be one of: ${validProviders.join(", ")}`);
+      return;
+    }
+
+    const updateData = {
+      provider,
+      mode,
+      active,
+      apiKey,
+      baseUrl,
+      defaultCurrencies,
+      ipnUrl,
+      webhookUrl,
+      updatedAt: Date.now(),
+      updatedBy: sessionInfo.user,
+    };
+
+    const paymentMethod = await models.PaymentMethod.findOneAndUpdate(
+      { provider },
+      { $set: updateData },
+      { upsert: true, new: true, runValidators: true }
+    ).lean();
+
+    await models.ModAction.create({
+      user: sessionInfo.user,
+      type: "updatePaymentMethod",
+      data: {
+        provider,
+        mode,
+        active,
+        baseUrl,
+        ipnUrl,
+        webhookUrl,
+      },
+      date: Date.now(),
+    });
+
+    res.send({
+      provider: paymentMethod.provider,
+      mode: paymentMethod.mode,
+      active: paymentMethod.active,
+      apiKey: paymentMethod.apiKey ? "***" : "",
+      baseUrl: paymentMethod.baseUrl,
+      defaultCurrencies: paymentMethod.defaultCurrencies,
+      ipnUrl: paymentMethod.ipnUrl,
+      webhookUrl: paymentMethod.webhookUrl,
+      createdAt: paymentMethod.createdAt,
+      updatedAt: paymentMethod.updatedAt,
+      updatedBy: paymentMethod.updatedBy,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating payment method.");
+  }
+});
+
+router.delete("/settings/payment-methods/:provider", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const provider = String(req.params.provider || "").toLowerCase().trim();
+
+    if (!provider) {
+      res.status(400).send("Provider is required.");
+      return;
+    }
+
+    const paymentMethod = await models.PaymentMethod.findOneAndDelete({ provider }).lean();
+
+    if (!paymentMethod) {
+      res.status(404).send("Payment method not found.");
+      return;
+    }
+
+    await models.ModAction.create({
+      user: sessionInfo.user,
+      type: "deletePaymentMethod",
+      data: { provider },
+      date: Date.now(),
+    });
+
+    res.send({ success: true, message: "Payment method deleted successfully." });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting payment method.");
+  }
+});
+
 // Price Items / Shop Management
 router.get("/shop/items", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
