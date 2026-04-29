@@ -49,6 +49,11 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const googleProvider = new GoogleAuthProvider();
   const skips = JSON.parse(import.meta.env.REACT_APP_RECAP_SKIP || "[]");
 
+  const getAuthActionSettings = () => ({
+    url: `${window.location.origin}/auth/action`,
+    handleCodeInApp: false,
+  });
+
   // Reset form when tab changes
   useEffect(() => {
     setPassword("");
@@ -392,7 +397,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     setLoading(true);
     try {
       const auth = getAuth();
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, email, getAuthActionSettings());
       snackbarHook.popSnackbar(
         "Password reset email has been sent.",
         "success"
