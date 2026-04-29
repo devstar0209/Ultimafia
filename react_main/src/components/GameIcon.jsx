@@ -30,6 +30,7 @@ export default function GameIcon(props) {
   const siteInfo = useContext(SiteInfoContext);
   const gameType = props.gameType;
   const size = props.size;
+  const circular = props.circular;
 
   return (
     <img
@@ -42,6 +43,17 @@ export default function GameIcon(props) {
       alt={gameType}
       width={size}
       height={size}
+      style={{
+        ...(circular
+          ? {
+              borderRadius: "50%",
+              display: "block",
+              objectFit: "cover",
+              overflow: "hidden",
+            }
+          : {}),
+        ...props.style,
+      }}
     />
   );
 }

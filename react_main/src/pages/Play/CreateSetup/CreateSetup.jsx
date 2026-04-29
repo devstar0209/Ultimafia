@@ -247,12 +247,15 @@ export default function CreateSetup(props) {
           zIndex: 1201,
           visibility: drawerOpen ? "hidden" : "visible",
           backgroundColor: theme.palette.secondary.main,
-          padding: "8px",
+          width: 46,
+          height: 46,
+          padding: 0,
           borderRadius: "50%",
+          overflow: "hidden",
           boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.2)",
         }}
       >
-        <GameIcon gameType={gameType} size={30} />
+        <GameIcon gameType={gameType} size={46} circular />
       </IconButton>
       <Tooltip title={`Setup help: ${gameType}`} placement="right">
         <IconButton
