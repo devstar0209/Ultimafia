@@ -1,0 +1,21 @@
+[    5350ms] [INFO] [rsbuild] WebSocket connecting... @ webpack-internal:///./node_modules/@rsbuild/core/dist/client/hmr.js:140
+[    5651ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ webpack-internal:///./node_modules/react-router/dist/index.js:996
+[    5651ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ webpack-internal:///./node_modules/react-router/dist/index.js:996
+[    5656ms] [INFO] [rsbuild] WebSocket connected. @ webpack-internal:///./node_modules/@rsbuild/core/dist/client/hmr.js:89
+[    5769ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/roles/all:0
+[    5770ms] AxiosError
+[    5816ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/roles/raw:0
+[    5816ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/achievements:0
+[    5817ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/roles/modifiers:0
+[    5817ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/items:0
+[    5818ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/roles/gamesettings:0
+[    5818ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/roles/roletags:0
+[    6012ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/site/branding:0
+[    6014ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/site/gamecatalogs:0
+[    6016ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/user/info:0
+[    6017ms] AxiosError
+[  538101ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3001/uploads/branding/banners/carousel/1WYjobN-T.webp?t=1776954318509:0
+[  538102ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3001/uploads/branding/banners/carousel/q9Yv-J7Dg.webp?t=1776954318509:0
+[  539744ms] [LOG] [HMR] Reload all CSS @ webpack-internal:///./node_modules/@rspack/core/dist/cssExtractHmr.js:110
+[  539766ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:3001/webfonts/fa-solid-900.woff2 @ http://localhost:3001/welcome:0
+[  539767ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:3001/webfonts/fa-brands-400.woff2 @ http://localhost:3001/welcome:0

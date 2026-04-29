@@ -3,7 +3,7 @@ import { Route, Link, Navigate, Routes, useLocation, NavLink } from "react-route
 import { ErrorBoundary } from "react-error-boundary";
 import axios from "axios";
 import { Icon } from "@iconify/react";
-import { ThemeProvider, CssBaseline, createTheme, AppBar, Link as MuiLink, Toolbar } from "@mui/material";
+import { ThemeProvider, CssBaseline, AppBar, Link as MuiLink } from "@mui/material";
 
 import {
   UserContext,
@@ -13,7 +13,6 @@ import {
 } from "./Contexts";
 import { getSiteTheme } from "./constants/themes";
 import { AlertList, useErrorAlert } from "./components/Alerts";
-import { Nav } from "./components/Nav";
 import UserNavSection from "./pages/User/UserNavSection";
 import CookieBanner from "./components/CookieBanner";
 import NavDropdown from "./components/NavDropdown";
@@ -115,10 +114,11 @@ function Main(props) {
   const Policy = lazy(() => import("pages/Policy/Policy"));
   const User = lazy(() => import("pages/User/User"));
   const Welcome = lazy(() => import("pages/Welcome/Welcome"));
+  const AuthAction = lazy(() => import("pages/AuthAction/AuthAction"));
 
   const siteContent = (
     <Stack sx={{
-      backgroundColor: "background.paper",
+      backgroundColor: "background.default",
       minHeight: "100vh",
     }}>
       <CookieBanner />
@@ -153,6 +153,7 @@ function Main(props) {
                   <Route path="learn/*" element={<Learn />} />
                   <Route path="policy/*" element={<Policy />} />
                   <Route path="user/*" element={<User />} />
+                  <Route path="auth/action" element={<AuthAction />} />
                   <Route path="*" element={<Navigate to="play" />} />
                 </Routes>
               </Suspense>
@@ -229,8 +230,12 @@ function Header({ setShowAnnouncementTemporarily }) {
 
   return (
     <AppBar position="sticky" sx={{
-      backgroundColor: "background.paper",
+      backgroundColor: "rgba(10, 14, 18, 0.78)",
       color: "text.primary",
+      backdropFilter: "blur(16px)",
+      backgroundImage: "none",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      boxShadow: "none",
     }}>
 
       {/* Mobile AppBar */}
@@ -239,7 +244,7 @@ function Header({ setShowAnnouncementTemporarily }) {
           alignItems: "center",
           width: "100%",
           px: 1,
-          py: 0.5,
+          py: 0.75,
           overflow: "hidden",
         }}>
           {/* Unified mobile menu */}
@@ -324,8 +329,8 @@ function Header({ setShowAnnouncementTemporarily }) {
       {!isPhoneDevice && (
         <Stack direction="row" spacing={2} sx={{
           alignItems: "center",
-          px: 1,
-          py: 0.5,
+          px: 2,
+          py: 0.75,
         }}>
           <SiteLogo />
           <Stack direction="row" spacing={2} className="nav" sx={{
@@ -379,8 +384,12 @@ function Header({ setShowAnnouncementTemporarily }) {
                   color: "inherit",
                   padding: "0 var(--mui-spacing)",
                   backgroundColor: isActive
-                    ? "rgba(var(--mui-palette-primary-mainChannel) / var(--mui-palette-action-selectedOpacity))"
+                    ? "rgba(var(--mui-palette-primary-mainChannel) / 0.14)"
                     : undefined,
+                  borderRadius: 999,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  minHeight: 36,
                 })}
               >
                 <Typography variant="h3">Shop</Typography>
@@ -495,8 +504,11 @@ function Footer() {
 
   return (
     <AppBar position="static" sx={{
-      backgroundColor: "background.paper",
+      backgroundColor: "rgba(10, 14, 18, 0.92)",
       color: "text.primary",
+      backgroundImage: "none",
+      borderTop: "1px solid rgba(255,255,255,0.06)",
+      boxShadow: "none",
     }}>
       <Stack direction="column" spacing={2} sx={{
         p: 2,

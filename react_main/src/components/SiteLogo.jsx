@@ -34,14 +34,14 @@ export default function SiteLogo({
     return logodefault; // Default
   };
 
-  let width = 245;
+  let width = 100;
   let height = 53;
   if (small === true) {
-    width = 175;
+    width = 100;
     height = 38;
   }
   else if (large === true) {
-    width = 350;
+    width = 100;
     height = 75;
   }
 

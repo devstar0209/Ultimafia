@@ -874,10 +874,12 @@ export function SetupManipulationButtons(props) {
   return (
     <Grid container sx={{ width: "8rem" }}>
       <Grid item xs={3}>
-        <IconButton aria-label="favorite">
+        <IconButton
+          aria-label="favorite"
+          onClick={() => props.onFav(props.setup)}
+        >
           <i
             className={`setup-btn fav-setup fa-star ${favIconFormat}`}
-            onClick={() => props.onFav(props.setup)}
           />
         </IconButton>
       </Grid>
@@ -885,29 +887,31 @@ export function SetupManipulationButtons(props) {
         <IconButton
           aria-label="edit"
           disabled={!canEditThisSetup}
+          onClick={() =>
+            window.open(
+              `/play/create?edit=${props.setup.id}&game=${props.setup.gameType}`,
+              "_blank"
+            )
+          }
           sx={missingEditStyle}
         >
           <i
             className={`setup-btn edit-setup fa-pen-square fas`}
-            onClick={() =>
-              window.open(
-                `/play/create?edit=${props.setup.id}&game=${props.setup.gameType}`,
-                "_blank"
-              )
-            }
           />
         </IconButton>
       </Grid>
       <Grid item xs={3}>
-        <IconButton aria-label="copy">
+        <IconButton
+          aria-label="copy"
+          onClick={() =>
+            window.open(
+              `/play/create?copy=${props.setup.id}&game=${props.setup.gameType}`,
+              "_blank"
+            )
+          }
+        >
           <i
             className={`setup-btn copy-setup fa-copy fas`}
-            onClick={() =>
-              window.open(
-                `/play/create?copy=${props.setup.id}&game=${props.setup.gameType}`,
-                "_blank"
-              )
-            }
           />
         </IconButton>
       </Grid>
@@ -915,11 +919,11 @@ export function SetupManipulationButtons(props) {
         <IconButton
           aria-label="delete"
           disabled={!isOwner}
+          onClick={() => props.onDel(props.setup)}
           sx={missingOwnershipStyle}
         >
           <i
             className={`setup-btn del-setup fa-times-circle fas`}
-            onClick={() => props.onDel(props.setup)}
           />
         </IconButton>
       </Grid>
