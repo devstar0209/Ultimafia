@@ -243,6 +243,7 @@ var schemas = {
       logoPath: { type: String, default: "" },
       hidden: { type: Boolean, default: false, index: true },
       sortOrder: { type: Number, default: 0 },
+      coins: { type: Number, default: 0 },
       updatedAt: { type: Number, default: Date.now },
       updatedBy: { type: String, default: "" },
     },

@@ -44,6 +44,7 @@ function buildModalState(item) {
     key: item?.key || "",
     title: item?.title || "",
     slug: item?.slug || "",
+    coins: item?.coins || 0,
     logoUrl: item?.logoUrl || "",
     logoFile: null,
     logoMarkedForRemoval: false,
@@ -181,6 +182,7 @@ export default function GameCatalogSettingsPage() {
       const payload = {
         title: modalValues.title,
         slug: modalValues.slug,
+        coins: Number(modalValues.coins || 0),
       };
 
       let result = editingItem
@@ -380,10 +382,11 @@ export default function GameCatalogSettingsPage() {
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Stack
                                 direction="row"
-                                spacing={1}
+                                spacing={2}
                                 alignItems="center"
                                 flexWrap="wrap"
                                 useFlexGap
+                                sx={{ mb: 1 }}
                               >
                                 <Typography variant="h4">{item.title}</Typography>
                                 <Chip
@@ -392,10 +395,13 @@ export default function GameCatalogSettingsPage() {
                                   color={item.hidden ? "default" : "success"}
                                   variant={item.hidden ? "outlined" : "filled"}
                                 />
+                                <Typography color="text.secondary" variant="body2">
+                                  Slug: <strong>{item.slug}</strong>
+                                </Typography>
+                                <Typography color="text.secondary" variant="body2">
+                                  Coins: <strong>{item.coins || 0}</strong>
+                                </Typography>
                               </Stack>
-                              <Typography color="text.secondary">
-                                Slug: {item.slug}
-                              </Typography>
                             </Box>
 
                             <Stack
@@ -468,10 +474,23 @@ export default function GameCatalogSettingsPage() {
                   updateModalField("slug", event.target.value);
                 }}
                 helperText="Lowercase URL slug. The backend normalizes this value."
-                disabled={modalPending}
+                disabled={editingItem ? true : modalPending}
                 fullWidth
               />
             </Stack>
+
+            <TextField
+              label="Coins Required"
+              type="number"
+              value={modalValues.coins}
+              onChange={(event) =>
+                updateModalField("coins", Number(event.target.value) || 0)
+              }
+              disabled={modalPending}
+              fullWidth
+              inputProps={{ min: 0, step: 1 }}
+              helperText="Coins deducted from player balance when starting this game"
+            />
 
             <Box
               sx={{

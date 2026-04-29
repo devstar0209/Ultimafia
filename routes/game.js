@@ -23,6 +23,14 @@ async function userCanPlayCompetitive(userId, minimumPoints = constants.minimumP
   return null;
 }
 
+async function getGameCoinsRequired(gameType) {
+  const gameCatalog = await models.GameCatalog.findOne({ key: gameType })
+    .select("coins -_id")
+    .lean();
+
+  return Number(gameCatalog?.coins || 0);
+}
+
 router.post("/leave", async function (req, res) {
   try {
     var userId;
@@ -186,6 +194,7 @@ router.get("/list", async function (req, res) {
       newGame.noVeg = game.settings.noVeg;
       newGame.anonymousGame = game.settings.anonymousGame;
       newGame.anonymousDeck = game.settings.anonymousDeck;
+      newGame.coinsRequired = await getGameCoinsRequired(game.type);
       newGame.private = game.settings.private;
       newGame.status = game.status;
       newGame.lobby = game.lobby;
@@ -257,6 +266,34 @@ router.get("/:id/connect", async function (req, res) {
     const userInThisGame = userId && (await redis.inGame(userId)) === gameId;
 
     if (!userInThisGame) {
+      if (!isSpectating && game.status === "Open") {
+        const coinsRequired = await getGameCoinsRequired(game.type);
+
+        if (coinsRequired > 0) {
+          if (!userId) {
+            res.status(400);
+            res.send("You must be logged in to join paid games.");
+            return;
+          }
+
+          const user = await models.User.findOne({
+            id: userId,
+            deleted: false,
+          })
+            .select("coins -_id")
+            .lean();
+          const coins = Number(user?.coins || 0);
+
+          if (!user || coins < coinsRequired) {
+            res.status(400);
+            res.send(
+              `This game requires ${coinsRequired} coins. You have ${coins} coins.`
+            );
+            return;
+          }
+        }
+      }
+
       // Ranked checks
       if (userId && game.settings.ranked && !isSpectating) {
         const user = await redis.getUserInfo(userId);

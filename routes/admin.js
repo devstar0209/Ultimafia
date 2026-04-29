@@ -1123,6 +1123,7 @@ router.post("/settings/gamecatalogs", async function (req, res) {
       title,
       slug,
       hidden: false,
+      coins: Number(req.body?.coins || 0),
       sortOrder: Number(lastGameCatalog?.sortOrder || 0) + 1,
       updatedAt: Date.now(),
       updatedBy: sessionInfo.user.id,
@@ -1193,6 +1194,7 @@ router.patch("/settings/gamecatalogs/:key", async function (req, res) {
         $set: {
           title,
           slug,
+          coins: Number(req.body?.coins || 0),
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },

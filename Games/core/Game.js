@@ -72,6 +72,7 @@ module.exports = class Game {
     this.anonymousDeck = options.settings.anonymousDeck;
     this.heartsChargedAtStart = false;
     this.heartsRefundedOnIntegrityBreak = false;
+    this.coinsChargedAtStart = false;
     this.readyCountdownLength =
       options.settings.readyCountdownLength != null
         ? options.settings.readyCountdownLength
@@ -1099,7 +1100,113 @@ module.exports = class Game {
     );
   }
 
+  async chargePlayerCoinsAtStart() {
+    if (this.coinsChargedAtStart) return true;
+
+    const gameCatalog = await models.GameCatalog.findOne({ key: this.type })
+      .select("coins -_id")
+      .lean();
+    const coinsRequired = Number(gameCatalog?.coins || 0);
+
+    if (coinsRequired <= 0) return true;
+
+    const chargeablePlayers = [];
+
+    for (let player of this.players) {
+      if (player.isBot) continue;
+
+      const userId = player.userId || player.user?.id;
+
+      if (!userId || player.user?.guestId) {
+        this.sendAlert(
+          `This game requires ${coinsRequired} coins from each player and cannot start with guests.`,
+          undefined,
+          undefined,
+          ["warning"]
+        );
+        return false;
+      }
+
+      chargeablePlayers.push({ player, userId });
+    }
+
+    const users = await models.User.find({
+      id: { $in: chargeablePlayers.map(({ userId }) => userId) },
+    })
+      .select("id coins -_id")
+      .lean();
+    const coinsByUserId = new Map(
+      users.map((user) => [user.id, Number(user.coins || 0)])
+    );
+
+    for (let { player, userId } of chargeablePlayers) {
+      const coins = coinsByUserId.get(userId) || 0;
+
+      if (coins < coinsRequired) {
+        this.sendAlert(
+          `${player.name} needs ${coinsRequired} coins to start this game and has ${coins} coins.`,
+          undefined,
+          undefined,
+          ["warning"]
+        );
+        return false;
+      }
+    }
+
+    const chargedUserIds = [];
+
+    for (let { player, userId } of chargeablePlayers) {
+      const result = await models.User.updateOne(
+        { id: userId, coins: { $gte: coinsRequired } },
+        { $inc: { coins: -coinsRequired } }
+      ).exec();
+
+      if (result.modifiedCount > 0 || result.nModified > 0) {
+        chargedUserIds.push(userId);
+        continue;
+      }
+
+      await Promise.all(
+        chargedUserIds.map((chargedUserId) =>
+          models.User.updateOne(
+            { id: chargedUserId },
+            { $inc: { coins: coinsRequired } }
+          ).exec()
+        )
+      );
+      await Promise.all(
+        chargedUserIds.map((chargedUserId) =>
+          redis.cacheUserInfo(chargedUserId, true)
+        )
+      );
+
+      const user = await models.User.findOne({ id: userId })
+        .select("coins -_id")
+        .lean();
+      const coins = Number(user?.coins || 0);
+
+      this.sendAlert(
+        `${player.name} needs ${coinsRequired} coins to start this game and has ${coins} coins.`,
+        undefined,
+        undefined,
+        ["warning"]
+      );
+      return false;
+    }
+
+    await Promise.all(
+      chargedUserIds.map((userId) => redis.cacheUserInfo(userId, true))
+    );
+    this.coinsChargedAtStart = true;
+    return true;
+  }
+
   async start() {
+    if (this.started) return;
+
+    const playerCoinsCharged = await this.chargePlayerCoinsAtStart();
+    if (!playerCoinsCharged) return;
+
     // Set game in progress in redis db
     redis.setGameStatus(this.id, "In Progress");
 

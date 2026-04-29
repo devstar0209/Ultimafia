@@ -259,6 +259,36 @@ export const GameRow = (props) => {
                     />
                   </Tooltip>
                 )}
+                {Number(props.game.coinsRequired || 0) > 0 && (
+                  <Tooltip title="Coins required to play">
+                    <Stack
+                      direction="row"
+                      spacing={0.25}
+                      sx={{
+                        alignItems: "center",
+                        color: "warning.main",
+                      }}
+                    >
+                      <i
+                        className="fas fa-coins"
+                        style={{
+                          fontSize: "0.95rem",
+                        }}
+                      />
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        sx={{
+                          color: "inherit",
+                          fontWeight: 700,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {Number(props.game.coinsRequired || 0).toLocaleString()}
+                      </Typography>
+                    </Stack>
+                  </Tooltip>
+                )}
               </Stack>
               <Box
                 sx={{
