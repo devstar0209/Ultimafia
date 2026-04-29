@@ -98,7 +98,7 @@ router.post("/", async function (req, res) {
       } else {
         // authSuccess silently failed (banned IP, invalid domain, etc.)
         res.status(403);
-        res.send("Authentication failed. Banned.");
+        res.send("Authentication failed. No session created.");
       }
     } else {
       res.status(403);
