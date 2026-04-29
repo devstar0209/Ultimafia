@@ -20,10 +20,6 @@ import {
   FormControl,
   IconButton,
   InputLabel,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -31,6 +27,7 @@ import {
   SwipeableDrawer,
   Tab,
   Tabs,
+  Typography,
   useTheme,
   Grid,
 } from "@mui/material";
@@ -311,6 +308,76 @@ export default function HostBrowser(props) {
     />
   ));
 
+  const renderGameCatalogItem = (game) => (
+    <Box
+      key={game.key}
+      component="button"
+      type="button"
+      onClick={() => handleListItemClick(game.key)}
+      sx={{
+        width: "100%",
+        border: "1px solid",
+        borderColor: gameType === game.key ? "primary.main" : "divider",
+        borderRadius: 1,
+        px: 1,
+        py: 0.75,
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        cursor: "pointer",
+        backgroundColor:
+          gameType === game.key ? "action.selected" : "background.paper",
+        color: "text.primary",
+        font: "inherit",
+        "&:hover": {
+          backgroundColor: "action.hover",
+        },
+      }}
+    >
+      <GameIcon gameType={game.key} size={22} circular />
+      <Stack
+        direction="column"
+        sx={{
+          minWidth: 0,
+          flex: 1,
+          textAlign: "left",
+        }}
+      >
+        <Typography variant="body2">{game.title}</Typography>
+        {Number(game.coins || 0) > 0 && (
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: "center",
+              color: "warning.main",
+              lineHeight: 1,
+              mt: "5px",
+            }}
+          >
+            <i
+              className="fas fa-coins"
+              style={{
+                fontSize: "0.75rem",
+              }}
+            />
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{
+                color: "inherit",
+                fontWeight: 700,
+                lineHeight: 1,
+              }}
+            >
+              {Number(game.coins || 0).toLocaleString()}
+            </Typography>
+          </Stack>
+        )}
+      </Stack>
+    </Box>
+  );
+
   return (
     <>
       {isPhoneDevice && (
@@ -361,20 +428,9 @@ export default function HostBrowser(props) {
               [`& .MuiDrawer-paper`]: { width: 240, boxSizing: "border-box" },
             }}
           >
-            <List>
-              {gameCatalog.map((game) => (
-                <ListItem
-                  key={game.key}
-                  selected={gameType === game.key}
-                  onClick={() => handleListItemClick(game.key)}
-                >
-                  <ListItemIcon>
-                    <GameIcon gameType={game.key} size={24} />
-                  </ListItemIcon>
-                  <ListItemText primary={game.title} />
-                </ListItem>
-              ))}
-            </List>
+            <Stack spacing={0.5} sx={{ p: 1 }}>
+              {gameCatalog.map(renderGameCatalogItem)}
+            </Stack>
           </SwipeableDrawer>
         </>
       )}
@@ -478,28 +534,12 @@ export default function HostBrowser(props) {
               <Paper
                 sx={{
                   flex: "0 0 20%",
-                  maxHeight: "28rem",
-                  overflowY: "scroll",
                   mr: 1,
                   p: 0.5,
                 }}
               >
                 <Stack direction="column" spacing={0.5}>
-                  {gameCatalog.map((game) => (
-                    <ListItem
-                      key={game.key}
-                      selected={gameType === game.key}
-                      onClick={() => handleListItemClick(game.key)}
-                      sx={{
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <ListItemIcon>
-                        <GameIcon gameType={game.key} size={24} />
-                      </ListItemIcon>
-                      <ListItemText primary={game.title} />
-                    </ListItem>
-                  ))}
+                  {gameCatalog.map(renderGameCatalogItem)}
                 </Stack>
               </Paper>
             )}
