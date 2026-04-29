@@ -222,7 +222,7 @@ export default function LobbyBrowser() {
               },
             }}
           >
-            <GameIcon gameType={game.key} size={22} />
+            <GameIcon gameType={game.key} size={22} circular />
             <Typography variant="body2" sx={{ textAlign: "left", flex: 1 }}>
               {game.title}
             </Typography>
