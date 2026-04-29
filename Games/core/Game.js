@@ -15,6 +15,7 @@ const Winners = require("./Winners");
 const { games, deprecationCheck } = require("../games");
 const events = require("events");
 const models = require("../../db/models");
+const gameCatalogUtils = require("../../lib/gameCatalog");
 const redis = require("../../modules/redis");
 const roleData = require("../../data/roles");
 const gameAchievements = require("../../data/Achievements");
@@ -1103,7 +1104,13 @@ module.exports = class Game {
   async chargePlayerCoinsAtStart() {
     if (this.coinsChargedAtStart) return true;
 
-    const gameCatalog = await models.GameCatalog.findOne({ key: this.type })
+    const gameCatalog = await models.GameCatalog.findOne({
+      $or: [
+        { key: this.type },
+        { title: this.type },
+        { slug: gameCatalogUtils.slugifyGameTitle(this.type) },
+      ],
+    })
       .select("coins -_id")
       .lean();
     const coinsRequired = Number(gameCatalog?.coins || 0);
