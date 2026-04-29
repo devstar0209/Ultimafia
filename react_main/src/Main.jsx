@@ -114,6 +114,7 @@ function Main(props) {
   const Policy = lazy(() => import("pages/Policy/Policy"));
   const User = lazy(() => import("pages/User/User"));
   const Welcome = lazy(() => import("pages/Welcome/Welcome"));
+  const AuthAction = lazy(() => import("pages/AuthAction/AuthAction"));
 
   const siteContent = (
     <Stack sx={{
@@ -152,6 +153,7 @@ function Main(props) {
                   <Route path="learn/*" element={<Learn />} />
                   <Route path="policy/*" element={<Policy />} />
                   <Route path="user/*" element={<User />} />
+                  <Route path="auth/action" element={<AuthAction />} />
                   <Route path="*" element={<Navigate to="play" />} />
                 </Routes>
               </Suspense>
