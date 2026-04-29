@@ -24,10 +24,10 @@ const CUSTOM_EXPAND_ICON = (
     }}
   >
     <div className="expandIconWrapper">
-      <img src={surprised} />
+      <img src={surprised} alt="" />
     </div>
     <div className="collapsIconWrapper">
-      <img src={sad} />
+      <img src={sad} alt="" />
     </div>
   </Box>
 );
@@ -48,7 +48,7 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
       return "#fc007e";
     }
     // Different colors for light and dark modes
-    else return mode === "light" ? "#D50032" : "#EFBF04";
+    else return mode === "light" ? "#c95d16" : "#ff8c42";
   };
 
   const getSecondaryColor = (mode) => {
@@ -62,36 +62,72 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
       return "#fc007e";
     }
     // Different colors for light and dark modes that complement the primary
-    return mode === "light" ? "#B80028" : "#D4A704";
+    return mode === "light" ? "#2f9e96" : "#5fd1c7";
   };
 
   const lightPalette = {
     primary: {
       main: getPrimaryColor("light"),
+      light: "#ffb26f",
+      dark: "#c95d16",
     },
     secondary: {
       main: getSecondaryColor("light"),
+      light: "#9df0e8",
+      dark: "#2f9e96",
     },
     info: {
-      main: "#DAA520",
+      main: "#2878c7",
+    },
+    success: {
+      main: "#2f9e66",
+    },
+    warning: {
+      main: "#c77918",
+    },
+    error: {
+      main: "#d44b42",
+    },
+    background: {
+      default: "#eef3f6",
+      paper: "#ffffff",
     },
     text: {
-      main: "#F1F1F1",
+      primary: "#17212b",
+      secondary: "#53616e",
     },
   };
 
   const darkPalette = {
     primary: {
       main: getPrimaryColor("dark"),
+      light: "#ffb26f",
+      dark: "#c95d16",
     },
     secondary: {
       main: getSecondaryColor("dark"),
+      light: "#9df0e8",
+      dark: "#2f9e96",
     },
     info: {
-      main: "#DAA520",
+      main: "#74b9ff",
+    },
+    success: {
+      main: "#6dd3a0",
+    },
+    warning: {
+      main: "#ffb347",
+    },
+    error: {
+      main: "#ff6f61",
+    },
+    background: {
+      default: "#0f141a",
+      paper: "#16212b",
     },
     text: {
-      main: "#F1F1F1",
+      primary: "#d7dee5",
+      secondary: "#8f9ba6",
     },
   };
 
@@ -123,7 +159,14 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
       defaultProps: {
         variant: "contained",
         color: "primary",
-        sx: { textTransform: "none" },
+      },
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          fontWeight: 700,
+          paddingInline: 18,
+          textTransform: "none",
+        },
       },
     },
     MuiButtonBase: {
@@ -146,6 +189,64 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
         disableScrollLock: true,
       },
     },
+    MuiPaper: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          backgroundImage: "none",
+          border: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(23,33,43,0.12)"
+          }`,
+          boxShadow: "0 24px 70px rgba(0, 0, 0, 0.28)",
+        }),
+      },
+      variants: [
+        {
+          props: { variant: "outlined" },
+          style: {
+            backgroundColor: "var(--scheme-color-sec)",
+          },
+        },
+      ],
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          backgroundImage: "none",
+          border: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.08)"
+              : "rgba(23,33,43,0.12)"
+          }`,
+          boxShadow: "0 24px 70px rgba(0, 0, 0, 0.28)",
+        }),
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          fontWeight: 700,
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: ({ theme }) => ({
+          backdropFilter: "blur(16px)",
+          backgroundColor:
+            theme.palette.mode === "dark"
+              ? "rgba(22, 33, 43, 0.96)"
+              : "rgba(255, 255, 255, 0.96)",
+          border: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(23,33,43,0.12)"
+          }`,
+        }),
+      },
+    },
     MuiTextField: {
       defaultProps: {
         variant: "outlined",
@@ -157,8 +258,14 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
       size: "small",
     },
     MuiTableCell: {
-      align: "center",
-      fontWeight: "bold",
+      defaultProps: {
+        align: "center",
+      },
+      styleOverrides: {
+        root: {
+          fontWeight: 700,
+        },
+      },
     },
     MuiTabs: {
       defaultProps: {
@@ -180,20 +287,6 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
       light: {
         components: {
           ...commonComponents,
-          MuiPaper: {
-            styleOverrides: {
-              root: {
-                variants: [
-                  {
-                    props: { variant: "outlined" },
-                    style: {
-                      backgroundColor: "var(--scheme-color-sec)",
-                    },
-                  },
-                ],
-              },
-            },
-          },
         },
         palette: {
           ...lightPalette,
@@ -217,23 +310,27 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
     cssVariables: {
       colorSchemeSelector: "data",
     },
+    shape: {
+      borderRadius: 18,
+    },
     typography: {
-      h1: { fontFamily: "RobotoSlab", fontSize: "2.00em", fontWeight: "bold" },
-      h2: { fontFamily: "RobotoSlab", fontSize: "1.50em", fontWeight: "bold" },
-      h3: { fontFamily: "RobotoSlab", fontSize: "1.17em", fontWeight: "bold" },
-      h4: { fontFamily: "RobotoSlab", fontSize: "1.00em", fontWeight: "bold" },
-      h5: { fontFamily: "RobotoSlab", fontSize: "0.83em", fontWeight: "bold" },
-      h6: { fontFamily: "RobotoSlab", fontSize: "0.67em", fontWeight: "bold" },
-      body1: { fontFamily: "Roboto" },
-      body2: { fontFamily: "Roboto" },
-      subtitle1: { fontFamily: "Roboto" },
-      subtitle2: { fontFamily: "Roboto" },
-      caption: { fontFamily: "Roboto" },
-      button: { fontFamily: "Roboto" },
-      overline: { fontFamily: "Roboto" },
+      fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+      h1: { fontSize: "2.8rem", fontWeight: 800, letterSpacing: 0 },
+      h2: { fontSize: "2rem", fontWeight: 800, letterSpacing: 0 },
+      h3: {
+        fontSize: "1.05rem",
+        fontWeight: 800,
+        letterSpacing: 0,
+        textTransform: "uppercase",
+      },
+      h4: { fontSize: "1rem", fontWeight: 700, letterSpacing: 0 },
+      h5: { fontSize: "0.9rem", fontWeight: 700, letterSpacing: 0 },
+      h6: { fontSize: "0.78rem", fontWeight: 700, letterSpacing: 0 },
+      body1: { lineHeight: 1.65 },
+      button: { fontWeight: 700, textTransform: "none" },
       italicRelation: {
         // "Created by", "Authored by", "In love with", etc.
-        fontFamily: "RobotoSlab",
+        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
         fontSize: "1em",
         fontStyle: "italic",
       },

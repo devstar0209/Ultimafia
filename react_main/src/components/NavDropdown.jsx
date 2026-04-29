@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation, NavLink } from "react-router-dom";
-import { Menu, MenuItem, Box, Divider, IconButton, Typography, Stack, Button } from "@mui/material";
+import { useLocation, NavLink } from "react-router-dom";
+import { Menu, MenuItem, Box, Divider, IconButton, Typography, Button } from "@mui/material";
 import { useIsPhoneDevice } from "../hooks/useIsPhoneDevice";
 
 export default function NavDropdown({
@@ -78,6 +78,11 @@ export default function NavDropdown({
       large
       onClick={handleClick}
       aria-label="menu"
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        backgroundColor: open ? "action.selected" : "transparent",
+      }}
     >
       <i className="fas fa-bars" />
     </IconButton>
@@ -90,7 +95,14 @@ export default function NavDropdown({
         cursor: "pointer",
         textTransform: "uppercase",
         color: "inherit",
-        backgroundColor: !isMobileMenu && isActive ? "rgba(var(--mui-palette-primary-mainChannel) / var(--mui-palette-action-selectedOpacity));" : undefined,
+        borderRadius: 999,
+        minHeight: 36,
+        backgroundColor: !isMobileMenu && isActive
+          ? "rgba(var(--mui-palette-primary-mainChannel) / 0.14)"
+          : undefined,
+        "&:hover": {
+          backgroundColor: "rgba(var(--mui-palette-primary-mainChannel) / 0.1)",
+        },
       }}
       endIcon={<i className="fas fa-caret-down" aria-hidden="true" />}
     >
