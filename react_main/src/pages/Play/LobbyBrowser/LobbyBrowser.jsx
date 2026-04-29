@@ -223,9 +223,48 @@ export default function LobbyBrowser() {
             }}
           >
             <GameIcon gameType={game.key} size={22} circular />
-            <Typography variant="body2" sx={{ textAlign: "left", flex: 1 }}>
-              {game.title}
-            </Typography>
+            <Stack
+              direction="column"
+              sx={{
+                minWidth: 0,
+                flex: 1,
+                textAlign: "left",
+              }}
+            >
+              <Typography variant="body2">
+                {game.title}
+              </Typography>
+              {Number(game.coins || 0) > 0 && (
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  sx={{
+                    alignItems: "center",
+                    color: "warning.main",
+                    lineHeight: 1,
+                    marginTop: "5px",
+                  }}
+                >
+                  <i
+                    className="fas fa-coins"
+                    style={{
+                      fontSize: "0.75rem",
+                    }}
+                  />
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    sx={{
+                      color: "inherit",
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {Number(game.coins || 0).toLocaleString()}
+                  </Typography>
+                </Stack>
+              )}
+            </Stack>
             <Typography
               variant="caption"
               sx={{
