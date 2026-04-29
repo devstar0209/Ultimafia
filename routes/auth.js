@@ -82,7 +82,7 @@ router.post("/", async function (req, res) {
     var idToken = req.body.idToken;
     if (!idToken || typeof idToken !== 'string' || idToken.trim().length === 0) {
       res.status(403);
-      res.send("Authentication failed.");
+      res.send("Authentication failed. Missing or invalid token.");
       return;
     }
 
@@ -98,11 +98,11 @@ router.post("/", async function (req, res) {
       } else {
         // authSuccess silently failed (banned IP, invalid domain, etc.)
         res.status(403);
-        res.send("Authentication failed.");
+        res.send("Authentication failed. Banned.");
       }
     } else {
       res.status(403);
-      res.send("Authentication failed.");
+      res.send("Authentication failed. Plz verify your email.");
     }
   } catch (e) {
     if (e.siteBanned) {
