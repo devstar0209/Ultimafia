@@ -4,6 +4,7 @@ import React, {
   useContext,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -243,6 +244,33 @@ export default function Profile() {
   const showDelete = profileUserId === user.id;
 
   const showDeleteArchivedGame = showDelete && editingArchivedGames;
+
+  const displayedPointsByGameCatalog = useMemo(() => {
+    const profilePointMap = new Map(
+      pointsByGameCatalog.map((item) => [item.key, item])
+    );
+    const gameCatalog = Array.isArray(siteInfo?.gameCatalog)
+      ? siteInfo.gameCatalog
+      : [];
+
+    if (gameCatalog.length === 0) return pointsByGameCatalog;
+
+    const catalogKeys = new Set(gameCatalog.map((item) => item.key));
+    const catalogPointRows = gameCatalog.map((catalogItem) => {
+      const profilePointItem = profilePointMap.get(catalogItem.key);
+
+      return {
+        ...catalogItem,
+        ...profilePointItem,
+        points: Number(profilePointItem?.points || 0),
+      };
+    });
+    const legacyPointRows = pointsByGameCatalog.filter(
+      (item) => !catalogKeys.has(item.key) && Number(item.points || 0) > 0
+    );
+
+    return [...catalogPointRows, ...legacyPointRows];
+  }, [pointsByGameCatalog, siteInfo?.gameCatalog]);
 
   useEffect(() => {
     errorAlertRef.current = errorAlert;
@@ -1732,13 +1760,13 @@ export default function Profile() {
             </div>
             <div className="box-panel" style={panelStyle}>
               <Typography variant="h3" style={headingStyle}>
-                Game Catalog Points
+                Game Points (XP)
               </Typography>
               <div className="content">
-                {pointsByGameCatalog.length > 0 ? (
+                {displayedPointsByGameCatalog.length > 0 ? (
                   <Grid container spacing={1}>
-                    {pointsByGameCatalog.map((item) => (
-                      <Grid item xs={12} sm={6} key={item.key}>
+                    {displayedPointsByGameCatalog.map((item) => (
+                      <Grid item xs={12} sm={6} md={4} key={item.key}>
                         <Box
                           sx={{
                             display: "flex",
@@ -1768,7 +1796,7 @@ export default function Profile() {
                               {item.title}
                             </Typography>
                             <Typography fontWeight={700}>
-                              {item.points} points
+                              {item.points}
                             </Typography>
                           </Box>
                         </Box>

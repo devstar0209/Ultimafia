@@ -15,6 +15,7 @@ const utils = require("../lib/Utils");
 const redis = require("../modules/redis");
 const constants = require("../data/constants");
 const dbStats = require("../db/stats");
+const gameCatalogUtils = require("../lib/gameCatalog");
 const { colorHasGoodContrastForBothThemes } = require("../shared/colors");
 const logger = require("../modules/logging")(".");
 const router = express.Router();
@@ -72,20 +73,27 @@ function isDismissCooldownActive(poke) {
 }
 
 async function buildPointCatalogBalances(pointsByGameCatalog) {
-  const entries = Object.entries(pointsByGameCatalog || {})
-    .map(([key, points]) => ({
+  const balances = new Map(
+    Object.entries(pointsByGameCatalog || {}).map(([key, points]) => [
       key,
-      points: Number(points || 0),
-    }))
-    .filter((entry) => entry.points > 0);
+      Number(points || 0),
+    ])
+  );
+  const catalogs = (await gameCatalogUtils.syncGameCatalog(models)).filter(
+    (catalog) => !catalog.hidden
+  );
+  const catalogKeys = new Set(catalogs.map((catalog) => catalog.key));
+  const entries = catalogs.map((catalog) => ({
+    key: catalog.key,
+    points: balances.get(catalog.key) || 0,
+  }));
 
-  if (entries.length === 0) return [];
+  for (const [key, points] of balances.entries()) {
+    if (!catalogKeys.has(key) && points > 0) {
+      entries.push({ key, points });
+    }
+  }
 
-  const catalogs = await models.GameCatalog.find({
-    key: { $in: entries.map((entry) => entry.key) },
-  })
-    .select("key title sortOrder logoPath updatedAt -_id")
-    .lean();
   const catalogMap = new Map(catalogs.map((catalog) => [catalog.key, catalog]));
 
   return entries
