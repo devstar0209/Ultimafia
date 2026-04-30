@@ -466,9 +466,30 @@ function useUnreadNotifications() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
+    let cancelled = false;
+
     getNotifs();
     var notifGetInterval = setInterval(() => getNotifs(), 10 * 1000);
-    return () => clearInterval(notifGetInterval);
+
+    return () => {
+      cancelled = true;
+      clearInterval(notifGetInterval);
+    };
+
+    function getNotifs() {
+      axios
+        .get("/api/notifs")
+        .then((res) => {
+          if (cancelled) return;
+
+          var nextRestart = res.data[0];
+          var notifs = res.data.slice(1);
+
+          setNextRestart(nextRestart);
+          setUnreadCount(notifs.length);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -481,19 +502,6 @@ function useUnreadNotifications() {
       );
     }
   }, [nextRestart]);
-
-  function getNotifs() {
-    axios
-      .get("/api/notifs")
-      .then((res) => {
-        var nextRestart = res.data[0];
-        var notifs = res.data.slice(1);
-
-        setNextRestart(nextRestart);
-        setUnreadCount(notifs.length);
-      })
-      .catch(() => {});
-  }
 
   return unreadCount;
 }

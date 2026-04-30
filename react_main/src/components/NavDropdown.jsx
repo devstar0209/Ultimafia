@@ -75,7 +75,7 @@ export default function NavDropdown({
     </Box>
   ) : isMobileMenu ? (
     <IconButton
-      large
+      size="large"
       onClick={handleClick}
       aria-label="menu"
       sx={{
@@ -131,7 +131,7 @@ export default function NavDropdown({
         slotProps={{
           paper: {
             sx: {
-              minwidth: isMobile ? "200px" : "180px",
+              minWidth: isMobile ? "200px" : "180px",
               maxWidth: "90vw",
             },
           },
