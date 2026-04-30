@@ -61,7 +61,33 @@ app.use(cors({
 app.use(session);
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://www.gstatic.com"
+        ],
+
+        connectSrc: [
+          "'self'",
+          "https://identitytoolkit.googleapis.com",
+          "https://securetoken.googleapis.com",
+          "https://www.googleapis.com"
+        ],
+
+        styleSrc: ["'self'", "'unsafe-inline'"],
+
+        imgSrc: ["'self'", "data:", "https:"]
+      }
+    }
+  })
+);
 app.set("trust proxy", 1);
 
 app.use(csrf);
