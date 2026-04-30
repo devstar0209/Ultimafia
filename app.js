@@ -71,7 +71,6 @@ app.use(
           "'self'",
           "'unsafe-inline'",
           "'unsafe-eval'",
-          "https://www.gstatic.com",
 
           // ✅ Google Analytics
           "https://www.googletagmanager.com",
@@ -94,7 +93,12 @@ app.use(
           "https://api.unisvg.com",
           "https://api.simplesvg.com",
 
-          // Google services (Analytics + reCAPTCHA backend calls)
+          // Google Analytics (IMPORTANT FIX)
+          "https://www.google-analytics.com",
+          "https://region1.google-analytics.com",
+          "https://analytics.google.com",
+
+          // Google services
           "https://www.google.com",
           "https://www.googletagmanager.com"
         ],
