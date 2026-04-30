@@ -3743,8 +3743,10 @@ module.exports = class Game {
 
   async recordCompetitiveCompletions(gameDbId) {
     try {
+      const gameCatalogKey = this.getPointCatalogKey();
       const currentSeason = await models.CompetitiveSeason.findOne({
         completed: false,
+        gameCatalogKey,
       })
         .sort({ number: -1 })
         .lean();
@@ -3759,6 +3761,7 @@ module.exports = class Game {
       // Get the current round, if any
       const currentRound = await models.CompetitiveRound.findOne({
         season: seasonNumber,
+        gameCatalogKey,
         completed: false,
       })
         .sort({ number: -1 })
@@ -3787,6 +3790,7 @@ module.exports = class Game {
           const gameCompletion = new models.CompetitiveGameCompletion({
             userId: player.user.id,
             game: gameDbId,
+            gameCatalogKey,
             season: seasonNumber,
             round: currentRound.number,
             day: currentRound.currentDay,
@@ -3964,9 +3968,11 @@ module.exports = class Game {
         const incOps = {
           coins: coinsEarned,
           kudos: kudosTarget && kudosTarget.user.id == player.user.id ? 1 : 0,
-          points: pointsWon > 0 ? pointsWon : 0,
-          pointsNegative: pointsWon < 0 ? -pointsWon : 0,
         };
+        if (!this.competitive) {
+          incOps.points = pointsWon > 0 ? pointsWon : 0;
+          incOps.pointsNegative = pointsWon < 0 ? -pointsWon : 0;
+        }
         if (pointAwardsTotal > 0) {
           incOps[`pointsByGameCatalog.${this.getPointCatalogKey()}`] =
             pointAwardsTotal;

@@ -613,8 +613,15 @@ async function getFeaturedSetup(featuredCategory) {
   }
 }
 
-async function _getCompRoundInfo(seasonNumber = null, roundNumber = null) {
+const DEFAULT_COMPETITIVE_CATALOG = "Mafia";
+
+async function _getCompRoundInfo(
+  seasonNumber = null,
+  roundNumber = null,
+  gameCatalogKey = DEFAULT_COMPETITIVE_CATALOG
+) {
   let roundInfo = {
+    gameCatalogKey,
     seasonNumber: null,
     seasonPaused: false,
     round: null,
@@ -625,13 +632,13 @@ async function _getCompRoundInfo(seasonNumber = null, roundNumber = null) {
     nextEvent: null,
   };
 
-  let seasonQuery = { completed: false };
+  let seasonQuery = { completed: false, gameCatalogKey };
   if (seasonNumber) {
-    seasonQuery = { number: seasonNumber };
+    seasonQuery = { number: seasonNumber, gameCatalogKey };
   }
 
   const season = await models.CompetitiveSeason.findOne(seasonQuery)
-    .select("-_id setups setupOrder number paused")
+    .select("-_id setups setupOrder number paused gameCatalogKey")
     .populate([
       {
         path: "setups",
@@ -646,15 +653,21 @@ async function _getCompRoundInfo(seasonNumber = null, roundNumber = null) {
   }
 
   roundInfo.seasonNumber = season.number;
+  roundInfo.gameCatalogKey = season.gameCatalogKey || gameCatalogKey;
   roundInfo.seasonPaused = season.paused;
 
   let roundQuery = {
     season: roundInfo.seasonNumber,
+    gameCatalogKey: roundInfo.gameCatalogKey,
     accounted: false,
     number: { $gt: 0 },
   };
   if (roundNumber) {
-    roundQuery = { season: roundInfo.seasonNumber, number: roundNumber };
+    roundQuery = {
+      season: roundInfo.seasonNumber,
+      number: roundNumber,
+      gameCatalogKey: roundInfo.gameCatalogKey,
+    };
     // Still filter out round 0 even if explicitly requested
     if (roundNumber <= 0) {
       return roundInfo;
@@ -688,6 +701,7 @@ async function _getCompRoundInfo(seasonNumber = null, roundNumber = null) {
       $match: {
         season: roundInfo.seasonNumber,
         round: roundInfo.round.number,
+        gameCatalogKey: roundInfo.gameCatalogKey,
         valid: true,
       },
     },
@@ -831,9 +845,10 @@ async function _getCompRoundInfo(seasonNumber = null, roundNumber = null) {
 async function getCompRoundInfo(
   seasonNumber = null,
   roundNumber = null,
-  useCache = true
+  useCache = true,
+  gameCatalogKey = DEFAULT_COMPETITIVE_CATALOG
 ) {
-  const key = `competitive:season:${
+  const key = `competitive:${gameCatalogKey}:season:${
     seasonNumber ? seasonNumber : "latest"
   }:round:${roundNumber ? roundNumber : "latest"}`;
   let roundInfo = await client.getAsync(key);
@@ -841,7 +856,11 @@ async function getCompRoundInfo(
     // Got cached result, no need to perform query
     return JSON.parse(roundInfo);
   } else {
-    roundInfo = await _getCompRoundInfo(seasonNumber, roundNumber);
+    roundInfo = await _getCompRoundInfo(
+      seasonNumber,
+      roundNumber,
+      gameCatalogKey
+    );
 
     // Cache the result in redis so that we don't have to do the query again for a little bit
     await client.setAsync(key, JSON.stringify(roundInfo));
@@ -853,9 +872,13 @@ async function getCompRoundInfo(
   }
 }
 
-async function invalidateCompRoundCache(seasonNumber, roundNumber) {
-  const key = `competitive:season:${seasonNumber}:round:${roundNumber}`;
-  const latestKey = "competitive:season:latest:round:latest";
+async function invalidateCompRoundCache(
+  seasonNumber,
+  roundNumber,
+  gameCatalogKey = DEFAULT_COMPETITIVE_CATALOG
+) {
+  const key = `competitive:${gameCatalogKey}:season:${seasonNumber}:round:${roundNumber}`;
+  const latestKey = `competitive:${gameCatalogKey}:season:latest:round:latest`;
   await client.delAsync(key);
   await client.delAsync(latestKey);
 }

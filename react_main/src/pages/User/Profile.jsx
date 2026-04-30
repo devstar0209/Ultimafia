@@ -69,9 +69,6 @@ import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
 export const KUDOS_ICON = require(`images/kudos.png`);
 export const KARMA_ICON = require(`images/karma.png`);
-export const POINTS_ICON = require(`images/points.png`);
-export const POINTS_NEGATIVE_ICON = require(`images/pointsNegative.png`);
-export const PRESTIGE_ICON = require(`images/prestige.png`);
 export const ACHIEVEMENTS_ICON = require(`images/achievements.png`);
 export const DAILY_ICON = require(`images/dailyChallenges.png`);
 
@@ -158,15 +155,12 @@ export default function Profile() {
   const [isLove, setIsLove] = useState(false);
   const [isMarried, setIsMarried] = useState(false);
   const [kudos, setKudos] = useState(0);
-  const [points, setPoints] = useState(0);
-  const [pointsNegative, setPointsNegative] = useState(0);
   const [pointsByGameCatalog, setPointsByGameCatalog] = useState([]);
   const [pointsHistory, setPointsHistory] = useState([]);
   const [pointsHistoryLoading, setPointsHistoryLoading] = useState(false);
   const [pointsHistoryPage, setPointsHistoryPage] = useState(0);
   const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
   const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
-  const [championshipPoints, setChampionshipPoints] = useState(0);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [favoriteRoles, setFavoriteRoles] = useState([]);
@@ -375,10 +369,7 @@ export default function Profile() {
           setFriendsPage(1);
           setStats(res.data.stats);
           setKudos(res.data.kudos);
-          setChampionshipPoints(res.data.championshipPoints);
           setCoinBalance(res.data.coins || 0);
-          setPoints(res.data.points);
-          setPointsNegative(res.data.pointsNegative);
           setPointsByGameCatalog(
             Array.isArray(res.data.pointsByGameCatalog)
               ? res.data.pointsByGameCatalog
@@ -1758,7 +1749,7 @@ export default function Profile() {
                 {displayedPointsByGameCatalog.length > 0 ? (
                   <Grid container spacing={1}>
                     {displayedPointsByGameCatalog.map((item) => (
-                      <Grid item xs={12} sm={6} md={4} key={item.key}>
+                      <Grid item xs={12} sm={6} md={3} key={item.key}>
                         <Box
                           sx={{
                             display: "flex",
@@ -1943,58 +1934,6 @@ export default function Profile() {
                       </div>
                     </Tooltip>
                   )}
-                  <Tooltip
-                    title="Earned by winning ranked and competitive games. Accumulates toward prestige at the end of a competitive round."
-                    arrow
-                  >
-                    <div className="trophy-tile">
-                      <img
-                        src={POINTS_ICON}
-                        alt="Fortune"
-                        className="trophy-icon"
-                      />
-                      <div className="trophy-meta">
-                        <div className="trophy-value">{points}</div>
-                        <div className="trophy-label">Fortune</div>
-                      </div>
-                    </div>
-                  </Tooltip>
-                  {pointsNegative !== undefined && (
-                    <Tooltip
-                      title="Accumulated from losing ranked and competitive games."
-                      arrow
-                    >
-                      <div className="trophy-tile">
-                        <img
-                          src={POINTS_NEGATIVE_ICON}
-                          alt="Misfortune"
-                          className="trophy-icon"
-                        />
-                        <div className="trophy-meta">
-                          <div className="trophy-value">{pointsNegative}</div>
-                          <div className="trophy-label">Misfortune</div>
-                        </div>
-                      </div>
-                    </Tooltip>
-                  )}
-                  <Tooltip
-                    title="Awarded to the top 10 fortune earners at the end of each competitive round."
-                    arrow
-                  >
-                    <div className="trophy-tile trophy-tile-prestige">
-                      <img
-                        src={PRESTIGE_ICON}
-                        alt="Prestige"
-                        className="trophy-icon"
-                      />
-                      <div className="trophy-meta">
-                        <div className="trophy-value">
-                          {championshipPoints || 0}
-                        </div>
-                        <div className="trophy-label">Prestige</div>
-                      </div>
-                    </div>
-                  </Tooltip>
                 </div>
               </div>
             </div>

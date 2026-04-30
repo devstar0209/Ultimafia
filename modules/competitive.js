@@ -10,24 +10,25 @@ const constants = require("../data/constants");
 const POINTS_TABLE = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
 async function progressCompetitive() {
-  // Get the current season, if any
-  const currentSeason = await models.CompetitiveSeason.findOne({
+  const currentSeasons = await models.CompetitiveSeason.find({
     completed: false,
   })
-    .sort({ number: -1 })
     .lean();
 
-  // Nothing to do if there's no active season
-  if (!currentSeason) {
-    return;
+  for (const currentSeason of currentSeasons) {
+    await progressCompetitiveSeason(currentSeason);
   }
+}
 
+async function progressCompetitiveSeason(currentSeason) {
   const seasonNumber = currentSeason.number;
+  const gameCatalogKey = currentSeason.gameCatalogKey || "Mafia";
   console.log(`[progressCompetitive]: Checking season ${seasonNumber}`);
 
   // Get the current round, if any
   const currentRound = await models.CompetitiveRound.findOne({
     season: seasonNumber,
+    gameCatalogKey,
     number: currentSeason.currentRound,
   })
     .sort({ number: -1 })
@@ -60,6 +61,7 @@ async function progressCompetitive() {
     }
 
     const round = new models.CompetitiveRound({
+      gameCatalogKey,
       season: seasonNumber,
       number: currentSeason.currentRound,
       startDate: startDateNew.toISOString().split("T")[0],
@@ -199,11 +201,12 @@ async function awardRoundTrophy(seasonNumber, roundNumber, userId) {
   );
 }
 
-async function confirmStandings(seasonNumber, roundNumber) {
+async function confirmStandings(seasonNumber, roundNumber, gameCatalogKey = "Mafia") {
   const roundInfo = await redis.getCompRoundInfo(
     seasonNumber,
     roundNumber,
-    false
+    false,
+    gameCatalogKey
   );
 
   let i = 0;
@@ -217,6 +220,7 @@ async function confirmStandings(seasonNumber, roundNumber) {
       await models.CompetitiveSeasonStanding.findOne({
         userId: roundStanding.userId,
         season: seasonNumber,
+        gameCatalogKey,
       });
     if (existingSeasonStanding) {
       console.log(
@@ -237,25 +241,12 @@ async function confirmStandings(seasonNumber, roundNumber) {
       );
       const seasonStanding = new models.CompetitiveSeasonStanding({
         userId: roundStanding.userId,
+        gameCatalogKey,
         season: seasonNumber,
         points: championshipPoints,
         tiebreakerPoints: points,
       });
       await seasonStanding.save();
-    }
-
-    try {
-      await models.User.updateOne(
-        { id: userId },
-        {
-          $inc: {
-            championshipPoints: championshipPoints,
-          },
-        }
-      ).exec();
-    }
-    catch (e) {
-      console.error(`[confirmStandings]: Error updating championship points for ${userId}`, e);
     }
 
     // if the user got first place, then award them a round trophy
@@ -272,13 +263,14 @@ async function confirmStandings(seasonNumber, roundNumber) {
   }
 }
 
-async function endSeason(seasonNumber) {
+async function endSeason(seasonNumber, gameCatalogKey = "Mafia") {
   console.log(`[endSeason]: Ending season ${seasonNumber}`);
 
   // Get the top 3 standings for the season
   // Sort by points (descending), then by tiebreakerPoints (descending)
   const topStandings = await models.CompetitiveSeasonStanding.find({
     season: seasonNumber,
+    gameCatalogKey,
   })
     .sort({ points: -1, tiebreakerPoints: -1 })
     .limit(3)
@@ -412,24 +404,25 @@ async function endSeason(seasonNumber) {
 }
 
 async function accountCompetitiveRounds() {
-  // Get the current season, if any
-  const currentSeason = await models.CompetitiveSeason.findOne({
+  const currentSeasons = await models.CompetitiveSeason.find({
     completed: false,
   })
-    .sort({ number: -1 })
     .lean();
 
-  // Nothing to do if there's no active season
-  if (!currentSeason) {
-    return;
+  for (const currentSeason of currentSeasons) {
+    await accountCompetitiveSeason(currentSeason);
   }
+}
 
+async function accountCompetitiveSeason(currentSeason) {
   const seasonNumber = currentSeason.number;
+  const gameCatalogKey = currentSeason.gameCatalogKey || "Mafia";
   console.log(`[accountCompetitiveRounds]: Checking season ${seasonNumber}`);
 
   // Get the current round, if any. Note the "accounted: false" filter
   const currentRound = await models.CompetitiveRound.findOne({
     season: seasonNumber,
+    gameCatalogKey,
     completed: true,
     accounted: false,
   })
@@ -472,7 +465,7 @@ async function accountCompetitiveRounds() {
           `[progressCompetitive]: Ending season ${seasonNumber} round ${currentRound.number}`
         );
 
-        await confirmStandings(seasonNumber, currentRound.number);
+        await confirmStandings(seasonNumber, currentRound.number, gameCatalogKey);
 
         await models.CompetitiveRound.updateOne(
           { _id: ObjectID(currentRound._id) },
@@ -488,7 +481,7 @@ async function accountCompetitiveRounds() {
           ).exec();
         } else {
           // All rounds are complete, end the season
-          await endSeason(seasonNumber);
+          await endSeason(seasonNumber, gameCatalogKey);
         }
       }
     } else {

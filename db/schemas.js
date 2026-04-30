@@ -927,6 +927,7 @@ var schemas = {
   }),
   CompetitiveSeason: new mongoose.Schema({
     number: { type: Number, index: true, unique: true },
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     setups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Setup" }],
     setupOrder: [[{ type: Number }]], // each top level array corresponds to one round
     rounds: [{ type: mongoose.Schema.Types.ObjectId, ref: "CompetitiveRound" }],
@@ -964,6 +965,7 @@ var schemas = {
     updatedBy: { type: String, default: "" },
   }),
   CompetitiveRound: new mongoose.Schema({
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     season: { type: Number },
     number: { type: Number },
     currentDay: { type: Number, default: 0 },
@@ -978,6 +980,7 @@ var schemas = {
   CompetitiveGameCompletion: new mongoose.Schema({
     userId: { type: String },
     game: { type: mongoose.Schema.Types.ObjectId, ref: "Game" },
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     season: { type: Number },
     round: { type: Number },
     day: { type: Number },
@@ -986,6 +989,7 @@ var schemas = {
   }),
   CompetitiveSeasonStanding: new mongoose.Schema({
     userId: { type: String },
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     season: { type: Number },
     points: { type: Number, default: 0 }, // championship points from winning rounds
     tiebreakerPoints: { type: Number, default: 0 }, // points from winning games
@@ -1336,17 +1340,25 @@ schemas.VanityUrl.virtual("user", {
 schemas.Poke.index({ userA: 1, userB: 1 }, { unique: true });
 schemas.Poke.index({ to: 1, status: 1 });
 
-schemas.CompetitiveRound.index({ season: 1, number: 1 }, { unique: true });
+schemas.CompetitiveRound.index(
+  { gameCatalogKey: 1, season: 1, number: 1 },
+  { unique: true }
+);
 schemas.RankedGameTerms.index({ key: 1 }, { unique: true });
 schemas.CompetitiveSeasonStanding.index(
-  { userId: 1, season: 1 },
+  { userId: 1, gameCatalogKey: 1, season: 1 },
   { unique: true }
 );
 schemas.CompetitiveGameCompletion.index(
   { userId: 1, game: 1 },
   { unique: true }
 );
-schemas.CompetitiveGameCompletion.index({ season: 1, round: 1, day: 1 });
+schemas.CompetitiveGameCompletion.index({
+  gameCatalogKey: 1,
+  season: 1,
+  round: 1,
+  day: 1,
+});
 
 // Compound indexes for Report schema
 schemas.Report.index({ status: 1, createdAt: -1 });

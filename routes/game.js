@@ -696,7 +696,12 @@ router.post("/host", async function (req, res) {
 
     let roundInfo;
     if (req.body.competitive) {
-      roundInfo = await redis.getCompRoundInfo();
+      roundInfo = await redis.getCompRoundInfo(
+        null,
+        null,
+        true,
+        setup.gameType || "Mafia"
+      );
 
       // Check if the competitive round is completed or paused
       if (!roundInfo.round || roundInfo.round.completed) {

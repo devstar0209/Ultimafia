@@ -450,7 +450,12 @@ function GameHistory({ roundInfo, canManageCompetitive, reloadRoundInfo }) {
   );
 }
 
-function SeasonRoundSelect({ seasonNumber, roundNumber, setSearchParams }) {
+function SeasonRoundSelect({
+  seasonNumber,
+  roundNumber,
+  setSearchParams,
+  isOffseason,
+}) {
   const [seasonList, setSeasonList] = useState([]);
 
   useEffect(() => {
@@ -469,12 +474,25 @@ function SeasonRoundSelect({ seasonNumber, roundNumber, setSearchParams }) {
       });
   }, []);
 
-  let roundList = null;
-  if (seasonNumber !== "latest" && seasonList[seasonNumber - 1]) {
-    roundList = seasonList[seasonNumber - 1].rounds;
-  } else if (seasonNumber === "latest" && seasonList.length > 0) {
-    roundList = seasonList[seasonList.length - 1].rounds;
-  }
+  useEffect(() => {
+    if (!isOffseason || seasonNumber !== "latest" || seasonList.length === 0) {
+      return;
+    }
+
+    const latestSeasonNumber = seasonList[seasonList.length - 1]?.number;
+    if (!latestSeasonNumber) return;
+
+    setSearchParams((searchParams) => {
+      searchParams.set(QUERY_PARAM_SEASON, latestSeasonNumber);
+      return searchParams;
+    });
+  }, [isOffseason, seasonList, seasonNumber, setSearchParams]);
+
+  const selectedSeason =
+    seasonNumber !== "latest"
+      ? seasonList.find((season) => season.number === seasonNumber)
+      : seasonList[seasonList.length - 1];
+  const roundList = selectedSeason?.rounds || null;
 
   function handleSeasonChange(e) {
     const newSeasonNumber = e.target.value;
@@ -692,6 +710,7 @@ export default function Competitive() {
             seasonNumber={seasonNumber}
             roundNumber={roundNumber}
             setSearchParams={setSearchParams}
+            isOffseason={isOffseason}
           />
         </Grid2>
         {user.loggedIn && currentSeasonInfo && (
