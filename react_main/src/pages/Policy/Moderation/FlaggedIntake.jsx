@@ -157,7 +157,7 @@ export default function FlaggedIntake() {
           }}
         >
           <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexGrow: 1 }}>
-            <Box sx={{ minWidth: 150 }}>
+            <Box sx={{ minwidth: 150 }}>
               <NameWithAvatar
                 id={flaggedUser.id}
                 name={flaggedUser.name}

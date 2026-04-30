@@ -73,7 +73,7 @@ export function CellSearch({
           placeholder={searchPlaceholder}
         />
       )}
-      sx={{ minWidth: 200, flex: 1 }}
+      sx={{ minwidth: 200, flex: 1 }}
       ListboxProps={{ sx: { maxHeight: 280 } }}
     />
   ) : (
@@ -92,7 +92,7 @@ export function CellSearch({
             {tabButtons}
           </Tabs>
         )}
-        <Box sx={{ ml: !isPhoneDevice ? "auto !important" : undefined, flex: useTagAutocomplete ? 1 : undefined, minWidth: useTagAutocomplete ? 0 : undefined }}>
+        <Box sx={{ ml: !isPhoneDevice ? "auto !important" : undefined, flex: useTagAutocomplete ? 1 : undefined, minwidth: useTagAutocomplete ? 0 : undefined }}>
           {searchControl}
         </Box>
       </Stack>
@@ -143,7 +143,7 @@ export function Cell(props) {
     return (
       <Box
         sx={{
-          minWidth: 0,
+          minwidth: 0,
           height: myHeight,
           minHeight: "var(--mui-spacing)",
           borderRadius: "var(--mui-shape-borderRadius)",
@@ -183,7 +183,7 @@ export function Cell(props) {
               padding: 1,
               bgcolor: "#62a0db",
               alignSelf: "stretch",
-              minWidth: "0px",
+              minwidth: "0px",
             }}
           >
             <i
@@ -203,7 +203,7 @@ export function Cell(props) {
               padding: 1,
               bgcolor: "#e45050",
               alignSelf: "stretch",
-              minWidth: "0px",
+              minwidth: "0px",
             }}
           >
             <i

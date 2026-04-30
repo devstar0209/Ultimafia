@@ -95,7 +95,7 @@ function Overview({ roundInfo, seasonInfo }) {
           onInput={handleUserSearchChange}
         />
         <FormControl sx={{
-          minWidth: "8em",
+          minwidth: "8em",
         }}>
           <InputLabel id="items-per-page-select-label">Items per page</InputLabel>
           <Select
@@ -889,7 +889,7 @@ function PointsAdjustmentForm({ gameCompletion, roundInfo, reloadRoundInfo }) {
         spacing={1}
         sx={{ alignItems: { xs: "stretch", md: "center" } }}
       >
-        <FormControl size="small" sx={{ minWidth: 140 }}>
+        <FormControl size="small" sx={{ minwidth: 140 }}>
           <InputLabel id={`points-adjust-player-${gameCompletion.game.id}`}>
             Player
           </InputLabel>
@@ -906,7 +906,7 @@ function PointsAdjustmentForm({ gameCompletion, roundInfo, reloadRoundInfo }) {
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 70 }}>
+        <FormControl size="small" sx={{ minwidth: 70 }}>
           <InputLabel id={`points-adjust-op-${gameCompletion.game.id}`}>
             +/- 
           </InputLabel>

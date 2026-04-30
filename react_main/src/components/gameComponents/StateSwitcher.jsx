@@ -103,7 +103,7 @@ export default function StateSwitcher({ stateRange = null }) {
           px: 0.5,
           paddingBottom: 0.5,
           paddingTop: 0,
-          minWidth: 0,
+          minwidth: 0,
           minHeight: 0,
         }}
       />

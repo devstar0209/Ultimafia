@@ -420,7 +420,7 @@ function openBuyCoinsDialog() {
           onClick={openBuyCoinsDialog}
           size="small"
           sx={{
-            minWidth: 0,
+            minwidth: 0,
             px: 1,
             py: 0.25,
           }}

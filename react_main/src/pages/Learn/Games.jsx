@@ -156,7 +156,7 @@ export default function Games(props) {
         <Typography variant="h2" component="span" gutterBottom={false}>
           Learn
         </Typography>
-        <FormControl variant="standard" size="small" sx={{ minWidth: 180 }}>
+        <FormControl variant="standard" size="small" sx={{ minwidth: 180 }}>
           <Select
             value={gameType}
             onChange={handleGameChange}

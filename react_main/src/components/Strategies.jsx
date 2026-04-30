@@ -359,7 +359,7 @@ function StrategiesBase({
                 </a>
               </Box>
             )}
-            <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Stack spacing={0.5} sx={{ flexGrow: 1, minwidth: 0 }}>
               <Typography
                 variant="subtitle1"
                 sx={{ fontWeight: 600, wordBreak: "break-word" }}

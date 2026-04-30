@@ -397,7 +397,7 @@ export default function GameCatalogSettingsPage() {
                               )}
                             </Box>
 
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ flex: 1, minwidth: 0 }}>
                               <Stack
                                 direction="row"
                                 spacing={2}
@@ -597,7 +597,7 @@ export default function GameCatalogSettingsPage() {
             >
               <Box
                 sx={{
-                  minWidth: 112,
+                  minwidth: 112,
                   width: 112,
                   borderRadius: 2,
                   border: "1px dashed rgba(255,255,255,0.12)",
@@ -637,7 +637,7 @@ export default function GameCatalogSettingsPage() {
                 </Box>
               </Box>
 
-              <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+              <Stack spacing={1} sx={{ flex: 1, minwidth: 0 }}>
                 <Button
                   variant="outlined"
                   component="label"

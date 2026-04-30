@@ -284,7 +284,7 @@ export default function Setup(props) {
         className={"setup " + classList}
         ref={setupRef}
         sx={{
-          minWidth: 0,
+          minwidth: 0,
           width: "100%",
           backgroundColor:
             backgroundColor !== undefined
@@ -337,7 +337,7 @@ export default function Setup(props) {
               direction="row"
               ref={iconContainerRef}
               sx={{
-                minWidth: "0",
+                minwidth: "0",
                 alignItems: "center",
                 flexWrap: wrapIcons ? "wrap" : "nowrap",
               }}
@@ -684,7 +684,7 @@ function RoleBox({ children, color, legend = null }) {
       height: "100%",
       border: `4px solid ${color}`,
       borderRadius: "4px",
-      minWidth: "0",
+      minwidth: "0",
     }}>
       {legend && (
         <legend>

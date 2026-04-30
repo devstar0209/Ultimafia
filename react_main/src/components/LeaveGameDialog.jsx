@@ -119,7 +119,7 @@ export default function LeaveGameDialog({
           <Button onClick={handleStayClick} color="secondary" fullWidth>
             Stay
           </Button>
-          <Box sx={{ position: "relative", flex: 1.4, minWidth: 140 }}>
+          <Box sx={{ position: "relative", flex: 1.4, minwidth: 140 }}>
             <Button
               onClick={onConfirm}
               color="primary"

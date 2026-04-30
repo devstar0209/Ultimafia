@@ -284,7 +284,7 @@ export default function AdminVisuals({ profileUserId }) {
         <Box
           sx={{
             p: 2,
-            minWidth: 300,
+            minwidth: 300,
             maxWidth: 400,
             maxHeight: 400,
             overflow: "auto",
@@ -340,7 +340,7 @@ export default function AdminVisuals({ profileUserId }) {
         <Box
           sx={{
             p: 2,
-            minWidth: 300,
+            minwidth: 300,
             maxWidth: 400,
             maxHeight: 400,
             overflow: "auto",
@@ -398,7 +398,7 @@ export default function AdminVisuals({ profileUserId }) {
         <Box
           sx={{
             p: 2,
-            minWidth: 300,
+            minwidth: 300,
             maxWidth: 400,
             maxHeight: 400,
             overflow: "auto",

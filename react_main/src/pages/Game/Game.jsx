@@ -1224,7 +1224,7 @@ export function TopBar() {
           sx={{
             alignItems: "center",
             flex: "1",
-            minWidth: "0px",
+            minwidth: "0px",
           }}
         >
           {setup}
@@ -1399,7 +1399,7 @@ export function MobileLayout({
           onChange={onBottomNavigationChange}
           sx={{
             "& > .MuiBottomNavigationAction-root": {
-              minWidth: "unset",
+              minwidth: "unset",
               width: "56px",
             },
           }}

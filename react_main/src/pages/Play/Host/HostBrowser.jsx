@@ -338,7 +338,7 @@ export default function HostBrowser(props) {
       <Stack
         direction="column"
         sx={{
-          minWidth: 0,
+          minwidth: 0,
           flex: 1,
           textAlign: "left",
         }}
@@ -484,7 +484,7 @@ export default function HostBrowser(props) {
           </Grid>
           <Grid item xs={12}>
             <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-              <FormControl size="small" sx={{ minWidth: 220 }}>
+              <FormControl size="small" sx={{ minwidth: 220 }}>
                 <InputLabel id="host-sort-by-label">Sort by</InputLabel>
                 <Select
                   labelId="host-sort-by-label"
@@ -501,7 +501,7 @@ export default function HostBrowser(props) {
                   ))}
                 </Select>
               </FormControl>
-              <FormControl size="small" sx={{ minWidth: 220 }}>
+              <FormControl size="small" sx={{ minwidth: 220 }}>
                 <UserSearchSelect
                   value={filters.creatorName ?? ""}
                   onChange={onCreatorSelect}
@@ -545,7 +545,7 @@ export default function HostBrowser(props) {
             )}
             <Paper
               sx={{
-                minWidth: 0,
+                minwidth: 0,
                 flex: "1 1",
               }}
             >
@@ -603,7 +603,7 @@ function SetupRow(props) {
       )}
       <Box
         sx={{
-          minWidth: 0,
+          minwidth: 0,
           width: "100%",
           flex: "1 1",
         }}

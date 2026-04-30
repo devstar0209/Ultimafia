@@ -845,7 +845,7 @@ class EmoteUpload extends React.Component {
             direction="column"
             sx={{
               flex: "1",
-              minWidth: 0,
+              minwidth: 0,
             }}
           >
             <Button

@@ -282,7 +282,7 @@ export default function PendingTradeConfirmations({
                   p: 1,
                   border: "1px solid var(--scheme-color-border)",
                   borderRadius: 1,
-                  minWidth: 0,
+                  minwidth: 0,
                   maxWidth: "100%",
                 }}
               >

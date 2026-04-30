@@ -283,7 +283,7 @@ export default function Thread(props) {
                 variant="contained"
                 color="primary"
                 onClick={() => onReplyClick()}
-                sx={{ minWidth: "120px" }}
+                sx={{ minwidth: "120px" }}
               >
                 Reply
               </Button>

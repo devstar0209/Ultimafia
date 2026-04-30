@@ -254,7 +254,7 @@ export function getSiteTheme(customPrimaryColor, sitePalette = "dark") {
       },
     },
     MuiTable: {
-      minWidth: 650,
+      minwidth: 650,
       size: "small",
     },
     MuiTableCell: {

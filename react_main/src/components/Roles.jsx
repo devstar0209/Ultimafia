@@ -191,7 +191,7 @@ export function RoleDetails({
       </div>
       {specials.map((special, i) => (
         <ListItem key={i} sx={{ paddingBottom: "0", paddingTop: "0" }}>
-          <ListItemIcon sx={{ minWidth: "0", marginRight: "8px" }}>
+          <ListItemIcon sx={{ minwidth: "0", marginRight: "8px" }}>
             <i
               className={`role role-icon-vivid-${hyphenDelimit(
                 gameType
@@ -452,7 +452,7 @@ export function RoleCount({
         >
           <ListItemIcon
             sx={{
-              minWidth: "0",
+              minwidth: "0",
               marginRight: "8px",
             }}
           >
@@ -716,7 +716,7 @@ export function ModifierCount(props) {
         >
           <ListItemIcon
             sx={{
-              minWidth: "0",
+              minwidth: "0",
               marginRight: "8px",
             }}
           >
@@ -856,7 +856,7 @@ export function GameSettingCount(props) {
         >
           <ListItemIcon
             sx={{
-              minWidth: "0",
+              minwidth: "0",
               marginRight: "8px",
             }}
           >

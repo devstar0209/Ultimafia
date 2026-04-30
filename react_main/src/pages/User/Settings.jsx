@@ -194,7 +194,7 @@ function SettingsSection({ sections, activeSection }) {
               component={Link}
               to={`../${section.path}`}
               sx={{
-                minWidth: isPhoneDevice ? 0 : undefined,
+                minwidth: isPhoneDevice ? 0 : undefined,
               }}
             />
           ))}
@@ -808,14 +808,14 @@ export default function Settings() {
       content: (
         <Stack direction="column" spacing={1}>
           <TextField
-            sx={{ minWidth: "240px" }}
+            sx={{ minwidth: "240px" }}
             label="Email Address"
             value={emailForPasswordReset}
             onChange={(e) => setEmailForPasswordReset(e.target.value)}
             disabled={loading}
           />
           <Button
-            sx={{ minWidth: "240px" }}
+            sx={{ minwidth: "240px" }}
             onClick={handlePasswordReset}
             disabled={loading || !emailForPasswordReset}
           >
@@ -823,7 +823,7 @@ export default function Settings() {
           </Button>
           <Button
             variant="outlined"
-            sx={{ minWidth: "120px" }}
+            sx={{ minwidth: "120px" }}
             onClick={onDeleteClick}
             startIcon={
               <i className="fas fa-exclamation-triangle" aria-hidden="true" />
@@ -878,7 +878,7 @@ export default function Settings() {
                   value={familyName}
                   onChange={(e) => setFamilyName(e.target.value)}
                   placeholder="Enter family name"
-                  sx={{ minWidth: "240px" }}
+                  sx={{ minwidth: "240px" }}
                   disabled={!!userFamily}
                   inputProps={{ maxLength: 20 }}
                   helperText={`${familyName.length}/20 characters`}
@@ -906,7 +906,7 @@ export default function Settings() {
                   variant="contained"
                   onClick={onCreateFamily}
                   disabled={!familyName.trim() || !!userFamily}
-                  sx={{ minWidth: "240px" }}
+                  sx={{ minwidth: "240px" }}
                 >
                   Create Family
                 </Button>
@@ -1028,7 +1028,7 @@ export default function Settings() {
                     <Typography variant="h6" sx={{ mb: 1 }}>
                       Background Display Mode
                     </Typography>
-                    <FormControl sx={{ minWidth: "240px" }}>
+                    <FormControl sx={{ minwidth: "240px" }}>
                       <InputLabel>Display Mode</InputLabel>
                       <Select
                         value={userFamily.backgroundRepeatMode || "checker"}
@@ -1065,7 +1065,7 @@ export default function Settings() {
                       variant="outlined"
                       onClick={onTransferLeadership}
                       disabled={!transferLeaderUserId}
-                      sx={{ minWidth: "240px" }}
+                      sx={{ minwidth: "240px" }}
                     >
                       Transfer Leadership
                     </Button>
@@ -1079,7 +1079,7 @@ export default function Settings() {
                     variant="outlined"
                     color="error"
                     onClick={onDeleteFamily}
-                    sx={{ minWidth: "240px" }}
+                    sx={{ minwidth: "240px" }}
                     startIcon={
                       <i
                         className="fas fa-exclamation-triangle"
@@ -1142,7 +1142,7 @@ export default function Settings() {
                     variant="outlined"
                     color="error"
                     onClick={onLeaveFamily}
-                    sx={{ minWidth: "240px" }}
+                    sx={{ minwidth: "240px" }}
                   >
                     Leave Family
                   </Button>

@@ -677,7 +677,7 @@ export default function CreateSetup(props) {
                   padding: 1,
                   bgcolor: "#62a0db",
                   alignSelf: "stretch",
-                  minWidth: "0px",
+                  minwidth: "0px",
                   ml: 1,
                 }}
               >
@@ -700,7 +700,7 @@ export default function CreateSetup(props) {
                   padding: 1,
                   bgcolor: "#62a0db",
                   alignSelf: "stretch",
-                  minWidth: "0px",
+                  minwidth: "0px",
                   ml: 1,
                 }}
               >
@@ -723,7 +723,7 @@ export default function CreateSetup(props) {
                   padding: 1,
                   bgcolor: "#d350e4ff",
                   alignSelf: "stretch",
-                  minWidth: "0px",
+                  minwidth: "0px",
                   ml: 1,
                 }}
               >
@@ -741,7 +741,7 @@ export default function CreateSetup(props) {
                   padding: 1,
                   bgcolor: "#f4b400",
                   alignSelf: "stretch",
-                  minWidth: "0px",
+                  minwidth: "0px",
                   ml: 1,
                 }}
                 title="Apply Fast Mode preset"
@@ -765,7 +765,7 @@ export default function CreateSetup(props) {
                   padding: 1,
                   bgcolor: "#e45050",
                   alignSelf: "stretch",
-                  minWidth: "0px",
+                  minwidth: "0px",
                   ml: 1,
                 }}
               >
@@ -909,7 +909,7 @@ export default function CreateSetup(props) {
                     padding: 1,
                     bgcolor: "#62a0db",
                     alignSelf: "stretch",
-                    minWidth: "0px",
+                    minwidth: "0px",
                     ml: 1,
                   }}
                 >

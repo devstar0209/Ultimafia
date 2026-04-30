@@ -161,7 +161,7 @@ export default function FanartPanel({ roleId }) {
                 <Stack
                   direction="column"
                   spacing={0.5}
-                  sx={{ flexGrow: 1, minWidth: 0 }}
+                  sx={{ flexGrow: 1, minwidth: 0 }}
                 >
                   <Typography
                     variant="subtitle2"

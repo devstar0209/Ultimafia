@@ -131,7 +131,7 @@ export default function NavDropdown({
         slotProps={{
           paper: {
             sx: {
-              minWidth: isMobile ? "200px" : "180px",
+              minwidth: isMobile ? "200px" : "180px",
               maxWidth: "90vw",
             },
           },

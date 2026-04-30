@@ -226,7 +226,7 @@ export default function LobbyBrowser() {
             <Stack
               direction="column"
               sx={{
-                minWidth: 0,
+                minwidth: 0,
                 flex: 1,
                 textAlign: "left",
               }}
@@ -273,7 +273,7 @@ export default function LobbyBrowser() {
                 py: 0.2,
                 backgroundColor: theme.palette.secondary.main,
                 color: "white",
-                minWidth: "22px",
+                minwidth: "22px",
                 textAlign: "center",
               }}
             >
@@ -299,7 +299,7 @@ export default function LobbyBrowser() {
                 borderTopLeftRadius: "var(--mui-shape-borderRadius)",
                 borderBottomLeftRadius: "var(--mui-shape-borderRadius)",
                 alignSelf: "stretch",
-                minWidth: "16px",
+                minwidth: "16px",
               }}
             />
             <GameRow

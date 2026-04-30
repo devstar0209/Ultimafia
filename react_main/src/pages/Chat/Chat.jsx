@@ -375,7 +375,7 @@ export default function Chat() {
           direction="row"
           alignItems="center"
           spacing={1.5}
-          sx={{ flexGrow: 1, minWidth: 0 }}
+          sx={{ flexGrow: 1, minwidth: 0 }}
         >
           <ChannelName short channelType={type} channel={channel} user={user} />
         </Stack>
@@ -386,7 +386,7 @@ export default function Chat() {
             sx={{
               "& .MuiBadge-badge": {
                 fontSize: "0.65rem",
-                minWidth: 20,
+                minwidth: 20,
                 height: 18,
               },
             }}
@@ -421,7 +421,7 @@ export default function Chat() {
           direction="row"
           alignItems="center"
           spacing={1.5}
-          sx={{ flexGrow: 1, minWidth: 0 }}
+          sx={{ flexGrow: 1, minwidth: 0 }}
         >
           <ChannelName
             short
@@ -509,7 +509,7 @@ export default function Chat() {
             );
           }}
           sx={{
-            minWidth: 160,
+            minwidth: 160,
             bgcolor: theme.palette.background.paper,
             borderRadius: 1,
             "& .MuiSelect-select": { display: "flex", alignItems: "center" },
@@ -711,7 +711,7 @@ function Message(props) {
         direction="row"
         spacing={1}
         alignItems="center"
-        sx={{ flexWrap: "wrap", flexGrow: 1, minWidth: 0 }}
+        sx={{ flexWrap: "wrap", flexGrow: 1, minwidth: 0 }}
       >
         <NameWithAvatar
           small
@@ -731,7 +731,7 @@ function Message(props) {
           ref={messageRef}
           sx={{
             flexGrow: 1,
-            minWidth: 0,
+            minwidth: 0,
             display: "inline-flex",
             flexWrap: "wrap",
             alignItems: "center",

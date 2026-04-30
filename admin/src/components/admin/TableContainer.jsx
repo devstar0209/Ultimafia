@@ -7,7 +7,7 @@ export default function TableContainer({ children }) {
       sx={{
         overflowX: "auto",
         "& .MuiTable-root": {
-          minWidth: 640,
+          minwidth: 640,
         },
         "& .MuiTableCell-head": {
           color: "secondary.light",

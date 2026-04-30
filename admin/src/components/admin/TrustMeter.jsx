@@ -3,7 +3,7 @@ import { LinearProgress, Stack, Typography } from "@mui/material";
 
 export default function TrustMeter({ value }) {
   return (
-    <Stack spacing={0.5} sx={{ minWidth: 110 }}>
+    <Stack spacing={0.5} sx={{ minwidth: 110 }}>
       <Typography variant="caption">{value}%</Typography>
       <LinearProgress
         variant="determinate"
