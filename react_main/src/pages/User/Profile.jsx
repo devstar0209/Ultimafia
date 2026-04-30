@@ -161,6 +161,7 @@ export default function Profile() {
   const [pointsHistoryPage, setPointsHistoryPage] = useState(0);
   const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
   const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
+  const [showPointsHistoryModal, setShowPointsHistoryModal] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [favoriteRoles, setFavoriteRoles] = useState([]);
@@ -745,10 +746,11 @@ export default function Profile() {
   }, [profileUserId]);
 
   useEffect(() => {
-    if (!profileLoaded || !profileUserId) return;
+    if (!showPointsHistoryModal || !profileLoaded || !profileUserId) return;
 
     loadPointsHistory(pointsHistoryPage, pointsHistoryRowsPerPage);
   }, [
+    showPointsHistoryModal,
     loadPointsHistory,
     profileLoaded,
     profileUserId,
@@ -763,6 +765,14 @@ export default function Profile() {
   function onPointsHistoryRowsPerPageChange(event) {
     setPointsHistoryRowsPerPage(Number(event.target.value));
     setPointsHistoryPage(0);
+  }
+
+  function onOpenPointsHistory() {
+    setShowPointsHistoryModal(true);
+  }
+
+  function onClosePointsHistory() {
+    setShowPointsHistoryModal(false);
   }
 
   function onBioClick() {
@@ -1634,6 +1644,67 @@ export default function Profile() {
           </Stack>
         }
       />
+      <Modal
+        show={showPointsHistoryModal}
+        onBgClick={onClosePointsHistory}
+        header={<Typography variant="h3">Points History</Typography>}
+        content={
+          <Box sx={{ minWidth: 360, maxWidth: 840 }}>
+            <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Game</TableCell>
+                    <TableCell>Action</TableCell>
+                    <TableCell align="right">Points</TableCell>
+                    <TableCell>Date</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pointsHistoryLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={4}>
+                        <Loading small />
+                      </TableCell>
+                    </TableRow>
+                  ) : pointsHistory.length > 0 ? (
+                    pointsHistory.map((entry) => (
+                      <TableRow key={entry._id}>
+                        <TableCell>
+                          {entry.gameCatalogTitle || entry.gameCatalogKey ||
+                            entry.gameType}
+                        </TableCell>
+                        <TableCell>{entry.description}</TableCell>
+                        <TableCell align="right">+{entry.amount}</TableCell>
+                        <TableCell>
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4}>
+                        <Typography color="text.secondary">
+                          No points history yet.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={pointsHistoryTotal}
+              page={pointsHistoryPage}
+              rowsPerPage={pointsHistoryRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              onPageChange={onPointsHistoryPageChange}
+              onRowsPerPageChange={onPointsHistoryRowsPerPageChange}
+            />
+          </Box>
+        }
+      />
       <Grid
         container
         rowSpacing={1}
@@ -1694,9 +1765,14 @@ export default function Profile() {
               </div>
             </div>
             <div className="box-panel" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
-                Game Points (XP)
-              </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 1 }}>
+                <Typography variant="h3" style={headingStyle}>
+                  Game Points (XP)
+                </Typography>
+                <Button size="small" variant="outlined" onClick={onOpenPointsHistory}>
+                  View points history
+                </Button>
+              </Box>
               <div className="content">
                 {displayedPointsByGameCatalog.length > 0 ? (
                   <Grid container spacing={1}>
@@ -1743,68 +1819,6 @@ export default function Profile() {
                     No game catalog points yet.
                   </Typography>
                 )}
-              </div>
-            </div>
-            <div className="box-panel" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
-                Points History
-              </Typography>
-              <div className="content" style={{ padding: 0 }}>
-                <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Game</TableCell>
-                        <TableCell>Action</TableCell>
-                        <TableCell align="right">Points</TableCell>
-                        <TableCell>Date</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {pointsHistoryLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={4}>
-                            <Loading small />
-                          </TableCell>
-                        </TableRow>
-                      ) : pointsHistory.length > 0 ? (
-                        pointsHistory.map((entry) => (
-                          <TableRow key={entry._id}>
-                            <TableCell>
-                              {entry.gameCatalogTitle ||
-                                entry.gameCatalogKey ||
-                                entry.gameType}
-                            </TableCell>
-                            <TableCell>{entry.description}</TableCell>
-                            <TableCell align="right">
-                              +{entry.amount}
-                            </TableCell>
-                            <TableCell>
-                              {new Date(entry.createdAt).toLocaleString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4}>
-                            <Typography color="text.secondary">
-                              No points history yet.
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <TablePagination
-                  component="div"
-                  count={pointsHistoryTotal}
-                  page={pointsHistoryPage}
-                  rowsPerPage={pointsHistoryRowsPerPage}
-                  rowsPerPageOptions={[5, 10, 25]}
-                  onPageChange={onPointsHistoryPageChange}
-                  onRowsPerPageChange={onPointsHistoryRowsPerPageChange}
-                />
               </div>
             </div>
             <Scrapbook
