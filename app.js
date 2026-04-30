@@ -72,6 +72,13 @@ app.use(
           "'unsafe-inline'",
           "'unsafe-eval'",
           "https://www.gstatic.com"
+
+          // ✅ Google Analytics
+          "https://www.googletagmanager.com",
+
+          // ✅ reCAPTCHA
+          "https://www.google.com",
+          "https://www.gstatic.com"
         ],
 
         connectSrc: [
@@ -86,6 +93,10 @@ app.use(
           "https://api.iconify.design",
           "https://api.unisvg.com",
           "https://api.simplesvg.com"
+
+          // Google services (Analytics + reCAPTCHA backend calls)
+          "https://www.google.com",
+          "https://www.googletagmanager.com"
         ],
 
         styleSrc: ["'self'", "'unsafe-inline'"],
