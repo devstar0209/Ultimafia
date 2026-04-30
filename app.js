@@ -71,7 +71,7 @@ app.use(
           "'self'",
           "'unsafe-inline'",
           "'unsafe-eval'",
-          "https://www.gstatic.com"
+          "https://www.gstatic.com",
 
           // ✅ Google Analytics
           "https://www.googletagmanager.com",
@@ -92,7 +92,7 @@ app.use(
           // Iconify
           "https://api.iconify.design",
           "https://api.unisvg.com",
-          "https://api.simplesvg.com"
+          "https://api.simplesvg.com",
 
           // Google services (Analytics + reCAPTCHA backend calls)
           "https://www.google.com",
