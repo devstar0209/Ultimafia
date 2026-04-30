@@ -287,14 +287,19 @@ function Overview({ roundInfo, seasonInfo }) {
       }}>
         <Grid2 container columns={isPhoneDevice ? 1 : 3} spacing={1}>
           {seasonInfo.setupOrder.map((roundSetups, i) => (
-            <Grid2 size={1}>
-              <Stack direction="column" spacing={1} key={i} sx={{
+            <Grid2 size={1} key={`round-${i}`}>
+              <Stack direction="column" spacing={1} sx={{
                 alignItems: "center",
               }}>
                 <Typography variant="h3">Round {i + 1}</Typography>
-                {roundSetups.map((setupNumber) => {
+                {roundSetups.map((setupNumber, setupIndex) => {
                   const setup = seasonInfo.setups[setupNumber];
-                  return <Setup setup={setup} key={setup.id} />;
+                  return (
+                    <Setup
+                      setup={setup}
+                      key={setup?.id || `round-${i}-setup-${setupIndex}-${setupNumber}`}
+                    />
+                  );
                 })}
               </Stack>
             </Grid2>
@@ -769,7 +774,6 @@ export default function Competitive() {
         )}
       </Grid2>
       <Tabs
-        centered
         value={activeTab}
         onChange={(_, newValue) => {
           if (!isOffseason) setTab(newValue);

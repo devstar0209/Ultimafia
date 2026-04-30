@@ -50,6 +50,7 @@ export function CompetitiveFaqContent() {
       <Typography paragraph>
         All players receive 4 gold hearts per day for the first
         <Typography
+          component="span"
           sx={{ display: "inline", fontWeight: "bold", fontStyle: "italic" }}
         >
           {" seven "}
