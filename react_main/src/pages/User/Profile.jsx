@@ -1658,19 +1658,6 @@ export default function Profile() {
               style={{ ...panelStyle, width: "100%", maxWidth: "924px" }}
             >
               <div className="content" style={{ gap: "8px" }}>
-                {banner && (
-                  <div className="banner" style={bannerStyle}>
-                    {bannerUpload}
-                  </div>
-                )}
-                {!banner && (
-                  <Box
-                    className="banner no-banner"
-                    sx={{ width: "100%", height: "24px !important" }}
-                  >
-                    {bannerUpload}
-                  </Box>
-                )}
                 <Grid container>{aviGridItems}</Grid>
               </div>
             </div>
