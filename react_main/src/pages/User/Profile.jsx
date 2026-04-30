@@ -271,49 +271,19 @@ export default function Profile() {
     if (bustCache) setBustCache(false);
   }, [bustCache]);
 
-  // Apply profile background to site-wrapper when viewing a profile with custom background
-  // This replaces the default diamond pattern background ONLY on the Profile page
+  // Remove custom profile background image from the site wrapper
   useEffect(() => {
     const siteWrapper = document.querySelector(".site-wrapper");
     if (!siteWrapper) return;
 
-    if (profileBackground && settings?.backgroundRepeatMode) {
-      const backgroundUrl = `/uploads/${profileUserId}_profileBackground.webp?t=${
-        siteInfo?.cacheVal || Date.now()
-      }`;
-      const repeatMode = settings.backgroundRepeatMode || "checker";
+    siteWrapper.style.backgroundImage = "";
+    siteWrapper.style.backgroundSize = "";
+    siteWrapper.style.backgroundRepeat = "";
+    siteWrapper.style.backgroundPosition = "";
+    siteWrapper.style.backgroundAttachment = "";
 
-      let backgroundSize, backgroundRepeat, backgroundPosition;
-
-      if (repeatMode === "stretch") {
-        backgroundSize = "cover";
-        backgroundRepeat = "no-repeat";
-        backgroundPosition = "center";
-      } else {
-        // Default: checker (tiled pattern)
-        backgroundSize = "auto";
-        backgroundRepeat = "repeat";
-      }
-
-      // Apply custom background to site-wrapper, replacing the default diamond pattern
-      siteWrapper.style.backgroundImage = `url(${backgroundUrl})`;
-      siteWrapper.style.backgroundSize = backgroundSize;
-      siteWrapper.style.backgroundRepeat = backgroundRepeat;
-      siteWrapper.style.backgroundPosition = backgroundPosition || "top left";
-      siteWrapper.style.backgroundAttachment = "fixed";
-    } else {
-      // Remove inline styles to restore CSS default (white-diamond-dark.png)
-      siteWrapper.style.backgroundImage = "";
-      siteWrapper.style.backgroundSize = "";
-      siteWrapper.style.backgroundRepeat = "";
-      siteWrapper.style.backgroundPosition = "";
-      siteWrapper.style.backgroundAttachment = "";
-    }
-
-    // Cleanup: restore original background when component unmounts
     return () => {
       if (siteWrapper) {
-        // Remove inline styles to restore CSS default (white-diamond-dark.png)
         siteWrapper.style.backgroundImage = "";
         siteWrapper.style.backgroundSize = "";
         siteWrapper.style.backgroundRepeat = "";
@@ -321,12 +291,7 @@ export default function Profile() {
         siteWrapper.style.backgroundAttachment = "";
       }
     };
-  }, [
-    profileBackground,
-    settings?.backgroundRepeatMode,
-    profileUserId,
-    siteInfo?.cacheVal,
-  ]);
+  }, [profileUserId]);
 
   useEffect(() => {
     setEditingBio(false);
@@ -1888,15 +1853,6 @@ export default function Profile() {
             )}
             <div className="box-panel" style={panelStyle}>
               <div className="content trophies-content">
-                {karmaInfo && (
-                  <div className="karma-vote-wrap">
-                    <KarmaVoteWidget
-                      item={karmaInfo}
-                      setItem={setKarmaInfo}
-                      userId={profileUserId}
-                    />
-                  </div>
-                )}
                 <div className="trophies-grid">
                   <Tooltip
                     title="Earned from outstanding performance in ranked and competitive games."
@@ -1916,20 +1872,23 @@ export default function Profile() {
                   </Tooltip>
                   {karmaInfo && (
                     <Tooltip
-                      title="Upvotes from other players on your profile."
+                      title={
+                        isSelf
+                          ? "You cannot vote for yourself."
+                          : "Click to upvote or remove your vote for this profile."
+                      }
                       arrow
                     >
                       <div className="trophy-tile">
-                        <img
-                          src={KARMA_ICON}
-                          alt="Karma"
-                          className="trophy-icon"
+                        <KarmaVoteWidget
+                          item={karmaInfo}
+                          setItem={setKarmaInfo}
+                          userId={profileUserId}
                         />
                         <div className="trophy-meta">
                           <div className="trophy-value">
                             {karmaInfo.voteCount}
-                          </div>
-                          <div className="trophy-label">Karma</div>
+                          </div>                          
                         </div>
                       </div>
                     </Tooltip>
@@ -2254,7 +2213,9 @@ export function KarmaVoteWidget(props) {
 
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
-  const widgetRef = useRef();
+
+  const isSelf = userId === user.id;
+  const canVote = user.loggedIn && user.perms.vote && !isSelf;
 
   function updateItemVoteCount(direction, newDirection) {
     var voteCount = item.voteCount;
@@ -2273,41 +2234,43 @@ export function KarmaVoteWidget(props) {
     });
   }
 
-  function onVote(direction) {
-    if (!user.perms.vote) return;
+  function onVote() {
+    if (!canVote) return;
 
     axios
       .post("/api/user/karma", {
         targetId: userId,
-        direction,
+        direction: 1,
       })
       .then((res) => {
         var newDirection = Number(res.data);
-        var newItem = updateItemVoteCount(direction, newDirection);
+        var newItem = updateItemVoteCount(1, newDirection);
         setItem(newItem);
       })
       .catch(errorAlert);
   }
 
   return (
-    <Stack direction="column" spacing={1}>
-      <IconButton
-        className={`fas fa-arrow-up`}
+    <IconButton
+      onClick={onVote}
+      disabled={!canVote}
+      title={
+        isSelf
+          ? "You cannot vote for yourself."
+          : item.vote === 1
+          ? "Click to remove vote"
+          : "Click to upvote this profile"
+      }
+      style={{ padding: 6 }}
+    >
+      <span
+        className="fas fa-thumbs-up"
         style={{
-          fontSize: "16px",
-          ...(item.vote === 1 ? { color: theme.palette.info.main } : {}),
+          fontSize: "28px",
+          color: item.vote === 1 ? theme.palette.info.main : undefined,
         }}
-        onClick={() => onVote(1)}
       />
-      <IconButton
-        className={`fas fa-arrow-down`}
-        style={{
-          fontSize: "16px",
-          ...(item.vote === -1 ? { color: theme.palette.info.main } : {}),
-        }}
-        onClick={() => onVote(-1)}
-      />
-    </Stack>
+    </IconButton>
   );
 }
 

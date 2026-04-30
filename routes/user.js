@@ -920,6 +920,12 @@ router.post("/karma", async function (req, res) {
       return;
     }
 
+    if (targetId === userId) {
+      res.status(500);
+      res.send("Cannot vote for yourself.");
+      return;
+    }
+
     if (!(await routeUtils.rateLimit(userId, "vote", res))) return;
 
     var direction = Number(req.body.direction);
