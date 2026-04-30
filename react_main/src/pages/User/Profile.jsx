@@ -229,6 +229,7 @@ export default function Profile() {
   const siteInfo = useContext(SiteInfoContext);
   const navigate = useNavigate();
   const errorAlert = useErrorAlert();
+  const errorAlertRef = useRef(errorAlert);
   const { userId } = useParams();
   const isPhoneDevice = useIsPhoneDevice();
 
@@ -242,6 +243,10 @@ export default function Profile() {
   const showDelete = profileUserId === user.id;
 
   const showDeleteArchivedGame = showDelete && editingArchivedGames;
+
+  useEffect(() => {
+    errorAlertRef.current = errorAlert;
+  }, [errorAlert]);
 
   useEffect(() => {
     if (bustCache) setBustCache(false);
@@ -753,10 +758,10 @@ export default function Profile() {
         setPointsHistoryLoading(false);
       })
       .catch((e) => {
-        errorAlert(e);
+        errorAlertRef.current(e);
         setPointsHistoryLoading(false);
       });
-  }, [errorAlert, profileUserId]);
+  }, [profileUserId]);
 
   useEffect(() => {
     if (!profileLoaded || !profileUserId) return;
@@ -1090,7 +1095,7 @@ export default function Profile() {
             />
           )}
         </div>
-        <div style={{ flex: 1, minwidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <GameRow
             game={game}
             type={game.status || "Finished"}
@@ -1395,7 +1400,7 @@ export default function Profile() {
                 sx={{
                   flexShrink: "1",
                   filter: "opacity(.75)",
-                  minwidth: "40px",
+                  minWidth: "40px",
                   wordBreak: pronouns.includes("/") ? "normal" : "break-word",
                 }}
               >
@@ -1564,7 +1569,7 @@ export default function Profile() {
         onBgClick={closeAvatarSelectionDialog}
         header={<Typography variant="h3">Select Profile Avatar</Typography>}
         content={
-          <Stack direction="column" spacing={2} sx={{ minwidth: 320, maxWidth: 520 }}>
+          <Stack direction="column" spacing={2} sx={{ minWidth: 320, maxWidth: 520 }}>
             {avatarShopLoading ? (
               <Typography>Loading avatar selection…</Typography>
             ) : (
@@ -1653,7 +1658,17 @@ export default function Profile() {
           </Stack>
         }
       />
-      <Grid container rowSpacing={1} columnSpacing={1} className="profile">
+      <Grid
+        container
+        rowSpacing={1}
+        columnSpacing={1}
+        className="profile"
+        sx={{
+          m: 0,
+          width: "100%",
+          maxWidth: "100%",
+        }}
+      >
         <Grid item xs={12}>
           <Stack
             direction="row"
@@ -1748,7 +1763,7 @@ export default function Profile() {
                               }}
                             />
                           )}
-                          <Box sx={{ minwidth: 0 }}>
+                          <Box sx={{ minWidth: 0 }}>
                             <Typography variant="body2" noWrap>
                               {item.title}
                             </Typography>
@@ -1772,7 +1787,7 @@ export default function Profile() {
                 Points History
               </Typography>
               <div className="content" style={{ padding: 0 }}>
-                <TableContainer>
+                <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
@@ -2226,7 +2241,7 @@ export default function Profile() {
         <Box
           sx={{
             p: 2,
-            minwidth: 300,
+            minWidth: 300,
             maxWidth: 400,
             maxHeight: 400,
             overflow: "auto",
