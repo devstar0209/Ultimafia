@@ -34,7 +34,6 @@ import Comments from "../Community/Comments";
 import "css/user.css";
 import { Modal } from "components/Modal";
 import CustomMarkdown from "components/CustomMarkdown";
-import ModerationSideDrawer from "components/ModerationSideDrawer";
 import ReportDialog from "../../components/ReportDialog";
 import RapSheet from "../../components/RapSheet";
 import TrophyCase from "components/TrophyCase";
@@ -209,7 +208,6 @@ export default function Profile() {
   const [mediaUrl, setMediaUrl] = useState("");
   const [autoplay, setAutoplay] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [moderationDrawerOpen, setModerationDrawerOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [currentUserLove, setCurrentUserLove] = useState({});
   const [status, setStatus] = useState("offline");
@@ -1587,11 +1585,6 @@ export default function Profile() {
           setShow={setShowStatsModal}
         />
       )}
-      <ModerationSideDrawer
-        open={moderationDrawerOpen}
-        setOpen={setModerationDrawerOpen}
-        prefilledArgs={{ userId: profileUserId }}
-      />
       <Modal
         show={avatarSelectionOpen}
         onBgClick={closeAvatarSelectionDialog}
