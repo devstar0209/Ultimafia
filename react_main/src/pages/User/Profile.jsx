@@ -74,7 +74,6 @@ export const POINTS_NEGATIVE_ICON = require(`images/pointsNegative.png`);
 export const PRESTIGE_ICON = require(`images/prestige.png`);
 export const ACHIEVEMENTS_ICON = require(`images/achievements.png`);
 export const DAILY_ICON = require(`images/dailyChallenges.png`);
-export const COIN_ICON = require(`images/umcoin.png`);
 
 function FavoritedRolesPanel({
   favoriteRoles = [],

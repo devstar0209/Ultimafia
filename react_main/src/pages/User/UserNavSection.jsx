@@ -27,7 +27,6 @@ import { SiteInfoContext } from "../../Contexts";
 
 import "css/main.css";
 import exitIcon from "../../images/emotes/exit.png";
-import coinIcon from "../../images/umcoin.png";
 
 const PAYMENT_PROVIDER_COPY = {
   braintree: {
@@ -476,13 +475,10 @@ function openBuyCoinsDialog() {
             {(Number(user.coins) || 0).toLocaleString()}
           </Typography>
           <Box
-            component="img"
-            src={coinIcon}
-            alt="Coins"
-            sx={{
-              width: "18px",
-              height: "18px",
-            }}
+            component="i"
+            className="fas fa-coins"
+            aria-label="Coins"
+            sx={{ fontSize: 18, color: "#f5c542" }}
           />
         </Stack>
         <Stack>
