@@ -76,13 +76,19 @@ app.use(
 
         connectSrc: [
           "'self'",
+
+          // Firebase
           "https://identitytoolkit.googleapis.com",
           "https://securetoken.googleapis.com",
-          "https://www.googleapis.com"
+          "https://www.googleapis.com",
+
+          // Iconify
+          "https://api.iconify.design",
+          "https://api.unisvg.com",
+          "https://api.simplesvg.com"
         ],
 
         styleSrc: ["'self'", "'unsafe-inline'"],
-
         imgSrc: ["'self'", "data:", "https:"]
       }
     }
