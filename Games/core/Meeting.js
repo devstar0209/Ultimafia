@@ -1090,6 +1090,11 @@ module.exports = class Meeting {
         this.finalTarget = finalTarget;
       }
     }
+
+    if (typeof this.game.awardCorrectVotePoints === "function") {
+      this.game.awardCorrectVotePoints(this, finalTarget);
+    }
+
     // Do the action
     var actor, actors;
 

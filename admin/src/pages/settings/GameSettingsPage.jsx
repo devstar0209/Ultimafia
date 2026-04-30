@@ -45,10 +45,20 @@ function buildModalState(item) {
     title: item?.title || "",
     slug: item?.slug || "",
     coins: item?.coins || 0,
+    pointsFinishGame: item?.pointsFinishGame ?? 20,
+    pointsWin: item?.pointsWin ?? 25,
+    pointsCorrectVote: item?.pointsCorrectVote ?? 10,
+    pointsRoleSuccess: item?.pointsRoleSuccess ?? 15,
     logoUrl: item?.logoUrl || "",
     logoFile: null,
     logoMarkedForRemoval: false,
   };
+}
+
+function isMafiaCatalog(item) {
+  return ["key", "title", "slug"].some(
+    (prop) => String(item?.[prop] || "").toLowerCase() === "mafia"
+  );
 }
 
 export default function GameCatalogSettingsPage() {
@@ -185,6 +195,13 @@ export default function GameCatalogSettingsPage() {
         coins: Number(modalValues.coins || 0),
       };
 
+      if (editingItem && isMafiaCatalog(editingItem)) {
+        payload.pointsFinishGame = Number(modalValues.pointsFinishGame || 0);
+        payload.pointsWin = Number(modalValues.pointsWin || 0);
+        payload.pointsCorrectVote = Number(modalValues.pointsCorrectVote || 0);
+        payload.pointsRoleSuccess = Number(modalValues.pointsRoleSuccess || 0);
+      }
+
       let result = editingItem
         ? await updateAdminManagedGameCatalog(editingItem.key, payload)
         : await createAdminManagedGameCatalog(payload);
@@ -295,6 +312,7 @@ export default function GameCatalogSettingsPage() {
     pendingKey === "create" ||
       (editingItem && pendingKey === `save:${editingItem.key}`)
   );
+  const showMafiaPointOptions = Boolean(editingItem && isMafiaCatalog(editingItem));
 
   return (
     <>
@@ -401,6 +419,17 @@ export default function GameCatalogSettingsPage() {
                                 <Typography color="text.secondary" variant="body2">
                                   Coins: <strong>{item.coins || 0}</strong>
                                 </Typography>
+                                {isMafiaCatalog(item) && (
+                                  <Typography color="text.secondary" variant="body2">
+                                    Points:{" "}
+                                    <strong>
+                                      finish {item.pointsFinishGame ?? 20}, win{" "}
+                                      {item.pointsWin ?? 25}, vote{" "}
+                                      {item.pointsCorrectVote ?? 10}, role{" "}
+                                      {item.pointsRoleSuccess ?? 15}
+                                    </strong>
+                                  </Typography>
+                                )}
                               </Stack>
                             </Box>
 
@@ -491,6 +520,72 @@ export default function GameCatalogSettingsPage() {
               inputProps={{ min: 0, step: 1 }}
               helperText="Coins deducted from player balance when starting this game"
             />
+
+            {showMafiaPointOptions && (
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Finish Game Points"
+                    type="number"
+                    value={modalValues.pointsFinishGame}
+                    onChange={(event) =>
+                      updateModalField(
+                        "pointsFinishGame",
+                        Number(event.target.value) || 0
+                      )
+                    }
+                    disabled={modalPending}
+                    fullWidth
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Win Points"
+                    type="number"
+                    value={modalValues.pointsWin}
+                    onChange={(event) =>
+                      updateModalField("pointsWin", Number(event.target.value) || 0)
+                    }
+                    disabled={modalPending}
+                    fullWidth
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Correct Vote Points"
+                    type="number"
+                    value={modalValues.pointsCorrectVote}
+                    onChange={(event) =>
+                      updateModalField(
+                        "pointsCorrectVote",
+                        Number(event.target.value) || 0
+                      )
+                    }
+                    disabled={modalPending}
+                    fullWidth
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Role Success Points"
+                    type="number"
+                    value={modalValues.pointsRoleSuccess}
+                    onChange={(event) =>
+                      updateModalField(
+                        "pointsRoleSuccess",
+                        Number(event.target.value) || 0
+                      )
+                    }
+                    disabled={modalPending}
+                    fullWidth
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                </Grid>
+              </Grid>
+            )}
 
             <Box
               sx={{

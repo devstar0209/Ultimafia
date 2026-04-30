@@ -133,6 +133,17 @@ module.exports = class Game {
     this.beforeAnonPlayerInfo = [];
     this.anonPlayerMapping = {};
     this.pointsEarnedByPlayers = {};
+    this.gameCatalogPoints = {
+      finishGame: 20,
+      win: 25,
+      correctVote: 10,
+      roleSuccess: 15,
+    };
+    this.gameCatalogPointCatalog = {
+      key: this.type,
+      title: this.type,
+    };
+    this.pointAwardsByPlayer = {};
 
     this.numHostInGame = 0;
     this.originalHostId = options.hostId; // Track the original host for reassignment
@@ -143,6 +154,8 @@ module.exports = class Game {
 
   async init() {
     try {
+      await this.loadGameCatalogPoints();
+
       await redis.createGame(this.id, {
         type: this.type,
         port: this.port,
@@ -186,6 +199,132 @@ module.exports = class Game {
       logger.error(e);
       // this.handleError(e);
     }
+  }
+
+  async loadGameCatalogPoints() {
+    const gameCatalog = await models.GameCatalog.findOne({
+      $or: [
+        { key: this.type },
+        { title: this.type },
+        { slug: gameCatalogUtils.slugifyGameTitle(this.type) },
+      ],
+    })
+      .select(
+        "key title pointsFinishGame pointsWin pointsCorrectVote pointsRoleSuccess -_id"
+      )
+      .lean();
+
+    this.gameCatalogPointCatalog = {
+      key: gameCatalog?.key || this.type,
+      title: gameCatalog?.title || this.type,
+    };
+    this.gameCatalogPoints = {
+      finishGame: Number(gameCatalog?.pointsFinishGame ?? 20),
+      win: Number(gameCatalog?.pointsWin ?? 25),
+      correctVote: Number(gameCatalog?.pointsCorrectVote ?? 10),
+      roleSuccess: Number(gameCatalog?.pointsRoleSuccess ?? 15),
+    };
+  }
+
+  awardPoints(player, amount, reason, description, meta = {}) {
+    amount = Number(amount || 0);
+    if (!player || player.isBot || amount <= 0 || !player.user?.id) return;
+
+    if (!this.pointAwardsByPlayer[player.id]) {
+      this.pointAwardsByPlayer[player.id] = [];
+    }
+
+    this.pointAwardsByPlayer[player.id].push({
+      amount,
+      reason,
+      description,
+      gameCatalogKey: this.getPointCatalogKey(),
+      gameCatalogTitle: this.gameCatalogPointCatalog.title,
+      meta,
+      createdAt: Date.now(),
+    });
+
+    this.sendAlert(`+${amount} points: ${description}`, [player], undefined, [
+      "info",
+    ]);
+  }
+
+  getPointCatalogKey() {
+    return String(this.gameCatalogPointCatalog?.key || this.type)
+      .replace(/\./g, "_")
+      .replace(/^\$/g, "_");
+  }
+
+  awardRoleSuccessPoints(action) {
+    if (this.type !== "Mafia") return;
+    if (!action?.actor || !action.actor.alive || !action.actor.role) return;
+    if (action.item || action.event || action.achievement) return;
+    if (action.hasLabel("hidden") || action.hasLabel("condemn")) return;
+    if (!action.target && !action.effect) return;
+
+    this.awardPoints(
+      action.actor,
+      this.gameCatalogPoints.roleSuccess,
+      "roleSuccess",
+      "Role success",
+      {
+        role: action.actor.role.name,
+        labels: action.labels,
+        target: action.target?.id,
+      }
+    );
+  }
+
+  awardCorrectVotePoints(meeting, finalTarget) {
+    if (this.type !== "Mafia") return;
+    if (meeting?.actionName !== "Vote to Condemn") return;
+    if (!finalTarget || finalTarget === "*" || !finalTarget.id) return;
+
+    for (let voterId in meeting.votes) {
+      if (meeting.votes[voterId] !== finalTarget.id) continue;
+      const voter = this.getPlayer(voterId, true);
+      this.awardPoints(
+        voter,
+        this.gameCatalogPoints.correctVote,
+        "correctVote",
+        `Correct vote on ${finalTarget.name}`,
+        {
+          targetPlayerId: finalTarget.id,
+          targetName: finalTarget.name,
+        }
+      );
+    }
+  }
+
+  awardEndGamePoints(player) {
+    if (this.type !== "Mafia") return;
+
+    this.awardPoints(
+      player,
+      this.gameCatalogPoints.finishGame,
+      "finishGame",
+      "Finished a Mafia game"
+    );
+
+    if (player.won) {
+      this.awardPoints(
+        player,
+        this.gameCatalogPoints.win,
+        "win",
+        "Won a Mafia game"
+      );
+    }
+  }
+
+  getPointAwards(playerId) {
+    return this.pointAwardsByPlayer[playerId] || [];
+  }
+
+  getPointAwardsTotal(playerId) {
+    return this.getPointAwards(playerId).reduce(
+      (total, award) => total + Number(award.amount || 0),
+      0
+    );
   }
 
   getPlayerSummary() {
@@ -3773,6 +3912,8 @@ module.exports = class Game {
       }
 
       for (let player of this.players) {
+        this.awardEndGamePoints(player);
+
         let coinsEarned = 0;
         if (this.ranked && player.won) {
           coinsEarned++;
@@ -3782,6 +3923,8 @@ module.exports = class Game {
         if (this.pointsEarnedByPlayers[player.id] !== undefined) {
           pointsWon = this.pointsEarnedByPlayers[player.id];
         }
+        const pointAwards = this.getPointAwards(player.id);
+        const pointAwardsTotal = this.getPointAwardsTotal(player.id);
 
         if (this.achievementsAllowed()) {
           if (player.EarnedAchievements.length > 0) {
@@ -3818,6 +3961,17 @@ module.exports = class Game {
           }
         }
 
+        const incOps = {
+          coins: coinsEarned,
+          kudos: kudosTarget && kudosTarget.user.id == player.user.id ? 1 : 0,
+          points: pointsWon > 0 ? pointsWon : 0,
+          pointsNegative: pointsWon < 0 ? -pointsWon : 0,
+        };
+        if (pointAwardsTotal > 0) {
+          incOps[`pointsByGameCatalog.${this.getPointCatalogKey()}`] =
+            pointAwardsTotal;
+        }
+
         await models.User.updateOne(
           { id: player.user.id },
           {
@@ -3831,15 +3985,27 @@ module.exports = class Game {
                 (player.user.stats["Mafia"].all.wins.count || 0) /
                 (player.user.stats["Mafia"].all.wins.total || 1),
             },
-            $inc: {
-              coins: coinsEarned,
-              kudos:
-                kudosTarget && kudosTarget.user.id == player.user.id ? 1 : 0,
-              points: pointsWon > 0 ? pointsWon : 0,
-              pointsNegative: pointsWon < 0 ? -pointsWon : 0,
-            },
+            $inc: incOps,
           }
         ).exec();
+
+        if (pointAwards.length > 0) {
+          await models.PointsHistory.insertMany(
+            pointAwards.map((award) => ({
+              userId: player.user.id,
+              game: gameDocument._id,
+              gameId: this.id,
+              gameType: this.type,
+              gameCatalogKey: award.gameCatalogKey,
+              gameCatalogTitle: award.gameCatalogTitle,
+              amount: award.amount,
+              reason: award.reason,
+              description: award.description,
+              createdAt: award.createdAt,
+              meta: award.meta,
+            }))
+          );
+        }
 
         if (player.DailyTracker && player.DailyTracker.length >= 1) {
           await models.User.updateOne(

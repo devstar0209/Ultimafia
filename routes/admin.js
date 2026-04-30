@@ -1124,6 +1124,10 @@ router.post("/settings/gamecatalogs", async function (req, res) {
       slug,
       hidden: false,
       coins: Number(req.body?.coins || 0),
+      pointsFinishGame: Number(req.body?.pointsFinishGame ?? 20),
+      pointsWin: Number(req.body?.pointsWin ?? 25),
+      pointsCorrectVote: Number(req.body?.pointsCorrectVote ?? 10),
+      pointsRoleSuccess: Number(req.body?.pointsRoleSuccess ?? 15),
       sortOrder: Number(lastGameCatalog?.sortOrder || 0) + 1,
       updatedAt: Date.now(),
       updatedBy: sessionInfo.user.id,
@@ -1188,16 +1192,29 @@ router.patch("/settings/gamecatalogs/:key", async function (req, res) {
       return;
     }
 
+    const updateFields = {
+      title,
+      slug,
+      coins: Number(req.body?.coins || 0),
+      updatedAt: Date.now(),
+      updatedBy: sessionInfo.user.id,
+    };
+
+    for (const field of [
+      "pointsFinishGame",
+      "pointsWin",
+      "pointsCorrectVote",
+      "pointsRoleSuccess",
+    ]) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
+        updateFields[field] = Number(req.body[field] || 0);
+      }
+    }
+
     const updatedGame = await models.GameCatalog.findOneAndUpdate(
       { key },
       {
-        $set: {
-          title,
-          slug,
-          coins: Number(req.body?.coins || 0),
-          updatedAt: Date.now(),
-          updatedBy: sessionInfo.user.id,
-        },
+        $set: updateFields,
       },
       { new: true }
     ).lean();

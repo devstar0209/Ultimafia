@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useRef,
+  useCallback,
+} from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import update from "immutability-helper";
@@ -47,6 +53,13 @@ import {
   IconButton,
   Popover,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -148,6 +161,12 @@ export default function Profile() {
   const [kudos, setKudos] = useState(0);
   const [points, setPoints] = useState(0);
   const [pointsNegative, setPointsNegative] = useState(0);
+  const [pointsByGameCatalog, setPointsByGameCatalog] = useState([]);
+  const [pointsHistory, setPointsHistory] = useState([]);
+  const [pointsHistoryLoading, setPointsHistoryLoading] = useState(false);
+  const [pointsHistoryPage, setPointsHistoryPage] = useState(0);
+  const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
+  const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
   const [championshipPoints, setChampionshipPoints] = useState(0);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
@@ -330,6 +349,12 @@ export default function Profile() {
           setCoinBalance(res.data.coins || 0);
           setPoints(res.data.points);
           setPointsNegative(res.data.pointsNegative);
+          setPointsByGameCatalog(
+            Array.isArray(res.data.pointsByGameCatalog)
+              ? res.data.pointsByGameCatalog
+              : []
+          );
+          setPointsHistoryPage(0);
           setKarmaInfo(res.data.karmaInfo);
           setGroups(res.data.groups);
           setStatus(res.data.status || "offline");
@@ -711,6 +736,49 @@ export default function Profile() {
       });
   }
 
+  const loadPointsHistory = useCallback((page, pageSize) => {
+    if (!profileUserId) return;
+
+    setPointsHistoryLoading(true);
+    axios
+      .get(`/api/user/${profileUserId}/pointsHistory`, {
+        params: {
+          page: page + 1,
+          pageSize,
+        },
+      })
+      .then((res) => {
+        setPointsHistory(Array.isArray(res.data?.items) ? res.data.items : []);
+        setPointsHistoryTotal(Number(res.data?.total || 0));
+        setPointsHistoryLoading(false);
+      })
+      .catch((e) => {
+        errorAlert(e);
+        setPointsHistoryLoading(false);
+      });
+  }, [errorAlert, profileUserId]);
+
+  useEffect(() => {
+    if (!profileLoaded || !profileUserId) return;
+
+    loadPointsHistory(pointsHistoryPage, pointsHistoryRowsPerPage);
+  }, [
+    loadPointsHistory,
+    profileLoaded,
+    profileUserId,
+    pointsHistoryPage,
+    pointsHistoryRowsPerPage,
+  ]);
+
+  function onPointsHistoryPageChange(event, nextPage) {
+    setPointsHistoryPage(nextPage);
+  }
+
+  function onPointsHistoryRowsPerPageChange(event) {
+    setPointsHistoryRowsPerPage(Number(event.target.value));
+    setPointsHistoryPage(0);
+  }
+
   function onBioClick() {
     setEditingBio(isSelf);
     setOldBio(bio);
@@ -1022,7 +1090,7 @@ export default function Profile() {
             />
           )}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minwidth: 0 }}>
           <GameRow
             game={game}
             type={game.status || "Finished"}
@@ -1327,7 +1395,7 @@ export default function Profile() {
                 sx={{
                   flexShrink: "1",
                   filter: "opacity(.75)",
-                  minWidth: "40px",
+                  minwidth: "40px",
                   wordBreak: pronouns.includes("/") ? "normal" : "break-word",
                 }}
               >
@@ -1496,7 +1564,7 @@ export default function Profile() {
         onBgClick={closeAvatarSelectionDialog}
         header={<Typography variant="h3">Select Profile Avatar</Typography>}
         content={
-          <Stack direction="column" spacing={2} sx={{ minWidth: 320, maxWidth: 520 }}>
+          <Stack direction="column" spacing={2} sx={{ minwidth: 320, maxWidth: 520 }}>
             {avatarShopLoading ? (
               <Typography>Loading avatar selection…</Typography>
             ) : (
@@ -1645,6 +1713,120 @@ export default function Profile() {
                     </div>
                   </>
                 )}
+              </div>
+            </div>
+            <div className="box-panel" style={panelStyle}>
+              <Typography variant="h3" style={headingStyle}>
+                Game Catalog Points
+              </Typography>
+              <div className="content">
+                {pointsByGameCatalog.length > 0 ? (
+                  <Grid container spacing={1}>
+                    {pointsByGameCatalog.map((item) => (
+                      <Grid item xs={12} sm={6} key={item.key}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            p: 1,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 1,
+                            minHeight: 56,
+                          }}
+                        >
+                          {item.logoUrl && (
+                            <Box
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                flexShrink: 0,
+                                borderRadius: "50%",
+                                backgroundImage: `url(${item.logoUrl})`,
+                                backgroundPosition: "center",
+                                backgroundSize: "cover",
+                              }}
+                            />
+                          )}
+                          <Box sx={{ minwidth: 0 }}>
+                            <Typography variant="body2" noWrap>
+                              {item.title}
+                            </Typography>
+                            <Typography fontWeight={700}>
+                              {item.points} points
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography color="text.secondary">
+                    No game catalog points yet.
+                  </Typography>
+                )}
+              </div>
+            </div>
+            <div className="box-panel" style={panelStyle}>
+              <Typography variant="h3" style={headingStyle}>
+                Points History
+              </Typography>
+              <div className="content" style={{ padding: 0 }}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Game</TableCell>
+                        <TableCell>Action</TableCell>
+                        <TableCell align="right">Points</TableCell>
+                        <TableCell>Date</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {pointsHistoryLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4}>
+                            <Loading small />
+                          </TableCell>
+                        </TableRow>
+                      ) : pointsHistory.length > 0 ? (
+                        pointsHistory.map((entry) => (
+                          <TableRow key={entry._id}>
+                            <TableCell>
+                              {entry.gameCatalogTitle ||
+                                entry.gameCatalogKey ||
+                                entry.gameType}
+                            </TableCell>
+                            <TableCell>{entry.description}</TableCell>
+                            <TableCell align="right">
+                              +{entry.amount}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(entry.createdAt).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4}>
+                            <Typography color="text.secondary">
+                              No points history yet.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <TablePagination
+                  component="div"
+                  count={pointsHistoryTotal}
+                  page={pointsHistoryPage}
+                  rowsPerPage={pointsHistoryRowsPerPage}
+                  rowsPerPageOptions={[5, 10, 25]}
+                  onPageChange={onPointsHistoryPageChange}
+                  onRowsPerPageChange={onPointsHistoryRowsPerPageChange}
+                />
               </div>
             </div>
             <Scrapbook
@@ -2044,7 +2226,7 @@ export default function Profile() {
         <Box
           sx={{
             p: 2,
-            minWidth: 300,
+            minwidth: 300,
             maxWidth: 400,
             maxHeight: 400,
             overflow: "auto",

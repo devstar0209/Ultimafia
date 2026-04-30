@@ -30,7 +30,13 @@ module.exports = class Action {
   }
 
   do() {
-    this.run();
+    const result = this.run();
+
+    if (this.game && typeof this.game.awardRoleSuccessPoints === "function") {
+      this.game.awardRoleSuccessPoints(this);
+    }
+
+    return result;
   }
 
   /**

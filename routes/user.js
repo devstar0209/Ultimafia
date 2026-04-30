@@ -71,6 +71,41 @@ function isDismissCooldownActive(poke) {
     Date.now() - poke.dismissedAt < constants.pokeDismissCooldownMillis;
 }
 
+async function buildPointCatalogBalances(pointsByGameCatalog) {
+  const entries = Object.entries(pointsByGameCatalog || {})
+    .map(([key, points]) => ({
+      key,
+      points: Number(points || 0),
+    }))
+    .filter((entry) => entry.points > 0);
+
+  if (entries.length === 0) return [];
+
+  const catalogs = await models.GameCatalog.find({
+    key: { $in: entries.map((entry) => entry.key) },
+  })
+    .select("key title sortOrder logoPath updatedAt -_id")
+    .lean();
+  const catalogMap = new Map(catalogs.map((catalog) => [catalog.key, catalog]));
+
+  return entries
+    .map((entry) => {
+      const catalog = catalogMap.get(entry.key);
+      return {
+        key: entry.key,
+        title: catalog?.title || entry.key,
+        points: entry.points,
+        sortOrder: Number(catalog?.sortOrder || 0),
+        logoUrl: catalog?.logoPath
+          ? `/uploads/${catalog.logoPath}?t=${catalog.updatedAt || 0}`
+          : "",
+      };
+    })
+    .sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)
+    );
+}
+
 const mongo = require("mongodb");
 const ObjectID = mongo.ObjectID;
 
@@ -349,7 +384,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -381,6 +416,9 @@ router.get("/:id/profile", async function (req, res) {
     }
 
     user = user.toJSON();
+    user.pointsByGameCatalog = await buildPointCatalogBalances(
+      user.pointsByGameCatalog
+    );
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;
@@ -1021,6 +1059,49 @@ router.get("/:id/friends", async function (req, res) {
     logger.error(e);
     res.status(500);
     res.send("Unable to load friends.");
+  }
+});
+
+router.get("/:id/pointsHistory", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await resolveUserId(String(req.params.id));
+
+    if (!userId) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    const requestedPage = Math.max(1, Number(req.query.page || 1));
+    const requestedPageSize = Math.max(1, Number(req.query.pageSize || 10));
+    const pageSize = Math.min(requestedPageSize, 50);
+
+    const total = await models.PointsHistory.countDocuments({ userId });
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, pages);
+    const skip = (page - 1) * pageSize;
+
+    const items = await models.PointsHistory.find({ userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize)
+      .select(
+        "gameId gameType gameCatalogKey gameCatalogTitle amount reason description createdAt meta"
+      )
+      .lean();
+
+    res.send({
+      items,
+      page,
+      pageSize,
+      pages,
+      total,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Unable to load points history.");
   }
 });
 
