@@ -204,6 +204,7 @@ var schemas = {
     karma: { type: Number, default: 0 },
     points: { type: Number, default: 0 },
     pointsNegative: { type: Number, default: 0 },
+    pointsByGameCatalog: { type: mongoose.Schema.Types.Mixed, default: {} },
     championshipPoints: { type: Number, default: 0 },
     dailyChallenges: [String],
     dailyChallengesCompleted: { type: Number, default: 0 },
@@ -244,6 +245,10 @@ var schemas = {
       hidden: { type: Boolean, default: false, index: true },
       sortOrder: { type: Number, default: 0 },
       coins: { type: Number, default: 0 },
+      pointsFinishGame: { type: Number, default: 20 },
+      pointsWin: { type: Number, default: 25 },
+      pointsCorrectVote: { type: Number, default: 10 },
+      pointsRoleSuccess: { type: Number, default: 15 },
       updatedAt: { type: Number, default: Date.now },
       updatedBy: { type: String, default: "" },
     },
@@ -489,6 +494,20 @@ var schemas = {
         },
       }
     ),
+  PointsHistory: new mongoose.Schema({
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    userId: { type: String, index: true },
+    game: { type: mongoose.Schema.Types.ObjectId, ref: "Game", index: true },
+    gameId: { type: String, index: true },
+    gameType: { type: String, index: true },
+    gameCatalogKey: { type: String, index: true },
+    gameCatalogTitle: { type: String, default: "" },
+    amount: { type: Number, default: 0 },
+    reason: { type: String, index: true },
+    description: { type: String, default: "" },
+    createdAt: { type: Number, default: Date.now, index: true },
+    meta: { type: mongoose.Schema.Types.Mixed, default: {} },
+  }),
   ForumCategory: new mongoose.Schema({
     id: { type: String, index: true },
     name: String,
@@ -908,6 +927,7 @@ var schemas = {
   }),
   CompetitiveSeason: new mongoose.Schema({
     number: { type: Number, index: true, unique: true },
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     setups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Setup" }],
     setupOrder: [[{ type: Number }]], // each top level array corresponds to one round
     rounds: [{ type: mongoose.Schema.Types.ObjectId, ref: "CompetitiveRound" }],
@@ -945,6 +965,7 @@ var schemas = {
     updatedBy: { type: String, default: "" },
   }),
   CompetitiveRound: new mongoose.Schema({
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     season: { type: Number },
     number: { type: Number },
     currentDay: { type: Number, default: 0 },
@@ -959,6 +980,7 @@ var schemas = {
   CompetitiveGameCompletion: new mongoose.Schema({
     userId: { type: String },
     game: { type: mongoose.Schema.Types.ObjectId, ref: "Game" },
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     season: { type: Number },
     round: { type: Number },
     day: { type: Number },
@@ -967,6 +989,7 @@ var schemas = {
   }),
   CompetitiveSeasonStanding: new mongoose.Schema({
     userId: { type: String },
+    gameCatalogKey: { type: String, default: "Mafia", index: true },
     season: { type: Number },
     points: { type: Number, default: 0 }, // championship points from winning rounds
     tiebreakerPoints: { type: Number, default: 0 }, // points from winning games
@@ -1317,17 +1340,25 @@ schemas.VanityUrl.virtual("user", {
 schemas.Poke.index({ userA: 1, userB: 1 }, { unique: true });
 schemas.Poke.index({ to: 1, status: 1 });
 
-schemas.CompetitiveRound.index({ season: 1, number: 1 }, { unique: true });
+schemas.CompetitiveRound.index(
+  { gameCatalogKey: 1, season: 1, number: 1 },
+  { unique: true }
+);
 schemas.RankedGameTerms.index({ key: 1 }, { unique: true });
 schemas.CompetitiveSeasonStanding.index(
-  { userId: 1, season: 1 },
+  { userId: 1, gameCatalogKey: 1, season: 1 },
   { unique: true }
 );
 schemas.CompetitiveGameCompletion.index(
   { userId: 1, game: 1 },
   { unique: true }
 );
-schemas.CompetitiveGameCompletion.index({ season: 1, round: 1, day: 1 });
+schemas.CompetitiveGameCompletion.index({
+  gameCatalogKey: 1,
+  season: 1,
+  round: 1,
+  day: 1,
+});
 
 // Compound indexes for Report schema
 schemas.Report.index({ status: 1, createdAt: -1 });

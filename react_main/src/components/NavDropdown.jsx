@@ -75,7 +75,7 @@ export default function NavDropdown({
     </Box>
   ) : isMobileMenu ? (
     <IconButton
-      large
+      size="large"
       onClick={handleClick}
       aria-label="menu"
       sx={{

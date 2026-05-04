@@ -26,15 +26,51 @@ import { usePopover, InfoPopover } from "components/Popover";
 import { usePopoverOpen } from "hooks/usePopoverOpen";
 import { PopoverContent } from "./Popover";
 
+function normalizeSetup(rawSetup) {
+  const setup = rawSetup || {};
+  let roles = setup.roles;
+
+  if (typeof roles === "string") {
+    try {
+      roles = JSON.parse(roles);
+    } catch {
+      roles = [];
+    }
+  }
+
+  if (!Array.isArray(roles) || roles.length === 0) {
+    roles = [{}];
+  }
+
+  const roleGroupSizes =
+    Array.isArray(setup.roleGroupSizes) && setup.roleGroupSizes.length > 0
+      ? setup.roleGroupSizes
+      : Array(roles.length).fill(1);
+
+  return {
+    ...setup,
+    gameType: setup.gameType || "Mafia",
+    name: setup.name || "Unknown Setup",
+    closed: Boolean(setup.closed),
+    useRoleGroups: Boolean(setup.useRoleGroups),
+    roles,
+    roleGroupSizes,
+    count: setup.count || {},
+  };
+}
+
 export default function Setup(props) {
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
+  const setup = normalizeSetup(props.setup);
   const setupRef = useRef();
   const popoverProps = usePopover({
-    path: `/api/setup/${props.setup.id}`,
+    path: `/api/setup/${setup.id || ""}`,
     type: "setup",
     boundingEl: setupRef.current,
-    postprocessData: (data) => (data.roles = JSON.parse(data.roles)),
+    postprocessData: (data) => {
+      if (typeof data.roles === "string") data.roles = JSON.parse(data.roles);
+    },
   });
   const { popoverOpen, handleClick } = popoverProps;
 
@@ -52,22 +88,19 @@ export default function Setup(props) {
       ? maxIconsPerRow * 3
       : maxIconsPerRow;
 
-  if (typeof props.setup.roles == "string")
-    props.setup.roles = JSON.parse(props.setup.roles);
-
   const backgroundColor = props.backgroundColor || undefined;
   const classList = props.classList || "";
   const disablePopover = props.disablePopover;
   const small = props.small ?? true;
-  const useRoleGroups = props.setup.useRoleGroups;
+  const useRoleGroups = setup.useRoleGroups;
   const multi =
-    (!props.setup.closed || useRoleGroups) &&
+    (!setup.closed || useRoleGroups) &&
     !useRoleGroups &&
-    props.setup.roles.length > 1;
+    setup.roles.length > 1;
 
   // Prevent overflow
   useLayoutEffect(() => {
-    if (!iconContainerRef.current.lastChild) {
+    if (!iconContainerRef.current?.lastChild) {
       return;
     }
 
@@ -94,24 +127,24 @@ export default function Setup(props) {
 
   // Extract events from all setup types
   const { rolesDividedByAlignment, rolesDividedByRoleset, banishedRoles, events, eventsPerRoleset } =
-    getRolesByAlignment(siteInfo, props.setup.gameType, props.setup.roles);
+    getRolesByAlignment(siteInfo, setup.gameType, setup.roles);
 
   var roleCounts = [];
   var overSize = false;
 
-  if (props.setup.closed && !useRoleGroups) {
-    for (let alignment of Object.keys(rolesDividedByAlignment[0])) {
-      const count = props.setup.count[alignment];
+  if (setup.closed && !useRoleGroups) {
+    for (let alignment of Object.keys(rolesDividedByAlignment[0] || {})) {
+      const count = setup.count[alignment];
       if (count > 0) {
         roleCounts.push(
           <RoleCount
             closed
             alignment={alignment}
             roleGroup={rolesDividedByAlignment[0][alignment]}
-            count={props.setup.count[alignment]}
-            gameType={props.setup.gameType}
+            count={setup.count[alignment]}
+            gameType={setup.gameType}
             key={alignment}
-            otherRoles={props.setup.roles}
+            otherRoles={setup.roles}
           />
         );
       }
@@ -130,7 +163,7 @@ export default function Setup(props) {
       const filteredRoleGroup = {};
       for (let role in roleGroupData) {
         const roleName = role.split(":")[0];
-        const roleObj = siteInfo.rolesRaw?.[props.setup.gameType]?.[roleName];
+        const roleObj = siteInfo.rolesRaw?.[setup.gameType]?.[roleName];
         if (roleObj && roleObj.alignment !== "Event") {
           filteredRoleGroup[role] = roleGroupData[role];
         }
@@ -142,12 +175,12 @@ export default function Setup(props) {
         roleCounts.push(
           <RoleCount
             key={i}
-            count={props.setup.roleGroupSizes[roleGroup]}
+            count={setup.roleGroupSizes[roleGroup]}
             showPopover
             small={small}
             role={roleName}
-            gameType={props.setup.gameType}
-            otherRoles={props.setup.roles}
+            gameType={setup.gameType}
+            otherRoles={setup.roles}
           />
         );
       }
@@ -155,13 +188,13 @@ export default function Setup(props) {
         roleCounts.push(
           <RoleCount
             key={i}
-            count={props.setup.roleGroupSizes[roleGroup]}
+            count={setup.roleGroupSizes[roleGroup]}
             showPopover
             small={small}
             role={INDEXED_ROLE_GROUP_LABELS[roleGroupCounter]}
             roleGroup={filteredRoleGroup}
-            gameType={props.setup.gameType}
-            otherRoles={props.setup.roles}
+            gameType={setup.gameType}
+            otherRoles={setup.roles}
           />
         );
         roleGroupCounter++;
@@ -173,19 +206,20 @@ export default function Setup(props) {
   }
 
   function selectSetup(index) {
-    let roleNames = Object.keys(rolesDividedByRoleset[index]);
+    const selectedRoleset = rolesDividedByRoleset[index] || {};
+    let roleNames = Object.keys(selectedRoleset);
     // Filter out events from role display
     const filteredRoleNames = roleNames.filter((role) => {
       const roleName = role.split(":")[0];
-      const roleObj = siteInfo.rolesRaw?.[props.setup.gameType]?.[roleName];
+      const roleObj = siteInfo.rolesRaw?.[setup.gameType]?.[roleName];
       return roleObj && roleObj.alignment !== "Event";
     });
     roleCounts = filteredRoleNames.map((role) => (
       <RoleCount
         small={small}
         role={role}
-        count={rolesDividedByRoleset[index][role]}
-        gameType={props.setup.gameType}
+        count={selectedRoleset[role]}
+        gameType={setup.gameType}
         key={role}
         otherRoles={rolesDividedByRoleset}
       />
@@ -193,7 +227,7 @@ export default function Setup(props) {
   }
 
   function cycleSetups() {
-    if (setupIndex < props.setup.roles.length - 1) {
+    if (setupIndex < setup.roles.length - 1) {
       setSetupIndex(setupIndex + 1);
     } else {
       setSetupIndex(0);
@@ -217,8 +251,8 @@ export default function Setup(props) {
       <EventPool
         key="event-pool"
         events={eventsToDisplay}
-        gameType={props.setup.gameType}
-        otherRoles={props.setup.roles}
+        gameType={setup.gameType}
+        otherRoles={setup.roles}
         small={small}
       />
     );
@@ -231,8 +265,8 @@ export default function Setup(props) {
       <BanishedPool
         key="banished-pool"
         roles={banishedRoles}
-        gameType={props.setup.gameType}
-        otherRoles={props.setup.roles}
+        gameType={setup.gameType}
+        otherRoles={setup.roles}
         small={small}
       />
     );
@@ -276,15 +310,16 @@ export default function Setup(props) {
     <>
       <InfoPopover
         {...popoverProps}
-        page={`/learn/setup/${props.setup.id}`}
-        title={filterProfanity(props.setup.name, user.settings)}
+        showPopover={!disablePopover && Boolean(setup.id)}
+        page={`/learn/setup/${setup.id || ""}`}
+        title={filterProfanity(setup.name, user.settings)}
       />
       <Card
         variant="outlined"
         className={"setup " + classList}
         ref={setupRef}
         sx={{
-          minWidth: 0,
+          minwidth: 0,
           width: "100%",
           backgroundColor:
             backgroundColor !== undefined
@@ -317,7 +352,7 @@ export default function Setup(props) {
           >
             <GameIcon
               className="role-count-wrap"
-              gameType={props.setup.gameType}
+              gameType={setup.gameType}
             />
           </Stack>
           <Divider orientation="vertical" flexItem />
@@ -331,13 +366,13 @@ export default function Setup(props) {
             }}
           >
             <Typography variant="body2" className="setup-name">
-              {filterProfanity(props.setup.name, user.settings)}
+              {filterProfanity(setup.name, user.settings)}
             </Typography>
             <Stack
               direction="row"
               ref={iconContainerRef}
               sx={{
-                minWidth: "0",
+                minwidth: "0",
                 alignItems: "center",
                 flexWrap: wrapIcons ? "wrap" : "nowrap",
               }}
@@ -352,9 +387,10 @@ export default function Setup(props) {
 }
 
 export function determineSetupType(setup) {
-  const isMulti = setup.roles.length > 1;
-  if (setup.closed) {
-    if (setup.useRoleGroups) {
+  const normalizedSetup = normalizeSetup(setup);
+  const isMulti = normalizedSetup.roles.length > 1;
+  if (normalizedSetup.closed) {
+    if (normalizedSetup.useRoleGroups) {
       return "Closed (groups)";
     } else {
       return "Closed (whole)";
@@ -623,6 +659,7 @@ function getRolesByAlignment(siteInfo, gameType, roles) {
   const banishedRoles = {};
   const events = {};
   const eventsPerRoleset = {};
+  const gameRoles = siteInfo.roles?.[gameType] || [];
 
   for (let i in roles) {
     eventsPerRoleset[i] = {};
@@ -637,7 +674,7 @@ function getRolesByAlignment(siteInfo, gameType, roles) {
         continue;
       }
 
-      for (let roleObj of siteInfo.roles[gameType]) {
+      for (let roleObj of gameRoles) {
         if (roleObj.name === roleName) {
           const alignment = roleObj.alignment;
 
@@ -684,7 +721,7 @@ function RoleBox({ children, color, legend = null }) {
       height: "100%",
       border: `4px solid ${color}`,
       borderRadius: "4px",
-      minWidth: "0",
+      minwidth: "0",
     }}>
       {legend && (
         <legend>
@@ -708,23 +745,26 @@ function RoleBox({ children, color, legend = null }) {
 }
 
 export function FullRoleList({ setup, compact = false }) {
-  const roles = setup.roles;
-  const gameType = setup.gameType;
+  const normalizedSetup = normalizeSetup(setup);
+  const roles = normalizedSetup.roles;
+  const gameType = normalizedSetup.gameType;
 
   const siteInfo = useContext(SiteInfoContext);
 
   const multi =
-    (!setup.closed || setup.useRoleGroups) &&
-    !setup.useRoleGroups &&
-    setup.roles.length > 1;
+    (!normalizedSetup.closed || normalizedSetup.useRoleGroups) &&
+    !normalizedSetup.useRoleGroups &&
+    normalizedSetup.roles.length > 1;
 
   const { rolesDividedByAlignment, banishedRoles, events, eventsPerRoleset } =
     getRolesByAlignment(siteInfo, gameType, roles);
 
   // holy fricken FREAK this is a 3-dimensional effort
   const rolesetAlignments = Object.keys(rolesDividedByAlignment).map((i) => {
-    const alignmentKeys = Object.keys(rolesDividedByAlignment[i]);
-    const gridItemSize = compact ? 12 : 12 / alignmentKeys.length;
+    const rolesetAlignmentsByName = rolesDividedByAlignment[i] || {};
+    const alignmentKeys = Object.keys(rolesetAlignmentsByName);
+    const gridItemSize =
+      compact || alignmentKeys.length === 0 ? 12 : 12 / alignmentKeys.length;
 
     // Determine which events to display
     let eventsToDisplay = {};
@@ -737,21 +777,21 @@ export function FullRoleList({ setup, compact = false }) {
     }
 
     const alignmentRoles = ALIGNMENT_ORDER.map((alignment) => {
-      if (rolesDividedByAlignment[i][alignment] === undefined) {
+      if (rolesetAlignmentsByName[alignment] === undefined) {
         return <></>;
       }
 
       const alignmentColor = getAlignmentColor(alignment);
-      const roles = Object.keys(rolesDividedByAlignment[i][alignment]).map(
+      const roles = Object.keys(rolesetAlignmentsByName[alignment]).map(
         (role) => (
           <RoleCount
             role={role}
-            count={rolesDividedByAlignment[i][alignment][role]}
+            count={rolesetAlignmentsByName[alignment][role]}
             small={true}
             gameType={gameType}
             showSecondaryHover
             key={role}
-            otherRoles={setup.roles}
+            otherRoles={normalizedSetup.roles}
           />
         )
       );
@@ -772,13 +812,13 @@ export function FullRoleList({ setup, compact = false }) {
           alignItems: "center",
         }}
       >
-        {setup.roles.length > 1 && (
+        {normalizedSetup.roles.length > 1 && (
           <RoleCount
             key={i}
-            count={setup.roleGroupSizes[i]}
+            count={normalizedSetup.roleGroupSizes[i]}
             showPopover={false}
             role={INDEXED_ROLE_GROUP_LABELS[i]}
-            roleGroup={setup.roles[i]}
+            roleGroup={normalizedSetup.roles[i]}
             gameType={gameType}
           />
         )}
@@ -796,8 +836,8 @@ export function FullRoleList({ setup, compact = false }) {
             <EventPool
               key="event-pool"
               events={eventsToDisplay}
-              gameType={setup.gameType}
-              otherRoles={setup.roles}
+              gameType={normalizedSetup.gameType}
+              otherRoles={normalizedSetup.roles}
             />
           </Box>
         )}

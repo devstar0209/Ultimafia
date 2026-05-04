@@ -195,7 +195,7 @@ export default function Inbox() {
                       {notif.icon && (
                         <i
                           className={`fas fa-${notif.icon}`}
-                          style={{ fontSize: "20px", minWidth: "20px" }}
+                          style={{ fontSize: "20px", minwidth: "20px" }}
                         />
                       )}
                       <Stack direction="column" spacing={0.5} flex={1}>

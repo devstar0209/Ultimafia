@@ -180,7 +180,7 @@ export const GameRow = (props) => {
   if (!props.game.setup) return <></>;
 
   return (
-    <div className="shiny-container" style={{ minWidth: "0px" }}>
+    <div className="shiny-container" style={{ minwidth: "0px" }}>
       {props.game.competitive && <i className="shiny" />}
       <HostGameDialogue
         open={ishostGameDialogueOpen}
@@ -208,7 +208,7 @@ export const GameRow = (props) => {
         <Stack
           direction="column"
           sx={{
-            minWidth: 0,
+            minwidth: 0,
             flex: "1 1",
           }}
         >

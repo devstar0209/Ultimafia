@@ -51,7 +51,7 @@ export default function RecentTradesFeed() {
                   "& .user-name .MuiTypography-root": { fontSize: "0.75rem" },
                 }}
               >
-                <Box sx={{ display: "flex", justifyContent: "flex-end", minWidth: 0 }}>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", minwidth: 0 }}>
                   <NameWithAvatar
                     id={t.initiator?.id}
                     name={t.initiator?.name}
@@ -75,7 +75,7 @@ export default function RecentTradesFeed() {
                     size="small"
                   />
                 </Box>
-                <Box sx={{ display: "flex", justifyContent: "flex-start", minWidth: 0 }}>
+                <Box sx={{ display: "flex", justifyContent: "flex-start", minwidth: 0 }}>
                   <NameWithAvatar
                     id={t.recipient?.id}
                     name={t.recipient?.name}

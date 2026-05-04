@@ -15,6 +15,7 @@ const utils = require("../lib/Utils");
 const redis = require("../modules/redis");
 const constants = require("../data/constants");
 const dbStats = require("../db/stats");
+const gameCatalogUtils = require("../lib/gameCatalog");
 const { colorHasGoodContrastForBothThemes } = require("../shared/colors");
 const logger = require("../modules/logging")(".");
 const router = express.Router();
@@ -69,6 +70,48 @@ function isPokeExpired(poke) {
 function isDismissCooldownActive(poke) {
   return poke.status === "dismissed" && poke.dismissedAt &&
     Date.now() - poke.dismissedAt < constants.pokeDismissCooldownMillis;
+}
+
+async function buildPointCatalogBalances(pointsByGameCatalog) {
+  const balances = new Map(
+    Object.entries(pointsByGameCatalog || {}).map(([key, points]) => [
+      key,
+      Number(points || 0),
+    ])
+  );
+  const catalogs = (await gameCatalogUtils.syncGameCatalog(models)).filter(
+    (catalog) => !catalog.hidden
+  );
+  const catalogKeys = new Set(catalogs.map((catalog) => catalog.key));
+  const entries = catalogs.map((catalog) => ({
+    key: catalog.key,
+    points: balances.get(catalog.key) || 0,
+  }));
+
+  for (const [key, points] of balances.entries()) {
+    if (!catalogKeys.has(key) && points > 0) {
+      entries.push({ key, points });
+    }
+  }
+
+  const catalogMap = new Map(catalogs.map((catalog) => [catalog.key, catalog]));
+
+  return entries
+    .map((entry) => {
+      const catalog = catalogMap.get(entry.key);
+      return {
+        key: entry.key,
+        title: catalog?.title || entry.key,
+        points: entry.points,
+        sortOrder: Number(catalog?.sortOrder || 0),
+        logoUrl: catalog?.logoPath
+          ? `/uploads/${catalog.logoPath}?t=${catalog.updatedAt || 0}`
+          : "",
+      };
+    })
+    .sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)
+    );
 }
 
 const mongo = require("mongodb");
@@ -349,7 +392,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -381,6 +424,9 @@ router.get("/:id/profile", async function (req, res) {
     }
 
     user = user.toJSON();
+    user.pointsByGameCatalog = await buildPointCatalogBalances(
+      user.pointsByGameCatalog
+    );
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;
@@ -874,6 +920,12 @@ router.post("/karma", async function (req, res) {
       return;
     }
 
+    if (targetId === userId) {
+      res.status(500);
+      res.send("Cannot vote for yourself.");
+      return;
+    }
+
     if (!(await routeUtils.rateLimit(userId, "vote", res))) return;
 
     var direction = Number(req.body.direction);
@@ -1021,6 +1073,49 @@ router.get("/:id/friends", async function (req, res) {
     logger.error(e);
     res.status(500);
     res.send("Unable to load friends.");
+  }
+});
+
+router.get("/:id/pointsHistory", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await resolveUserId(String(req.params.id));
+
+    if (!userId) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    const requestedPage = Math.max(1, Number(req.query.page || 1));
+    const requestedPageSize = Math.max(1, Number(req.query.pageSize || 10));
+    const pageSize = Math.min(requestedPageSize, 50);
+
+    const total = await models.PointsHistory.countDocuments({ userId });
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, pages);
+    const skip = (page - 1) * pageSize;
+
+    const items = await models.PointsHistory.find({ userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize)
+      .select(
+        "gameId gameType gameCatalogKey gameCatalogTitle amount reason description createdAt meta"
+      )
+      .lean();
+
+    res.send({
+      items,
+      page,
+      pageSize,
+      pages,
+      total,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Unable to load points history.");
   }
 });
 

@@ -28,7 +28,6 @@ import {
 
 import { Loading } from "../../components/Loading";
 
-import coin from "images/umcoin.png";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
 function parseGameId(input) {
@@ -217,7 +216,12 @@ export default function Shop(props) {
         }}
       >
         <Typography>{item.price}</Typography>
-        <img src={coin} style={{ width: "20px", height: "20px" }} />
+        <Box
+          component="i"
+          className="fas fa-coins"
+          aria-label="Coins"
+          sx={{ fontSize: 20, color: "#f5c542" }}
+        />
       </Stack>
     );
 
@@ -328,11 +332,11 @@ export default function Shop(props) {
           <Typography variant="h3" className="balance">
             You have: {shopInfo.balance}
           </Typography>
-          <img
-            className="um-coin"
-            src={coin}
-            style={{ width: "20px", height: "20px" }}
-            alt="Coin Icon"
+          <Box
+            component="i"
+            className="fas fa-coins"
+            aria-label="Coins"
+            sx={{ fontSize: 20, color: "#f5c542" }}
           />
         </Stack>
       </Paper>

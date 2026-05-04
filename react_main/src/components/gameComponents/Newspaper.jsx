@@ -161,7 +161,7 @@ export default function Newspaper(props) {
             )}
             <div
               className="newspaper-paragraph win-message-text"
-              style={{ flex: "1", minWidth: 0 }}
+              style={{ flex: "1", minwidth: 0 }}
             >
               {emotify(winMessage)}
             </div>

@@ -2,9 +2,18 @@ import { useEffect, useState } from "react";
 
 export const useNow = (refreshFrequency) => {
   const [now, setNow] = useState(Date.now());
+
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), refreshFrequency);
-    return () => clearInterval(interval);
-  });
+    let mounted = true;
+    const interval = setInterval(() => {
+      if (mounted) setNow(Date.now());
+    }, refreshFrequency);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [refreshFrequency]);
+
   return now;
 };

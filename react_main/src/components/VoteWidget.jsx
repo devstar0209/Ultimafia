@@ -117,7 +117,7 @@ export function VoteWidget(props) {
           position: "relative",
           fontSize: "1em",
           color: "inherit",
-          minWidth: "2em",
+          minwidth: "2em",
           minHeight: "2em",
         }}
       >

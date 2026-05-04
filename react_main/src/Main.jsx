@@ -276,11 +276,9 @@ function Header({ setShowAnnouncementTemporarily }) {
                 ],
               },
               {
-                label: "Fame",
+                label: "Competitive",
                 items: [
                   { text: "Competitive", path: "/fame/competitive" },
-                  { text: "Contributors", path: "/fame/contributors" },
-                  { text: "Donors", path: "/fame/donors" },
                 ],
               },
               {
@@ -354,14 +352,23 @@ function Header({ setShowAnnouncementTemporarily }) {
                 { text: "Calendar", path: "/community/calendar" },
               ]}
             />
-            <NavDropdown
-              label="Fame"
-              items={[
-                { text: "Competitive", path: "/fame/competitive" },
-                { text: "Contributors", path: "/fame/contributors" },
-                { text: "Donors", path: "/fame/donors" },
-              ]}
-            />
+            <NavLink
+              to="/fame/competitive"
+              style={({ isActive }) => ({
+                textTransform: "uppercase",
+                color: "inherit",
+                padding: "0 var(--mui-spacing)",
+                backgroundColor: isActive
+                  ? "rgba(var(--mui-palette-primary-mainChannel) / 0.14)"
+                  : undefined,
+                borderRadius: 999,
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 36,
+              })}
+            >
+              <Typography variant="h3">Competitive</Typography>
+            </NavLink>
             <NavDropdown
               label="Learn"
               items={[
@@ -466,9 +473,30 @@ function useUnreadNotifications() {
   const siteInfo = useContext(SiteInfoContext);
 
   useEffect(() => {
+    let cancelled = false;
+
     getNotifs();
     var notifGetInterval = setInterval(() => getNotifs(), 10 * 1000);
-    return () => clearInterval(notifGetInterval);
+
+    return () => {
+      cancelled = true;
+      clearInterval(notifGetInterval);
+    };
+
+    function getNotifs() {
+      axios
+        .get("/api/notifs")
+        .then((res) => {
+          if (cancelled) return;
+
+          var nextRestart = res.data[0];
+          var notifs = res.data.slice(1);
+
+          setNextRestart(nextRestart);
+          setUnreadCount(notifs.length);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -481,19 +509,6 @@ function useUnreadNotifications() {
       );
     }
   }, [nextRestart]);
-
-  function getNotifs() {
-    axios
-      .get("/api/notifs")
-      .then((res) => {
-        var nextRestart = res.data[0];
-        var notifs = res.data.slice(1);
-
-        setNextRestart(nextRestart);
-        setUnreadCount(notifs.length);
-      })
-      .catch(() => {});
-  }
 
   return unreadCount;
 }

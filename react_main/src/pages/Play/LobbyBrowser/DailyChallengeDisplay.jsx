@@ -61,16 +61,12 @@ export const DailyChallenges = () => {
           >
             {reward}
           </Typography>
-          <img
-            className="um-coin"
-            src={umcoin}
-            alt="Coin Icon"
-            style={{
-              width: "20px",
-              height: "20px",
-              marginLeft: "4px",
-            }}
-          />
+          <Box
+                    component="i"
+                    className="fas fa-coins"
+                    aria-label="Coins"
+                    sx={{ fontSize: 20, color: "#f5c542" }}
+                  />
         </Stack>
         <Typography> {description}</Typography>
       </Box>

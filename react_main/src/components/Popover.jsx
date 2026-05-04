@@ -227,7 +227,7 @@ export function InfoRow({ title, content, multiRow = false }) {
           direction="row"
           sx={{
             marginLeft: "auto !important",
-            minWidth: "1.5rem",
+            minwidth: "1.5rem",
             justifyContent: "center",
           }}
         >
@@ -619,7 +619,7 @@ export function parseGamePopover(game) {
     trophies = trophies.map((trophy) => (
       <Stack
         direction="row"
-        style={{ minWidth: "1.5rem", justifyContent: "center" }}
+        style={{ minwidth: "1.5rem", justifyContent: "center" }}
       >
         {trophy}
       </Stack>
@@ -654,7 +654,7 @@ export function parseGamePopover(game) {
             borderTopLeftRadius: "var(--mui-shape-borderRadius)",
             borderBottomLeftRadius: "var(--mui-shape-borderRadius)",
             alignSelf: "stretch",
-            minWidth: "8px",
+            minwidth: "8px",
           }}
         />
         <NameWithAvatar small {...avatarProps} />

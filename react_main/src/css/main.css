@@ -69,8 +69,6 @@ body {
   margin: 0px;
   padding: 0px;
 
-  overflow-x: initial;
-
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

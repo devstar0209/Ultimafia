@@ -301,7 +301,7 @@ function JottoCheatSheet({ cheatSheet, updateCheatSheet }) {
             variant="text"
             sx={{
               position: "relative",
-              minWidth: "0",
+              minwidth: "0",
               width: "3em",
               height: "3em",
               zIndex: 1,
@@ -497,7 +497,7 @@ function JottoGuessInput({ meeting, socket, self, isMyTurn, placeholder, label }
         onClick={handleOnSubmit}
         disabled={disabled || textData.length < minLength}
         size="small"
-        sx={{ minWidth: "auto", px: 1, py: "3px", fontSize: "0.75em" }}
+        sx={{ minwidth: "auto", px: 1, py: "3px", fontSize: "0.75em" }}
       >
         {textOptions.submit || "Confirm"}
       </Button>

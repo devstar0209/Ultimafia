@@ -72,7 +72,7 @@ const RoleRevealModal = ({
           className={`role role-icon-${roleSkin}-${roleClass}`}
           style={{ width: "60px", height: "60px", flexShrink: 0 }}
         />
-        <Box sx={{ position: "relative", flex: 1, minWidth: 0 }}>
+        <Box sx={{ position: "relative", flex: 1, minwidth: 0 }}>
           <Typography
             variant="h4"
             fontStyle="italic"

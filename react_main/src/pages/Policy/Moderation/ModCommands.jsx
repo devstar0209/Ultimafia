@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import update from "immutability-helper";
 import {
   Dialog,
@@ -99,8 +99,7 @@ export function ModCommands(props) {
     return 0;
   });
 
-  // Let the parent know that commands are available if needed
-  if (setCommandsAvailable) setCommandsAvailable(false);
+  let commandsAvailable = false;
 
   // Finally, do a nested map of group -> option
   const options = groupOptionKeys.map((category) => {
@@ -120,12 +119,12 @@ export function ModCommands(props) {
           matchesSearch &&
           !modCommands[commandName].hidden
         ) {
-          if (setCommandsAvailable) setCommandsAvailable(true);
+          commandsAvailable = true;
           return (
             <Typography
               onClick={openDialogue}
               key={commandName}
-              tabindex="0"
+              tabIndex="0"
               sx={{
                 pl: 1,
                 userSelect: "none",
@@ -145,7 +144,7 @@ export function ModCommands(props) {
       })
       .filter((groupOption) => groupOption != null);
 
-    if (groupOptions.length == 0) return <></>;
+    if (groupOptions.length === 0) return <></>;
 
     return (
       <Stack direction="column" key={category}>
@@ -163,6 +162,10 @@ export function ModCommands(props) {
       </Stack>
     );
   });
+
+  useEffect(() => {
+    if (setCommandsAvailable) setCommandsAvailable(commandsAvailable);
+  }, [setCommandsAvailable, commandsAvailable]);
 
   if (command) {
     args = modCommands[command].args.map((arg) => {

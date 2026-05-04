@@ -18,7 +18,6 @@ import {
 
 import { Loading } from "../../components/Loading";
 
-import coin from "images/umcoin.png";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
 export default function AvatarShop(props) {
@@ -129,11 +128,11 @@ export default function AvatarShop(props) {
               <Typography variant="h4" className="balance">
                 {shopInfo.balance}
               </Typography>
-              <img
-                className="um-coin"
-                src={coin}
-                style={{ width: "24px", height: "24px" }}
-                alt="Coin Icon"
+              <Box
+                component="i"
+                className="fas fa-coins"
+                aria-label="Coins"
+                sx={{ fontSize: 24, color: "#f5c542" }}
               />
             </Stack>
           </Stack>
@@ -202,7 +201,12 @@ export default function AvatarShop(props) {
                         }}
                       >
                         <Typography variant="h6">{avatar.price}</Typography>
-                        <img src={coin} style={{ width: "16px", height: "16px" }} />
+                        <Box
+                          component="i"
+                          className="fas fa-coins"
+                          aria-label="Coins"
+                          sx={{ fontSize: 16, color: "#f5c542" }}
+                        />
                       </Stack>
                     </Stack>
                   </Stack>

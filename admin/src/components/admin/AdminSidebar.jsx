@@ -87,7 +87,7 @@ export default function AdminSidebar({
                   alignItems: "flex-start",
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 40, color: "inherit", mt: 0.3 }}>
+                <ListItemIcon sx={{ minwidth: 40, color: "inherit", mt: 0.3 }}>
                   <Icon icon={group.icon} style={{ fontSize: 22 }} />
                 </ListItemIcon>
                 <ListItemText

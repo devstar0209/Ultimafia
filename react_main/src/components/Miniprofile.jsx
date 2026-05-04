@@ -101,7 +101,7 @@ function Miniprofile(props) {
             className={`name-with-avatar`}
             to={profileLink}
             target="_blank"
-            style={{ flex: 1, minWidth: 0 }}
+            style={{ flex: 1, minwidth: 0 }}
           >
             <Stack direction="row" spacing={1}>
               <Avatar

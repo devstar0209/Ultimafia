@@ -201,7 +201,7 @@ export function RoleThings() {
           >
             <ListItemIcon
               sx={{
-                minWidth: "0",
+                minwidth: "0",
                 marginRight: "8px",
               }}
             >
@@ -250,7 +250,7 @@ export function RoleThings() {
             >
               <ListItemIcon
                 sx={{
-                  minWidth: "0",
+                  minwidth: "0",
                   marginRight: "8px",
                 }}
               >
@@ -472,7 +472,7 @@ export function RoleThings() {
                 <Box
                   sx={{
                     width: { xs: "100%", md: "auto" },
-                    minWidth: 72,
+                    minwidth: 72,
                   }}
                 >
                   <select
@@ -495,7 +495,7 @@ export function RoleThings() {
                     }}
                     style={{
                       width: "100%",
-                      minWidth: 72,
+                      minwidth: 72,
                       boxSizing: "border-box",
                     }}
                   >

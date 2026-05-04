@@ -27,7 +27,6 @@ import { SiteInfoContext } from "../../Contexts";
 
 import "css/main.css";
 import exitIcon from "../../images/emotes/exit.png";
-import coinIcon from "../../images/umcoin.png";
 
 const PAYMENT_PROVIDER_COPY = {
   braintree: {
@@ -68,20 +67,36 @@ const [buyConfig, setBuyConfig] = useState(null);
   const [clientToken, setClientToken] = useState("");
   const [dropInInstance, setDropInInstance] = useState(null);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
+  const isMountedRef = useRef(false);
   const dropInContainerRef = useRef(null);
 const selectedPrice = buyConfig ? (selectedAmount * buyConfig.pricePerCoin).toFixed(2) : '0.00';
 
   useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     if (user.loggedIn) {
       axios
         .get("/api/family/user/family")
         .then((res) => {
+          if (cancelled || !isMountedRef.current) return;
           setUserFamily(res.data.family);
         })
         .catch(() => {
           // Ignore errors, user might not have a family
         });
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [user.loggedIn]);
 
   const handleLogout = () => {
@@ -183,9 +198,12 @@ const selectedPrice = buyConfig ? (selectedAmount * buyConfig.pricePerCoin).toFi
     return axios
       .get("/api/shop/buyCoins/token")
       .then((res) => {
+        if (!isMountedRef.current) return;
         setClientToken(res.data.clientToken);
       })
-      .catch(errorAlert);
+      .catch((e) => {
+        if (isMountedRef.current) errorAlert(e);
+      });
   }, [errorAlert]);
 
 function openBuyCoinsDialog() {
@@ -216,6 +234,7 @@ function openBuyCoinsDialog() {
       amount: selectedAmount,
       payCurrency: currencyCode,
     }).then((res) => {
+      if (!isMountedRef.current) return;
       setNowPaymentsPaymentId(res.data.paymentId || "");
       setNowPaymentsInvoiceUrl(res.data.invoiceUrl || "");
       setPayAddress(res.data.payAddress || "");
@@ -224,11 +243,15 @@ function openBuyCoinsDialog() {
       if (res.data.invoiceUrl) {
         window.open(res.data.invoiceUrl, "_blank", "noopener,noreferrer");
       }
-    }).catch(errorAlert).finally(() => setIsProcessingPurchase(false));
+    }).catch((e) => {
+      if (isMountedRef.current) errorAlert(e);
+    }).finally(() => {
+      if (isMountedRef.current) setIsProcessingPurchase(false);
+    });
   }
 
   function buyCoinsWithBraintree() {
-    if (!dropInInstance || !selectedPackageId) return;
+    if (!dropInInstance || !selectedAmount) return;
     setIsProcessingPurchase(true);
     dropInInstance
       .requestPaymentMethod()
@@ -239,6 +262,7 @@ function openBuyCoinsDialog() {
         })
       )
       .then((res) => {
+        if (!isMountedRef.current) return;
         user.set((prev) => ({
           ...prev,
           coins: res.data.balance,
@@ -253,12 +277,16 @@ function openBuyCoinsDialog() {
         }
         closeBuyCoinsDialog();
       })
-      .catch(errorAlert)
-      .finally(() => setIsProcessingPurchase(false));
+      .catch((e) => {
+        if (isMountedRef.current) errorAlert(e);
+      })
+      .finally(() => {
+        if (isMountedRef.current) setIsProcessingPurchase(false);
+      });
   }
 
   function createNowPaymentsInvoice() {
-    if (!selectedPackageId || !nowPaymentsCurrency) return;
+    if (!selectedAmount || !nowPaymentsCurrency) return;
     setIsProcessingPurchase(true);
     axios
       .post("/api/shop/buyCoins/nowpayments/createInvoice", {
@@ -266,6 +294,7 @@ function openBuyCoinsDialog() {
         payCurrency: nowPaymentsCurrency,
       })
       .then((res) => {
+        if (!isMountedRef.current) return;
         setNowPaymentsPaymentId(res.data.paymentId || "");
         setNowPaymentsInvoiceUrl(res.data.invoiceUrl || "");
 
@@ -278,8 +307,12 @@ function openBuyCoinsDialog() {
           );
         }
       })
-      .catch(errorAlert)
-      .finally(() => setIsProcessingPurchase(false));
+      .catch((e) => {
+        if (isMountedRef.current) errorAlert(e);
+      })
+      .finally(() => {
+        if (isMountedRef.current) setIsProcessingPurchase(false);
+      });
   }
 
   function claimNowPaymentsInvoice() {
@@ -290,6 +323,7 @@ function openBuyCoinsDialog() {
         paymentId: nowPaymentsPaymentId,
       })
       .then((res) => {
+        if (!isMountedRef.current) return;
         user.set((prev) => ({
           ...prev,
           coins: res.data.balance,
@@ -301,6 +335,7 @@ function openBuyCoinsDialog() {
         closeBuyCoinsDialog();
       })
       .catch((err) => {
+        if (!isMountedRef.current) return;
         const waitingMessage = err?.response?.data?.message;
         if (waitingMessage) {
           siteInfo.showAlert(waitingMessage, "basic");
@@ -308,7 +343,9 @@ function openBuyCoinsDialog() {
         }
         errorAlert(err);
       })
-      .finally(() => setIsProcessingPurchase(false));
+      .finally(() => {
+        if (isMountedRef.current) setIsProcessingPurchase(false);
+      });
   }
 
   useEffect(() => {
@@ -355,7 +392,7 @@ function openBuyCoinsDialog() {
           },
         },
         (err, instance) => {
-          if (err || cancelled) return;
+          if (err || cancelled || !isMountedRef.current) return;
           activeInstance = instance;
           setDropInInstance(instance);
         }
@@ -365,7 +402,6 @@ function openBuyCoinsDialog() {
 
     return () => {
       cancelled = true;
-      setDropInInstance(null);
       if (activeInstance) activeInstance.teardown(() => {});
       if (script.parentNode) script.parentNode.removeChild(script);
     };
@@ -439,13 +475,10 @@ function openBuyCoinsDialog() {
             {(Number(user.coins) || 0).toLocaleString()}
           </Typography>
           <Box
-            component="img"
-            src={coinIcon}
-            alt="Coins"
-            sx={{
-              width: "18px",
-              height: "18px",
-            }}
+            component="i"
+            className="fas fa-coins"
+            aria-label="Coins"
+            sx={{ fontSize: 18, color: "#f5c542" }}
           />
         </Stack>
         <Stack>

@@ -507,11 +507,11 @@ export function SetupPage() {
                 <Typography component="label" variant="body2" sx={{ whiteSpace: "nowrap" }}>
                   Version
                 </Typography>
-                <Box sx={{ width: { xs: "100%", md: "auto" }, minWidth: 72 }}>
+                <Box sx={{ width: { xs: "100%", md: "auto" }, minwidth: 72 }}>
                   <select
                     value={selectedVersionNum}
                     onChange={handleVersionChange}
-                    style={{ width: "100%", minWidth: 72, boxSizing: "border-box" }}
+                    style={{ width: "100%", minwidth: 72, boxSizing: "border-box" }}
                   >
                     {allVersions.map((v) => (
                       <option key={v} value={v}>{v}</option>

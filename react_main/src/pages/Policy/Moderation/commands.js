@@ -1274,6 +1274,12 @@ export function useModCommands(argValues, commandRan, setResults) {
       category: "Competitive Management",
       args: [
         {
+          label: "Game Catalog Key",
+          name: "gameCatalogKey",
+          type: "text",
+          optional: true,
+        },
+        {
           label: "Start Date (YYYY-MM-DD)",
           name: "startDate",
           type: "text",
@@ -1304,7 +1310,14 @@ export function useModCommands(argValues, commandRan, setResults) {
     "Toggle Competitive Season Pause": {
       perm: "manageCompetitive",
       category: "Competitive Management",
-      args: [],
+      args: [
+        {
+          label: "Game Catalog Key",
+          name: "gameCatalogKey",
+          type: "text",
+          optional: true,
+        },
+      ],
       run: function () {
         axios
           .post("/api/competitive/pause", argValues)

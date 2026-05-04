@@ -11,6 +11,11 @@ const constants = require("../data/constants");
 const logger = require("../modules/logging")("(competitive)");
 
 const iso8601DateRegex = /^\d{4}-\d{2}-\d{2}$/;
+const DEFAULT_COMPETITIVE_CATALOG = "Mafia";
+
+function getGameCatalogKey(value) {
+  return String(value || DEFAULT_COMPETITIVE_CATALOG).trim() || DEFAULT_COMPETITIVE_CATALOG;
+}
 
 // Create a new season
 router.post("/create", async function (req, res) {
@@ -23,16 +28,22 @@ router.post("/create", async function (req, res) {
     const startDate = req.body.startDate;
     const numRounds = Number.parseInt(req.body.numRounds || "12");
     const setupsPerRound = Number.parseInt(req.body.setupsPerRound || "2");
+    const gameCatalogKey = getGameCatalogKey(req.body.gameCatalogKey);
 
     const latestSeason = await models.CompetitiveSeason.findOne({})
+      .sort({ number: -1 })
+      .lean();
+    const latestCatalogSeason = await models.CompetitiveSeason.findOne({
+      gameCatalogKey,
+    })
       .sort({ number: -1 })
       .lean();
 
     // Determine new season number
     let seasonNumber = 1;
-    if (latestSeason && !latestSeason.completed) {
+    if (latestCatalogSeason && !latestCatalogSeason.completed) {
       res.status(400);
-      res.send("A competitive season is already in progress.");
+      res.send("A competitive season is already in progress for this game catalog.");
       return;
     } else if (latestSeason) {
       seasonNumber = latestSeason.number + 1;
@@ -60,7 +71,10 @@ router.post("/create", async function (req, res) {
       return;
     }
 
-    const setups = await models.Setup.find({ competitive: true })
+    const setups = await models.Setup.find({
+      competitive: true,
+      gameType: gameCatalogKey,
+    })
       .select("_id factionRatings")
       .lean();
 
@@ -89,6 +103,7 @@ router.post("/create", async function (req, res) {
     // Create the season only - in periodic.js progressCompetitive we will manage the rounds
     const season = new models.CompetitiveSeason({
       number: seasonNumber,
+      gameCatalogKey,
       startDate: startDate,
       setups: setupIds,
       setupOrder: setupOrder,
@@ -102,6 +117,7 @@ router.post("/create", async function (req, res) {
       startDate,
       numRounds,
       setupsPerRound,
+      gameCatalogKey,
     ]);
 
     res.sendStatus(200);
@@ -119,7 +135,10 @@ router.post("/pause", async function (req, res) {
     if (!(await routeUtils.verifyPermission(res, userId, "manageCompetitive")))
       return;
 
-    const latestSeason = await models.CompetitiveSeason.findOne({})
+    const gameCatalogKey = getGameCatalogKey(req.body.gameCatalogKey);
+    const latestSeason = await models.CompetitiveSeason.findOne({
+      gameCatalogKey,
+    })
       .sort({ number: -1 })
       .lean();
 
@@ -253,7 +272,11 @@ router.post("/adjustPoints", async function (req, res) {
     completion.points = (completion.points || 0) + delta;
     await completion.save();
 
-    await redis.invalidateCompRoundCache(completion.season, completion.round);
+    await redis.invalidateCompRoundCache(
+      completion.season,
+      completion.round,
+      completion.gameCatalogKey
+    );
 
     routeUtils.createModAction(modUserId, "Adjust Competitive Points", [
       gameId,
@@ -287,6 +310,7 @@ router.post("/disqualify", async function (req, res) {
     const season = Number.parseInt(req.body.season, 10);
     const round = Number.parseInt(req.body.round, 10);
     const targetUserId = String(req.body.userId).trim();
+    const gameCatalogKey = getGameCatalogKey(req.body.gameCatalogKey);
 
     if (isNaN(season) || season < 1) {
       res.status(400);
@@ -305,7 +329,7 @@ router.post("/disqualify", async function (req, res) {
     }
 
     const result = await models.CompetitiveGameCompletion.updateMany(
-      { season, round, userId: targetUserId },
+      { season, round, userId: targetUserId, gameCatalogKey },
       { $set: { valid: false } }
     );
 
@@ -317,7 +341,7 @@ router.post("/disqualify", async function (req, res) {
       return;
     }
 
-    await redis.invalidateCompRoundCache(season, round);
+    await redis.invalidateCompRoundCache(season, round, gameCatalogKey);
 
     routeUtils.createModAction(modUserId, "Disqualify User", [
       season,
@@ -339,7 +363,12 @@ router.post("/disqualify", async function (req, res) {
 // Get all seasons
 router.get("/seasons", async function (req, res) {
   try {
-    const seasons = await models.CompetitiveSeason.find({})
+    const gameCatalogKey = req.query.gameCatalogKey
+      ? getGameCatalogKey(req.query.gameCatalogKey)
+      : null;
+    const seasons = await models.CompetitiveSeason.find(
+      gameCatalogKey ? { gameCatalogKey } : {}
+    )
       .select("-_id -__v -setups")
       .populate([
         {
@@ -361,6 +390,7 @@ router.get("/seasons", async function (req, res) {
 router.get("/season/:seasonNumber", async function (req, res) {
   try {
     const seasonNumber = Number.parseInt(req.params.seasonNumber);
+    const gameCatalogKey = getGameCatalogKey(req.query.gameCatalogKey);
 
     let seasonInfo = {
       setups: [],
@@ -370,6 +400,7 @@ router.get("/season/:seasonNumber", async function (req, res) {
 
     const seasons = await models.CompetitiveSeason.find({
       number: seasonNumber,
+      gameCatalogKey,
     })
       .select("setups setupOrder")
       .populate([
@@ -390,6 +421,7 @@ router.get("/season/:seasonNumber", async function (req, res) {
 
     seasonInfo.standings = await models.CompetitiveSeasonStanding.find({
       season: seasonNumber,
+      gameCatalogKey,
       points: { $gt: 0 },
     })
       .select("-_id userId points tiebreakerPoints")
@@ -435,7 +467,8 @@ router.get("/roundInfo", async function (req, res) {
     const roundNumber = req.query.roundNumber
       ? Number.parseInt(req.query.roundNumber)
       : null;
-    res.json(await redis.getCompRoundInfo(seasonNumber, roundNumber));
+    const gameCatalogKey = getGameCatalogKey(req.query.gameCatalogKey);
+    res.json(await redis.getCompRoundInfo(seasonNumber, roundNumber, true, gameCatalogKey));
   } catch (e) {
     logger.error(e);
     res.status(500);
@@ -451,11 +484,13 @@ router.get("/current", async function (req, res) {
     if (!(await routeUtils.verifyPermission(res, userId, "manageCompetitive")))
       return;
 
+    const gameCatalogKey = getGameCatalogKey(req.query.gameCatalogKey);
     const currentSeason = await models.CompetitiveSeason.findOne({
       completed: false,
+      gameCatalogKey,
     })
       .sort({ number: -1 })
-      .select("setups setupOrder number numRounds")
+      .select("setups setupOrder number numRounds gameCatalogKey")
       .populate([
         {
           path: "setups",
@@ -501,6 +536,7 @@ router.get("/current", async function (req, res) {
 
     res.json({
       seasonNumber: currentSeason.number,
+      gameCatalogKey: currentSeason.gameCatalogKey || DEFAULT_COMPETITIVE_CATALOG,
       setups: currentSeason.setups,
       setupOrder: currentSeason.setupOrder,
       numRounds: currentSeason.numRounds,
@@ -523,6 +559,7 @@ router.post("/addSetup", async function (req, res) {
 
     const setupId = req.body.setupId;
     const roundIndex = Number.parseInt(req.body.roundIndex);
+    const gameCatalogKey = getGameCatalogKey(req.body.gameCatalogKey);
 
     if (!setupId || typeof setupId !== "string") {
       res.status(400);
@@ -543,7 +580,7 @@ router.post("/addSetup", async function (req, res) {
 
     // Get the setup and verify it's competitive-approved
     const setup = await models.Setup.findOne({ id: setupId })
-      .select("_id competitive")
+      .select("_id competitive gameType")
       .lean();
 
     if (!setup) {
@@ -559,9 +596,15 @@ router.post("/addSetup", async function (req, res) {
       );
       return;
     }
+    if (setup.gameType !== gameCatalogKey) {
+      res.status(400);
+      res.send("Setup game type does not match the selected competitive catalog.");
+      return;
+    }
 
     const currentSeason = await models.CompetitiveSeason.findOne({
       completed: false,
+      gameCatalogKey,
     })
       .sort({ number: -1 })
       .lean();
@@ -647,6 +690,7 @@ router.post("/updateSetupOrder", async function (req, res) {
       return;
 
     const setupOrder = req.body.setupOrder;
+    const gameCatalogKey = getGameCatalogKey(req.body.gameCatalogKey);
 
     if (!Array.isArray(setupOrder)) {
       res.status(400);
@@ -676,6 +720,7 @@ router.post("/updateSetupOrder", async function (req, res) {
 
     const currentSeason = await models.CompetitiveSeason.findOne({
       completed: false,
+      gameCatalogKey,
     })
       .sort({ number: -1 })
       .lean();
@@ -732,6 +777,7 @@ router.post("/updateRoundSettings", async function (req, res) {
       return;
 
     const roundSettings = req.body.roundSettings;
+    const gameCatalogKey = getGameCatalogKey(req.body.gameCatalogKey);
 
     if (!roundSettings || typeof roundSettings !== "object") {
       res.status(400);
@@ -741,6 +787,7 @@ router.post("/updateRoundSettings", async function (req, res) {
 
     const currentSeason = await models.CompetitiveSeason.findOne({
       completed: false,
+      gameCatalogKey,
     })
       .sort({ number: -1 })
       .select("number numRounds")
@@ -755,6 +802,7 @@ router.post("/updateRoundSettings", async function (req, res) {
     // Get existing rounds for this season
     const existingRounds = await models.CompetitiveRound.find({
       season: currentSeason.number,
+      gameCatalogKey,
     })
       .select("number")
       .lean();
@@ -785,7 +833,7 @@ router.post("/updateRoundSettings", async function (req, res) {
 
         // Update the round document
         await models.CompetitiveRound.updateOne(
-          { season: currentSeason.number, number: roundNumber },
+          { season: currentSeason.number, number: roundNumber, gameCatalogKey },
           { $set: { minimumPoints: minPoints } }
         );
       }

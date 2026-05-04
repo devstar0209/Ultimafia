@@ -1,22 +1,15 @@
-import React, { useEffect, useState, useContext } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import React, { useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 
-import axios from "axios";
 import {
   Alert,
-  Box,
   Button,
-  Divider,
-  IconButton,
-  Paper,
   Stack,
-  TextField,
-  Typography,
 } from "@mui/material";
-import { UserContext } from "Contexts";
+import { SiteInfoContext, UserContext } from "Contexts";
 import { useErrorAlert } from "components/Alerts";
 import Form from "components/Form";
 import { useForm } from "components/Form";
@@ -40,6 +33,7 @@ import { getSetupBackgroundColor } from "pages/Play/LobbyBrowser/gameRowColors";
 
 export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck }) {
   const user = useContext(UserContext);
+  const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
   const isPhoneDevice = useIsPhoneDevice();
   const navigate = useNavigate();
@@ -74,6 +68,8 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
         return HostDiceWars();
       case "Connect Four":
         return HostConnectFour();
+      default:
+        break;
     }
 
     // Fail fast
@@ -86,7 +82,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
 
   useEffect(
     function () {
-      const [newFormFields, newOnHostGame] = GameTypeHostForm(setup.gameType);
+      const [newFormFields] = GameTypeHostForm(setup.gameType);
       if (preSelectedDeck) {
         for (let field of newFormFields) {
           if (field.ref === "anonymousGame") field.value = true;
@@ -113,6 +109,15 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
   const lobby = getFormFieldValue("lobby");
   const isRanked = getFormFieldValue("ranked");
   const isCompetitive = getFormFieldValue("competitive");
+  const gameCatalogItem = (siteInfo?.gameCatalog || []).find(
+    (game) =>
+      game.key === setup.gameType ||
+      game.title === setup.gameType ||
+      game.slug === setup.gameType
+  );
+  const coinsRequired = Number(gameCatalogItem?.coins || 0);
+  const userCoins = Number(user?.coins || 0);
+  const hasEnoughCoins = coinsRequired <= 0 || userCoins >= coinsRequired;
 
   useEffect(() => {
     if (isCompetitive) {
@@ -129,6 +134,8 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
   if (!user.canPlayRanked && isRanked) {
     // TODO use npm link so that the frontend can access constants.js and stop hardcoding this
     alertText = `You must play 5 games before playing ranked.`;
+  } else if (!hasEnoughCoins) {
+    alertText = `This game requires ${coinsRequired} coins. You have ${userCoins} coins.`;
   }
 
   return (
@@ -158,6 +165,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
               <div style={{ flex: "1" }} />
               <Button
                 onClick={onHostGameWrapper}
+                disabled={!hasEnoughCoins}
                 sx={{
                   flex: "1",
                 }}

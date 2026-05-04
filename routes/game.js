@@ -8,6 +8,7 @@ const gameLoadBalancer = require("../modules/gameLoadBalancer");
 const logger = require("../modules/logging")(".");
 const router = express.Router();
 const axios = require("axios");
+const gameCatalogUtils = require("../lib/gameCatalog");
 
 async function userCanPlayCompetitive(userId, minimumPoints = constants.minimumPointsForCompetitive) {
   const user = await redis.getUserInfo(userId);
@@ -24,11 +25,39 @@ async function userCanPlayCompetitive(userId, minimumPoints = constants.minimumP
 }
 
 async function getGameCoinsRequired(gameType) {
-  const gameCatalog = await models.GameCatalog.findOne({ key: gameType })
+  const gameCatalog = await models.GameCatalog.findOne({
+    $or: [
+      { key: gameType },
+      { title: gameType },
+      { slug: gameCatalogUtils.slugifyGameTitle(gameType) },
+    ],
+  })
     .select("coins -_id")
     .lean();
 
   return Number(gameCatalog?.coins || 0);
+}
+
+async function getGameCoinsBalanceError(userId, gameType) {
+  const coinsRequired = await getGameCoinsRequired(gameType);
+
+  if (coinsRequired <= 0) {
+    return null;
+  }
+
+  const user = await models.User.findOne({
+    id: userId,
+    deleted: false,
+  })
+    .select("coins -_id")
+    .lean();
+  const coins = Number(user?.coins || 0);
+
+  if (!user || coins < coinsRequired) {
+    return `This game requires ${coinsRequired} coins. You have ${coins} coins.`;
+  }
+
+  return null;
 }
 
 router.post("/leave", async function (req, res) {
@@ -267,28 +296,20 @@ router.get("/:id/connect", async function (req, res) {
 
     if (!userInThisGame) {
       if (!isSpectating && game.status === "Open") {
-        const coinsRequired = await getGameCoinsRequired(game.type);
+        if (!userId && (await getGameCoinsRequired(game.type)) > 0) {
+          res.status(400);
+          res.send("You must be logged in to join paid games.");
+          return;
+        }
 
-        if (coinsRequired > 0) {
-          if (!userId) {
+        if (userId) {
+          const coinBalanceError = await getGameCoinsBalanceError(
+            userId,
+            game.type
+          );
+          if (coinBalanceError) {
             res.status(400);
-            res.send("You must be logged in to join paid games.");
-            return;
-          }
-
-          const user = await models.User.findOne({
-            id: userId,
-            deleted: false,
-          })
-            .select("coins -_id")
-            .lean();
-          const coins = Number(user?.coins || 0);
-
-          if (!user || coins < coinsRequired) {
-            res.status(400);
-            res.send(
-              `This game requires ${coinsRequired} coins. You have ${coins} coins.`
-            );
+            res.send(coinBalanceError);
             return;
           }
         }
@@ -675,7 +696,12 @@ router.post("/host", async function (req, res) {
 
     let roundInfo;
     if (req.body.competitive) {
-      roundInfo = await redis.getCompRoundInfo();
+      roundInfo = await redis.getCompRoundInfo(
+        null,
+        null,
+        true,
+        setup.gameType || "Mafia"
+      );
 
       // Check if the competitive round is completed or paused
       if (!roundInfo.round || roundInfo.round.completed) {
@@ -762,6 +788,13 @@ router.post("/host", async function (req, res) {
     }
 
     const user = await redis.getUserInfo(userId);
+    const coinBalanceError = await getGameCoinsBalanceError(userId, gameType);
+    if (coinBalanceError) {
+      res.status(400);
+      res.send(coinBalanceError);
+      return;
+    }
+
     if (req.body.ranked) {
       const hasPlayRanked = await routeUtils.verifyPermission(
         userId,

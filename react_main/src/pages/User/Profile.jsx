@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import update from "immutability-helper";
@@ -27,7 +34,6 @@ import Comments from "../Community/Comments";
 import "css/user.css";
 import { Modal } from "components/Modal";
 import CustomMarkdown from "components/CustomMarkdown";
-import ModerationSideDrawer from "components/ModerationSideDrawer";
 import ReportDialog from "../../components/ReportDialog";
 import RapSheet from "../../components/RapSheet";
 import TrophyCase from "components/TrophyCase";
@@ -47,6 +53,13 @@ import {
   IconButton,
   Popover,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -56,12 +69,8 @@ import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
 export const KUDOS_ICON = require(`images/kudos.png`);
 export const KARMA_ICON = require(`images/karma.png`);
-export const POINTS_ICON = require(`images/points.png`);
-export const POINTS_NEGATIVE_ICON = require(`images/pointsNegative.png`);
-export const PRESTIGE_ICON = require(`images/prestige.png`);
 export const ACHIEVEMENTS_ICON = require(`images/achievements.png`);
 export const DAILY_ICON = require(`images/dailyChallenges.png`);
-export const COIN_ICON = require(`images/umcoin.png`);
 
 function FavoritedRolesPanel({
   favoriteRoles = [],
@@ -146,9 +155,13 @@ export default function Profile() {
   const [isLove, setIsLove] = useState(false);
   const [isMarried, setIsMarried] = useState(false);
   const [kudos, setKudos] = useState(0);
-  const [points, setPoints] = useState(0);
-  const [pointsNegative, setPointsNegative] = useState(0);
-  const [championshipPoints, setChampionshipPoints] = useState(0);
+  const [pointsByGameCatalog, setPointsByGameCatalog] = useState([]);
+  const [pointsHistory, setPointsHistory] = useState([]);
+  const [pointsHistoryLoading, setPointsHistoryLoading] = useState(false);
+  const [pointsHistoryPage, setPointsHistoryPage] = useState(0);
+  const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
+  const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
+  const [showPointsHistoryModal, setShowPointsHistoryModal] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [favoriteRoles, setFavoriteRoles] = useState([]);
@@ -189,7 +202,6 @@ export default function Profile() {
   const [mediaUrl, setMediaUrl] = useState("");
   const [autoplay, setAutoplay] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [moderationDrawerOpen, setModerationDrawerOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [currentUserLove, setCurrentUserLove] = useState({});
   const [status, setStatus] = useState("offline");
@@ -210,6 +222,7 @@ export default function Profile() {
   const siteInfo = useContext(SiteInfoContext);
   const navigate = useNavigate();
   const errorAlert = useErrorAlert();
+  const errorAlertRef = useRef(errorAlert);
   const { userId } = useParams();
   const isPhoneDevice = useIsPhoneDevice();
 
@@ -224,53 +237,54 @@ export default function Profile() {
 
   const showDeleteArchivedGame = showDelete && editingArchivedGames;
 
+  const displayedPointsByGameCatalog = useMemo(() => {
+    const profilePointMap = new Map(
+      pointsByGameCatalog.map((item) => [item.key, item])
+    );
+    const gameCatalog = Array.isArray(siteInfo?.gameCatalog)
+      ? siteInfo.gameCatalog
+      : [];
+
+    if (gameCatalog.length === 0) return pointsByGameCatalog;
+
+    const catalogKeys = new Set(gameCatalog.map((item) => item.key));
+    const catalogPointRows = gameCatalog.map((catalogItem) => {
+      const profilePointItem = profilePointMap.get(catalogItem.key);
+
+      return {
+        ...catalogItem,
+        ...profilePointItem,
+        points: Number(profilePointItem?.points || 0),
+      };
+    });
+    const legacyPointRows = pointsByGameCatalog.filter(
+      (item) => !catalogKeys.has(item.key) && Number(item.points || 0) > 0
+    );
+
+    return [...catalogPointRows, ...legacyPointRows];
+  }, [pointsByGameCatalog, siteInfo?.gameCatalog]);
+
+  useEffect(() => {
+    errorAlertRef.current = errorAlert;
+  }, [errorAlert]);
+
   useEffect(() => {
     if (bustCache) setBustCache(false);
   }, [bustCache]);
 
-  // Apply profile background to site-wrapper when viewing a profile with custom background
-  // This replaces the default diamond pattern background ONLY on the Profile page
+  // Remove custom profile background image from the site wrapper
   useEffect(() => {
     const siteWrapper = document.querySelector(".site-wrapper");
     if (!siteWrapper) return;
 
-    if (profileBackground && settings?.backgroundRepeatMode) {
-      const backgroundUrl = `/uploads/${profileUserId}_profileBackground.webp?t=${
-        siteInfo?.cacheVal || Date.now()
-      }`;
-      const repeatMode = settings.backgroundRepeatMode || "checker";
+    siteWrapper.style.backgroundImage = "";
+    siteWrapper.style.backgroundSize = "";
+    siteWrapper.style.backgroundRepeat = "";
+    siteWrapper.style.backgroundPosition = "";
+    siteWrapper.style.backgroundAttachment = "";
 
-      let backgroundSize, backgroundRepeat, backgroundPosition;
-
-      if (repeatMode === "stretch") {
-        backgroundSize = "cover";
-        backgroundRepeat = "no-repeat";
-        backgroundPosition = "center";
-      } else {
-        // Default: checker (tiled pattern)
-        backgroundSize = "auto";
-        backgroundRepeat = "repeat";
-      }
-
-      // Apply custom background to site-wrapper, replacing the default diamond pattern
-      siteWrapper.style.backgroundImage = `url(${backgroundUrl})`;
-      siteWrapper.style.backgroundSize = backgroundSize;
-      siteWrapper.style.backgroundRepeat = backgroundRepeat;
-      siteWrapper.style.backgroundPosition = backgroundPosition || "top left";
-      siteWrapper.style.backgroundAttachment = "fixed";
-    } else {
-      // Remove inline styles to restore CSS default (white-diamond-dark.png)
-      siteWrapper.style.backgroundImage = "";
-      siteWrapper.style.backgroundSize = "";
-      siteWrapper.style.backgroundRepeat = "";
-      siteWrapper.style.backgroundPosition = "";
-      siteWrapper.style.backgroundAttachment = "";
-    }
-
-    // Cleanup: restore original background when component unmounts
     return () => {
       if (siteWrapper) {
-        // Remove inline styles to restore CSS default (white-diamond-dark.png)
         siteWrapper.style.backgroundImage = "";
         siteWrapper.style.backgroundSize = "";
         siteWrapper.style.backgroundRepeat = "";
@@ -278,12 +292,7 @@ export default function Profile() {
         siteWrapper.style.backgroundAttachment = "";
       }
     };
-  }, [
-    profileBackground,
-    settings?.backgroundRepeatMode,
-    profileUserId,
-    siteInfo?.cacheVal,
-  ]);
+  }, [profileUserId]);
 
   useEffect(() => {
     setEditingBio(false);
@@ -326,10 +335,13 @@ export default function Profile() {
           setFriendsPage(1);
           setStats(res.data.stats);
           setKudos(res.data.kudos);
-          setChampionshipPoints(res.data.championshipPoints);
           setCoinBalance(res.data.coins || 0);
-          setPoints(res.data.points);
-          setPointsNegative(res.data.pointsNegative);
+          setPointsByGameCatalog(
+            Array.isArray(res.data.pointsByGameCatalog)
+              ? res.data.pointsByGameCatalog
+              : []
+          );
+          setPointsHistoryPage(0);
           setKarmaInfo(res.data.karmaInfo);
           setGroups(res.data.groups);
           setStatus(res.data.status || "offline");
@@ -709,6 +721,58 @@ export default function Profile() {
         setNameHistoryLoading(false);
         setNameHistoryAnchor(null);
       });
+  }
+
+  const loadPointsHistory = useCallback((page, pageSize) => {
+    if (!profileUserId) return;
+
+    setPointsHistoryLoading(true);
+    axios
+      .get(`/api/user/${profileUserId}/pointsHistory`, {
+        params: {
+          page: page + 1,
+          pageSize,
+        },
+      })
+      .then((res) => {
+        setPointsHistory(Array.isArray(res.data?.items) ? res.data.items : []);
+        setPointsHistoryTotal(Number(res.data?.total || 0));
+        setPointsHistoryLoading(false);
+      })
+      .catch((e) => {
+        errorAlertRef.current(e);
+        setPointsHistoryLoading(false);
+      });
+  }, [profileUserId]);
+
+  useEffect(() => {
+    if (!showPointsHistoryModal || !profileLoaded || !profileUserId) return;
+
+    loadPointsHistory(pointsHistoryPage, pointsHistoryRowsPerPage);
+  }, [
+    showPointsHistoryModal,
+    loadPointsHistory,
+    profileLoaded,
+    profileUserId,
+    pointsHistoryPage,
+    pointsHistoryRowsPerPage,
+  ]);
+
+  function onPointsHistoryPageChange(event, nextPage) {
+    setPointsHistoryPage(nextPage);
+  }
+
+  function onPointsHistoryRowsPerPageChange(event) {
+    setPointsHistoryRowsPerPage(Number(event.target.value));
+    setPointsHistoryPage(0);
+  }
+
+  function onOpenPointsHistory() {
+    setShowPointsHistoryModal(true);
+  }
+
+  function onClosePointsHistory() {
+    setShowPointsHistoryModal(false);
   }
 
   function onBioClick() {
@@ -1486,11 +1550,6 @@ export default function Profile() {
           setShow={setShowStatsModal}
         />
       )}
-      <ModerationSideDrawer
-        open={moderationDrawerOpen}
-        setOpen={setModerationDrawerOpen}
-        prefilledArgs={{ userId: profileUserId }}
-      />
       <Modal
         show={avatarSelectionOpen}
         onBgClick={closeAvatarSelectionDialog}
@@ -1585,7 +1644,78 @@ export default function Profile() {
           </Stack>
         }
       />
-      <Grid container rowSpacing={1} columnSpacing={1} className="profile">
+      <Modal
+        show={showPointsHistoryModal}
+        onBgClick={onClosePointsHistory}
+        header={<Typography variant="h3">Points History</Typography>}
+        content={
+          <Box sx={{ minWidth: 360, maxWidth: 840 }}>
+            <TableContainer sx={{ maxWidth: "100%", overflowX: "auto" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Game</TableCell>
+                    <TableCell>Action</TableCell>
+                    <TableCell align="right">Points</TableCell>
+                    <TableCell>Date</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pointsHistoryLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={4}>
+                        <Loading small />
+                      </TableCell>
+                    </TableRow>
+                  ) : pointsHistory.length > 0 ? (
+                    pointsHistory.map((entry) => (
+                      <TableRow key={entry._id}>
+                        <TableCell>
+                          {entry.gameCatalogTitle || entry.gameCatalogKey ||
+                            entry.gameType}
+                        </TableCell>
+                        <TableCell>{entry.description}</TableCell>
+                        <TableCell align="right">+{entry.amount}</TableCell>
+                        <TableCell>
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4}>
+                        <Typography color="text.secondary">
+                          No points history yet.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={pointsHistoryTotal}
+              page={pointsHistoryPage}
+              rowsPerPage={pointsHistoryRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25]}
+              onPageChange={onPointsHistoryPageChange}
+              onRowsPerPageChange={onPointsHistoryRowsPerPageChange}
+            />
+          </Box>
+        }
+      />
+      <Grid
+        container
+        rowSpacing={1}
+        columnSpacing={1}
+        className="profile"
+        sx={{
+          m: 0,
+          width: "100%",
+          maxWidth: "100%",
+        }}
+      >
         <Grid item xs={12}>
           <Stack
             direction="row"
@@ -1599,19 +1729,6 @@ export default function Profile() {
               style={{ ...panelStyle, width: "100%", maxWidth: "924px" }}
             >
               <div className="content" style={{ gap: "8px" }}>
-                {banner && (
-                  <div className="banner" style={bannerStyle}>
-                    {bannerUpload}
-                  </div>
-                )}
-                {!banner && (
-                  <Box
-                    className="banner no-banner"
-                    sx={{ width: "100%", height: "24px !important" }}
-                  >
-                    {bannerUpload}
-                  </Box>
-                )}
                 <Grid container>{aviGridItems}</Grid>
               </div>
             </div>
@@ -1644,6 +1761,63 @@ export default function Profile() {
                       </div>
                     </div>
                   </>
+                )}
+              </div>
+            </div>
+            <div className="box-panel" style={panelStyle}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 1 }}>
+                <Typography variant="h3" style={headingStyle}>
+                  Game Points (XP)
+                </Typography>
+                <Button size="small" variant="outlined" onClick={onOpenPointsHistory}>
+                  View points history
+                </Button>
+              </Box>
+              <div className="content">
+                {displayedPointsByGameCatalog.length > 0 ? (
+                  <Grid container spacing={1}>
+                    {displayedPointsByGameCatalog.map((item) => (
+                      <Grid item xs={12} sm={6} md={3} key={item.key}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            p: 1,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 1,
+                            minHeight: 56,
+                          }}
+                        >
+                          {item.logoUrl && (
+                            <Box
+                              sx={{
+                                width: 36,
+                                height: 36,
+                                flexShrink: 0,
+                                borderRadius: "50%",
+                                backgroundImage: `url(${item.logoUrl})`,
+                                backgroundPosition: "center",
+                                backgroundSize: "cover",
+                              }}
+                            />
+                          )}
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" noWrap>
+                              {item.title}
+                            </Typography>
+                            <Typography fontWeight={700}>
+                              {item.points}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography color="text.secondary">
+                    No game catalog points yet.
+                  </Typography>
                 )}
               </div>
             </div>
@@ -1680,15 +1854,6 @@ export default function Profile() {
             )}
             <div className="box-panel" style={panelStyle}>
               <div className="content trophies-content">
-                {karmaInfo && (
-                  <div className="karma-vote-wrap">
-                    <KarmaVoteWidget
-                      item={karmaInfo}
-                      setItem={setKarmaInfo}
-                      userId={profileUserId}
-                    />
-                  </div>
-                )}
                 <div className="trophies-grid">
                   <Tooltip
                     title="Earned from outstanding performance in ranked and competitive games."
@@ -1708,76 +1873,27 @@ export default function Profile() {
                   </Tooltip>
                   {karmaInfo && (
                     <Tooltip
-                      title="Upvotes from other players on your profile."
+                      title={
+                        isSelf
+                          ? "You cannot vote for yourself."
+                          : "Click to upvote or remove your vote for this profile."
+                      }
                       arrow
                     >
                       <div className="trophy-tile">
-                        <img
-                          src={KARMA_ICON}
-                          alt="Karma"
-                          className="trophy-icon"
+                        <KarmaVoteWidget
+                          item={karmaInfo}
+                          setItem={setKarmaInfo}
+                          userId={profileUserId}
                         />
                         <div className="trophy-meta">
                           <div className="trophy-value">
                             {karmaInfo.voteCount}
-                          </div>
-                          <div className="trophy-label">Karma</div>
+                          </div>                          
                         </div>
                       </div>
                     </Tooltip>
                   )}
-                  <Tooltip
-                    title="Earned by winning ranked and competitive games. Accumulates toward prestige at the end of a competitive round."
-                    arrow
-                  >
-                    <div className="trophy-tile">
-                      <img
-                        src={POINTS_ICON}
-                        alt="Fortune"
-                        className="trophy-icon"
-                      />
-                      <div className="trophy-meta">
-                        <div className="trophy-value">{points}</div>
-                        <div className="trophy-label">Fortune</div>
-                      </div>
-                    </div>
-                  </Tooltip>
-                  {pointsNegative !== undefined && (
-                    <Tooltip
-                      title="Accumulated from losing ranked and competitive games."
-                      arrow
-                    >
-                      <div className="trophy-tile">
-                        <img
-                          src={POINTS_NEGATIVE_ICON}
-                          alt="Misfortune"
-                          className="trophy-icon"
-                        />
-                        <div className="trophy-meta">
-                          <div className="trophy-value">{pointsNegative}</div>
-                          <div className="trophy-label">Misfortune</div>
-                        </div>
-                      </div>
-                    </Tooltip>
-                  )}
-                  <Tooltip
-                    title="Awarded to the top 10 fortune earners at the end of each competitive round."
-                    arrow
-                  >
-                    <div className="trophy-tile trophy-tile-prestige">
-                      <img
-                        src={PRESTIGE_ICON}
-                        alt="Prestige"
-                        className="trophy-icon"
-                      />
-                      <div className="trophy-meta">
-                        <div className="trophy-value">
-                          {championshipPoints || 0}
-                        </div>
-                        <div className="trophy-label">Prestige</div>
-                      </div>
-                    </div>
-                  </Tooltip>
                 </div>
               </div>
             </div>
@@ -2098,7 +2214,9 @@ export function KarmaVoteWidget(props) {
 
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
-  const widgetRef = useRef();
+
+  const isSelf = userId === user.id;
+  const canVote = user.loggedIn && user.perms.vote && !isSelf;
 
   function updateItemVoteCount(direction, newDirection) {
     var voteCount = item.voteCount;
@@ -2117,41 +2235,43 @@ export function KarmaVoteWidget(props) {
     });
   }
 
-  function onVote(direction) {
-    if (!user.perms.vote) return;
+  function onVote() {
+    if (!canVote) return;
 
     axios
       .post("/api/user/karma", {
         targetId: userId,
-        direction,
+        direction: 1,
       })
       .then((res) => {
         var newDirection = Number(res.data);
-        var newItem = updateItemVoteCount(direction, newDirection);
+        var newItem = updateItemVoteCount(1, newDirection);
         setItem(newItem);
       })
       .catch(errorAlert);
   }
 
   return (
-    <Stack direction="column" spacing={1}>
-      <IconButton
-        className={`fas fa-arrow-up`}
+    <IconButton
+      onClick={onVote}
+      disabled={!canVote}
+      title={
+        isSelf
+          ? "You cannot vote for yourself."
+          : item.vote === 1
+          ? "Click to remove vote"
+          : "Click to upvote this profile"
+      }
+      style={{ padding: 6 }}
+    >
+      <span
+        className="fas fa-thumbs-up"
         style={{
-          fontSize: "16px",
-          ...(item.vote === 1 ? { color: theme.palette.info.main } : {}),
+          fontSize: "28px",
+          color: item.vote === 1 ? theme.palette.info.main : undefined,
         }}
-        onClick={() => onVote(1)}
       />
-      <IconButton
-        className={`fas fa-arrow-down`}
-        style={{
-          fontSize: "16px",
-          ...(item.vote === -1 ? { color: theme.palette.info.main } : {}),
-        }}
-        onClick={() => onVote(-1)}
-      />
-    </Stack>
+    </IconButton>
   );
 }
 
