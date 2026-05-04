@@ -1,0 +1,134 @@
+const express = require("express");
+
+const routeUtils = require("./utils");
+const braintree = require("./braintree");
+const nowpayment = require("./nowpayment");
+const stripe = require("./stripe");
+const logger = require("../modules/logging")(".");
+
+const router = express.Router();
+
+router.get("/config", async function (req, res) {
+  try {
+    await routeUtils.verifyLoggedIn(req);
+
+    const [
+      braintreeConfig,
+      nowPaymentsConfig,
+      stripeConfig,
+    ] = await Promise.all([
+      braintree.getClientConfig(),
+      nowpayment.getClientConfig(),
+      stripe.getClientConfig(),
+    ]);
+
+    res.send({
+      enabled:
+        braintreeConfig.enabled ||
+        nowPaymentsConfig.enabled ||
+        stripeConfig.enabled,
+      braintreeEnabled: braintreeConfig.enabled,
+      nowPaymentsEnabled: nowPaymentsConfig.enabled,
+      nowPaymentsCurrencies: nowPaymentsConfig.currencies,
+      stripeEnabled: stripeConfig.enabled,
+      stripePublicKey: stripeConfig.publicKey,
+      minAmount: 50,
+      maxAmount: 5000,
+      pricePerCoin: 0.01,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading coin config.");
+  }
+});
+
+router.post("/nowpayments/createInvoice", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const amount = Number(req.body.amount);
+    const requestedCurrency = String(req.body.payCurrency || "")
+      .trim()
+      .toLowerCase();
+    const forwardedProto = String(req.get("x-forwarded-proto") || "")
+      .split(",")[0]
+      .trim();
+    const protocol = forwardedProto || req.protocol;
+    const ipnCallbackUrl = `${protocol}://${req.get("host")}/api/nowpayments_ipn`;
+
+    res.send(
+      await nowpayment.createCoinPayment(
+        userId,
+        amount,
+        requestedCurrency,
+        ipnCallbackUrl
+      )
+    );
+  } catch (e) {
+    logger.error(e);
+    res.status(e.statusCode || 500).send(
+      e.statusCode ? e.message : "Error creating NowPayments invoice."
+    );
+  }
+});
+
+router.post("/nowpayments/claim", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const paymentId = String(req.body.paymentId || "").trim();
+    if (!paymentId) {
+      res.status(400).send("Missing payment ID.");
+      return;
+    }
+
+    const result = await nowpayment.claimCoinPayment(userId, paymentId);
+    if (!result.success) {
+      res.status(409).send({
+        status: result.status,
+        message: result.message,
+      });
+      return;
+    }
+
+    res.send(result);
+  } catch (e) {
+    logger.error(e);
+    res.status(e.statusCode || 500).send(
+      e.statusCode ? e.message : "Error finalizing NowPayments purchase."
+    );
+  }
+});
+
+router.get("/token", async function (req, res) {
+  try {
+    await routeUtils.verifyLoggedIn(req);
+    res.send(await braintree.generateClientToken());
+  } catch (e) {
+    logger.error(e);
+    res.status(e.statusCode || 500).send(
+      e.statusCode ? e.message : "Error generating payment token."
+    );
+  }
+});
+
+router.post("/checkout", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const amount = Number(req.body.amount);
+    const paymentMethodNonce = String(req.body.paymentMethodNonce || "");
+
+    res.send(
+      await braintree.checkoutCoinPurchase(
+        userId,
+        amount,
+        paymentMethodNonce
+      )
+    );
+  } catch (e) {
+    logger.error(e);
+    res.status(e.statusCode || 500).send(
+      e.statusCode ? e.message : "Error completing coin purchase."
+    );
+  }
+});
+
+module.exports = router;

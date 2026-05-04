@@ -50,10 +50,15 @@ const paymentMethodSchema = new mongoose.Schema({
   mode: { type: String, enum: ["test", "prod"], default: "test" }, // test or prod mode
   active: { type: Boolean, default: false },
   apiKey: { type: String, default: "" },
+  publicKey: { type: String, default: "" },
+  ipnSecretKey: { type: String, default: "" },
   baseUrl: { type: String, default: "" },
-  defaultCurrencies: { type: String, default: "" }, // comma-separated list
-  ipnUrl: { type: String, default: "" },
-  webhookUrl: { type: String, default: "" },
+  defaultCurrencies: { type: String, default: "" },
+  test_apiKey: { type: String, default: "" },
+  test_publicKey: { type: String, default: "" },
+  test_ipnSecretKey: { type: String, default: "" },
+  test_baseUrl: { type: String, default: "" },
+  test_defaultCurrencies: { type: String, default: "" },
   createdAt: { type: Number, default: Date.now },
   updatedAt: { type: Number, default: Date.now },
   updatedBy: { type: String, default: "" },

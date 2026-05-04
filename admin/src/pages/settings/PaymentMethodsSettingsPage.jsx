@@ -1,53 +1,95 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Grid,
   Stack,
 } from "@mui/material";
 
-import ActionCard from "../../components/admin/ActionCard";
 import PageFeedback from "../../components/admin/PageFeedback";
 import useAdminQuery from "../../hooks/useAdminQuery";
 import {
   getAdminPaymentMethods,
   updateAdminPaymentMethod,
-  deleteAdminPaymentMethod,
 } from "../../services/adminService";
 import BraintreeForm from "./components/BraintreeForm";
 import StripeForm from "./components/StripeForm";
 import NowPaymentsForm from "./components/NowPaymentsForm";
 
+const PAYMENT_ENVIRONMENT_FIELDS = [
+  "publicKey",
+  "ipnSecretKey",
+  "baseUrl",
+  "defaultCurrencies",
+  "test_publicKey",
+  "test_ipnSecretKey",
+  "test_baseUrl",
+  "test_defaultCurrencies",
+];
+const NOWPAYMENTS_OMITTED_FIELDS = ["ipnUrl", "webhookUrl"];
+
+function createEmptyEnvironment() {
+  return PAYMENT_ENVIRONMENT_FIELDS.reduce((result, field) => {
+    result[field] = "";
+    return result;
+  }, {});
+}
+
+function createEmptyProviderState() {
+  return {
+    mode: "test",
+    active: false,
+    publicKey: "",
+    ipnSecretKey: "",
+    baseUrl: "",
+    defaultCurrencies: "",
+    test_publicKey: "",
+    test_ipnSecretKey: "",
+    test_baseUrl: "",
+    test_defaultCurrencies: "",
+  };
+}
+
+function getEnvironmentForm(form) {
+  return form;
+}
+
 export default function PaymentMethodsSettingsPage() {
-  const { data, loading, error, refetch } = useAdminQuery(getAdminPaymentMethods);
+  const { data, loading, error } = useAdminQuery(getAdminPaymentMethods);
   const [feedback, setFeedback] = useState(null);
   const [savingProvider, setSavingProvider] = useState(null);
-  const [deletingProvider, setDeletingProvider] = useState(null);
 
   // Form state per provider
   const [formState, setFormState] = useState({
-    nowpayments: { mode: "test", active: false, apiKey: "", baseUrl: "", defaultCurrencies: "", ipnUrl: "", webhookUrl: "" },
-    braintree: { mode: "test", active: false, apiKey: "", baseUrl: "", defaultCurrencies: "", ipnUrl: "", webhookUrl: "" },
-    stripe: { mode: "test", active: false, apiKey: "", baseUrl: "", defaultCurrencies: "", ipnUrl: "", webhookUrl: "" },
+    nowpayments: createEmptyProviderState(),
+    braintree: createEmptyProviderState(),
+    stripe: createEmptyProviderState(),
   });
 
-  const paymentMethods = data?.items || [];
+  const paymentMethods = useMemo(() => data?.items || [], [data?.items]);
 
   // Initialize form state from data
   useEffect(() => {
     if (paymentMethods.length > 0) {
-      const newFormState = { ...formState };
-      paymentMethods.forEach((pm) => {
-        newFormState[pm.provider] = {
-          mode: pm.mode || "test",
-          active: pm.active || false,
-          apiKey: pm.apiKey || "",
-          baseUrl: pm.baseUrl || "",
-          defaultCurrencies: pm.defaultCurrencies || "",
-          ipnUrl: pm.ipnUrl || "",
-          webhookUrl: pm.webhookUrl || "",
-        };
+      setFormState((prev) => {
+        const newFormState = { ...prev };
+        paymentMethods.forEach((pm) => {
+          newFormState[pm.provider] = {
+            mode: pm.mode || "test",
+            active: pm.active || false,
+            apiKey: pm.apiKey || "",
+            publicKey: pm.publicKey || "",
+            ipnSecretKey: pm.ipnSecretKey || "",
+            baseUrl: pm.baseUrl || "",
+            defaultCurrencies: pm.defaultCurrencies || "",
+            test_apiKey: pm.test_apiKey || "",
+            test_publicKey: pm.test_publicKey || "",
+            test_ipnSecretKey: pm.test_ipnSecretKey || "",
+            test_baseUrl: pm.test_baseUrl || "",
+            test_defaultCurrencies: pm.test_defaultCurrencies || "",
+          };
+        });
+        return newFormState;
       });
-      setFormState(newFormState);
     }
   }, [paymentMethods]);
 
@@ -64,32 +106,58 @@ export default function PaymentMethodsSettingsPage() {
   async function handleSavePaymentMethod(provider) {
     const form = formState[provider];
 
-    if (!form.apiKey.trim()) {
+    // Validate required fields based on mode
+    const requiredField = form.mode === "test" ? "test_apiKey" : "apiKey";
+    if (!form[requiredField]?.trim()) {
       setFeedback({
         type: "error",
-        message: `API Key is required for ${provider}.`,
+        message: `${requiredField} is required for ${provider}.`,
       });
       return;
     }
 
     setSavingProvider(provider);
     try {
-      await updateAdminPaymentMethod(provider, {
+      const response = await updateAdminPaymentMethod(provider, {
+        provider,
         mode: form.mode,
         active: form.active,
         apiKey: form.apiKey,
+        publicKey: form.publicKey,
+        ipnSecretKey: form.ipnSecretKey,
         baseUrl: form.baseUrl,
         defaultCurrencies: form.defaultCurrencies,
-        ipnUrl: form.ipnUrl,
-        webhookUrl: form.webhookUrl,
+        test_apiKey: form.test_apiKey,
+        test_publicKey: form.test_publicKey,
+        test_ipnSecretKey: form.test_ipnSecretKey,
+        test_baseUrl: form.test_baseUrl,
+        test_defaultCurrencies: form.test_defaultCurrencies,
       });
+
+      // Update form state with server response to ensure fresh values
+      setFormState((prev) => ({
+        ...prev,
+        [provider]: {
+          mode: response.mode || "test",
+          active: response.active || false,
+          apiKey: response.apiKey || "",
+          publicKey: response.publicKey || "",
+          ipnSecretKey: response.ipnSecretKey || "",
+          baseUrl: response.baseUrl || "",
+          defaultCurrencies: response.defaultCurrencies || "",
+          test_apiKey: response.test_apiKey || "",
+          test_publicKey: response.test_publicKey || "",
+          test_ipnSecretKey: response.test_ipnSecretKey || "",
+          test_baseUrl: response.test_baseUrl || "",
+          test_defaultCurrencies: response.test_defaultCurrencies || "",
+        },
+      }));
 
       setFeedback({
         type: "success",
         message: `${provider} payment method updated successfully.`,
       });
 
-      refetch();
     } catch (e) {
       setFeedback({
         type: "error",
@@ -98,27 +166,6 @@ export default function PaymentMethodsSettingsPage() {
       });
     } finally {
       setSavingProvider(null);
-    }
-  }
-
-  async function handleDeletePaymentMethod(provider) {
-    setDeletingProvider(provider);
-    try {
-      await deleteAdminPaymentMethod(provider);
-
-      setFeedback({
-        type: "success",
-        message: `${provider} payment method deleted successfully.`,
-      });
-
-      refetch();
-    } catch (e) {
-      setFeedback({
-        type: "error",
-        message: e.response?.data || `Failed to delete ${provider} payment method.`,
-      });
-    } finally {
-      setDeletingProvider(null);
     }
   }
 
@@ -155,37 +202,28 @@ export default function PaymentMethodsSettingsPage() {
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6} md={4}>
           <NowPaymentsForm
-            form={formState.nowpayments}
-            methodData={paymentMethods.find((pm) => pm.provider === "nowpayments")}
+            form={getEnvironmentForm(formState.nowpayments)}
             isSaving={savingProvider === "nowpayments"}
-            isDeleting={deletingProvider === "nowpayments"}
             onUpdateField={updateProviderField}
             onSave={handleSavePaymentMethod}
-            onDelete={handleDeletePaymentMethod}
           />
         </Grid>
 
         <Grid item xs={12} sm={6} md={4}>
           <BraintreeForm
-            form={formState.braintree}
-            methodData={paymentMethods.find((pm) => pm.provider === "braintree")}
+            form={getEnvironmentForm(formState.braintree)}
             isSaving={savingProvider === "braintree"}
-            isDeleting={deletingProvider === "braintree"}
             onUpdateField={updateProviderField}
             onSave={handleSavePaymentMethod}
-            onDelete={handleDeletePaymentMethod}
           />
         </Grid>
 
         <Grid item xs={12} sm={6} md={4}>
           <StripeForm
-            form={formState.stripe}
-            methodData={paymentMethods.find((pm) => pm.provider === "stripe")}
+            form={getEnvironmentForm(formState.stripe)}
             isSaving={savingProvider === "stripe"}
-            isDeleting={deletingProvider === "stripe"}
             onUpdateField={updateProviderField}
             onSave={handleSavePaymentMethod}
-            onDelete={handleDeletePaymentMethod}
           />
         </Grid>
       </Grid>
