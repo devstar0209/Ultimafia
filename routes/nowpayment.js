@@ -367,7 +367,7 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
   };
 
   try {
-    const nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
+    var nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
       headers: {
         "x-api-key": config.apiKey,
         "Content-Type": "application/json",
