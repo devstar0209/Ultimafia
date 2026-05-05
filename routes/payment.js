@@ -87,18 +87,12 @@ router.post("/nowpayments/createInvoice", async function (req, res) {
     const requestedCurrency = String(req.body.payCurrency || "")
       .trim()
       .toLowerCase();
-    const forwardedProto = String(req.get("x-forwarded-proto") || "")
-      .split(",")[0]
-      .trim();
-    const protocol = forwardedProto || req.protocol;
-    const ipnCallbackUrl = `${protocol}://${req.get("host")}/api/nowpayments_ipn`;
 
     res.send(
       await nowpayment.createCoinPayment(
         userId,
         amount,
-        requestedCurrency,
-        ipnCallbackUrl
+        requestedCurrency
       )
     );
   } catch (e) {
