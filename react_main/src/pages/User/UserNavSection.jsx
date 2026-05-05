@@ -206,6 +206,18 @@ const selectedPrice = buyConfig ? (selectedAmount * buyConfig.pricePerCoin).toFi
       });
   }, [errorAlert]);
 
+  const loadBuyConfig = useCallback(() => {
+    return axios
+      .get("/api/shop/buyCoins/config")
+      .then((res) => {
+        if (!isMountedRef.current) return;
+        setBuyConfig(res.data);
+      })
+      .catch((e) => {
+        if (isMountedRef.current) console.error("Unable to load buy config", e);
+      });
+  }, []);
+
 function openBuyCoinsDialog() {
   // don't change here
     setBuyCoinsDialogOpen(true);
@@ -364,6 +376,12 @@ function openBuyCoinsDialog() {
     clientToken,
     loadBraintreeToken,
   ]);
+
+  useEffect(() => {
+    if (buyCoinsDialogOpen && !buyConfig) {
+      loadBuyConfig();
+    }
+  }, [buyCoinsDialogOpen, buyConfig, loadBuyConfig]);
 
   useEffect(() => {
     if (

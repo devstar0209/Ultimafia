@@ -1471,6 +1471,7 @@ router.get("/settings/general", async function (req, res) {
       branding: brandingUtils.buildBrandingPayload(brandingDoc),
       defaultSettings: {
         registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
+        coinsPerDollar: defaultSettings?.coinsPerDollar || 100,
         initialRedHeartCapacity: defaultSettings?.initialRedHeartCapacity || 15,
         initialGoldHeartCapacity: defaultSettings?.initialGoldHeartCapacity || 0,
         maxBonusRedHearts: defaultSettings?.maxBonusRedHearts || 5,
@@ -1496,6 +1497,7 @@ router.patch("/settings/defaults", async function (req, res) {
 
     const {
       registerCoinsReward,
+      coinsPerDollar,
       initialRedHeartCapacity,
       initialGoldHeartCapacity,
       maxBonusRedHearts,
@@ -1512,6 +1514,7 @@ router.patch("/settings/defaults", async function (req, res) {
       { key: "default" },
       {
         registerCoinsReward: Number(registerCoinsReward || 0),
+        coinsPerDollar: Number(coinsPerDollar || 100),
         initialRedHeartCapacity: Number(initialRedHeartCapacity || 15),
         initialGoldHeartCapacity: Number(initialGoldHeartCapacity || 0),
         maxBonusRedHearts: Number(maxBonusRedHearts || 5),
@@ -1534,6 +1537,7 @@ router.patch("/settings/defaults", async function (req, res) {
     res.send({
       defaultSettings: {
         registerCoinsReward: updated.registerCoinsReward,
+        coinsPerDollar: updated.coinsPerDollar,
         initialRedHeartCapacity: updated.initialRedHeartCapacity,
         initialGoldHeartCapacity: updated.initialGoldHeartCapacity,
         maxBonusRedHearts: updated.maxBonusRedHearts,

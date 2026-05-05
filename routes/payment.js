@@ -4,6 +4,8 @@ const routeUtils = require("./utils");
 const braintree = require("./braintree");
 const nowpayment = require("./nowpayment");
 const stripe = require("./stripe");
+const models = require("../db/models");
+const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
 
 const router = express.Router();
@@ -22,6 +24,10 @@ router.get("/config", async function (req, res) {
       stripe.getClientConfig(),
     ]);
 
+    const settings = await defaultSettings.getSettings(models);
+    const coinsPerDollar = Number(settings.coinsPerDollar || 100);
+    const pricePerCoin = coinsPerDollar > 0 ? 1 / coinsPerDollar : 0.01;
+
     res.send({
       enabled:
         braintreeConfig.enabled ||
@@ -34,7 +40,8 @@ router.get("/config", async function (req, res) {
       stripePublicKey: stripeConfig.publicKey,
       minAmount: 50,
       maxAmount: 5000,
-      pricePerCoin: 0.01,
+      pricePerCoin,
+      coinsPerDollar,
     });
   } catch (e) {
     logger.error(e);

@@ -38,6 +38,7 @@ export default function GeneralSettingsPage() {
 
   // Coin Rewards
   const [registerCoinsReward, setRegisterCoinsReward] = useState(0);
+  const [coinsPerDollar, setCoinsPerDollar] = useState(100);
 
   // Red Hearts
   const [initialRedHeartCapacity, setInitialRedHeartCapacity] = useState(15);
@@ -64,6 +65,7 @@ export default function GeneralSettingsPage() {
     }
     if (data?.defaultSettings) {
       setRegisterCoinsReward(data.defaultSettings.registerCoinsReward || 0);
+      setCoinsPerDollar(data.defaultSettings.coinsPerDollar || 100);
       setInitialRedHeartCapacity(data.defaultSettings.initialRedHeartCapacity || 15);
       setMaxBonusRedHearts(data.defaultSettings.maxBonusRedHearts || 5);
       setRedHeartRefreshIntervalMillis(data.defaultSettings.redHeartRefreshIntervalMillis || 82800000);
@@ -129,6 +131,7 @@ export default function GeneralSettingsPage() {
     try {
       await updateAdminDefaultSettings({
         registerCoinsReward: Number(registerCoinsReward || 0),
+        coinsPerDollar: Number(coinsPerDollar || 100),
         initialRedHeartCapacity: Number(initialRedHeartCapacity || 15),
         maxBonusRedHearts: Number(maxBonusRedHearts || 5),
         redHeartRefreshIntervalMillis: Number(redHeartRefreshIntervalMillis || 82800000),
@@ -267,6 +270,16 @@ export default function GeneralSettingsPage() {
                   placeholder="0"
                   helperText="Coins awarded to new registered users"
                   inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Coins Per $"
+                  type="number"
+                  value={coinsPerDollar}
+                  onChange={(e) => setCoinsPerDollar(e.target.value)}
+                  placeholder="100"
+                  helperText="Number of coins granted for each dollar spent"
+                  inputProps={{ min: 1 }}
                 />
               </Stack>
 

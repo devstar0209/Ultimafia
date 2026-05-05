@@ -269,6 +269,7 @@ var schemas = {
       maxBonusRedHearts: { type: Number, default: 5 },
       redHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
       goldHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
+      coinsPerDollar: { type: Number, default: 100 },
       // Ranked/Competitive Settings
       minimumGamesForRanked: { type: Number, default: 5 },
       minimumPointsForCompetitive: { type: Number, default: 150 },
