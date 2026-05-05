@@ -43,6 +43,8 @@ const buildCryptoCurrencies = (currencies = []) => {
     .filter((currency) => currency.code);
 };
 
+const MIN_COIN_PURCHASE_AMOUNT = 100;
+
 export default function BuyCoinsModal({ open, onClose, user }) {
   const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
@@ -75,8 +77,20 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   const cryptoProvider = cryptoMethod?.provider;
   const cryptoCurrencies = buildCryptoCurrencies(cryptoProvider?.currencies);
   const presetAmounts = [100, 200, 500, 1000];
+  const selectedAmountNumber = Number(selectedAmount);
+  const hasSelectedAmount = selectedAmount !== "";
+  const isCoinAmountValid =
+    hasSelectedAmount &&
+    Number.isFinite(selectedAmountNumber) &&
+    selectedAmountNumber >= MIN_COIN_PURCHASE_AMOUNT;
+  const amountError =
+    hasSelectedAmount && !isCoinAmountValid;
   const selectedPrice = buyConfig
-    ? (selectedAmount * buyConfig.pricePerCoin).toFixed(2)
+    ? (
+        Number.isFinite(selectedAmountNumber)
+          ? selectedAmountNumber * buyConfig.pricePerCoin
+          : 0
+      ).toFixed(2)
     : "0.00";
 
   const loadBuyConfig = useCallback(() => {
@@ -205,6 +219,8 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   };
 
   const generateCryptoPayment = (currencyCode) => {
+    if (!isCoinAmountValid) return;
+
     setNowPaymentsCurrency(currencyCode);
     setNowPaymentsPaymentId("");
     setNowPaymentsInvoiceUrl("");
@@ -237,7 +253,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   };
 
   const buyCoinsWithBraintree = () => {
-    if (!dropInInstance || !selectedAmount) return;
+    if (!dropInInstance || !isCoinAmountValid) return;
 
     setIsProcessingPurchase(true);
     dropInInstance
@@ -334,12 +350,19 @@ export default function BuyCoinsModal({ open, onClose, user }) {
             label="Custom amount"
             type="number"
             value={selectedAmount}
-            onChange={(e) => handleAmountChange(Number(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value;
+              handleAmountChange(value === "" ? "" : Number(value));
+            }}
+            error={amountError}
             helperText={
-              buyConfig
+              amountError
+                ? `Minimum custom amount is ${MIN_COIN_PURCHASE_AMOUNT} coins.`
+                : buyConfig
                 ? `$${selectedPrice} (${buyConfig.coinsPerDollar} coins/$)`
                 : ""
             }
+            inputProps={{ min: MIN_COIN_PURCHASE_AMOUNT }}
           />
 
           {buyConfig && (
@@ -381,7 +404,11 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                   <Button
                     fullWidth
                     variant="contained"
-                    disabled={!dropInInstance || isProcessingPurchase}
+                    disabled={
+                      !dropInInstance ||
+                      !isCoinAmountValid ||
+                      isProcessingPurchase
+                    }
                     onClick={buyCoinsWithBraintree}
                   >
                     {isProcessingPurchase ? "Processing..." : "Pay $" + selectedPrice}
@@ -409,6 +436,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                         key={currency.code}
                         variant={nowPaymentsCurrency === currency.code ? "contained" : "outlined"}
                         onClick={() => generateCryptoPayment(currency.code)}
+                        disabled={!isCoinAmountValid || isProcessingPurchase}
                         size="small"
                         startIcon={
                           currency.icon ? <i className={`fab fa-${currency.icon}`} /> : null

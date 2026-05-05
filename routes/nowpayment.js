@@ -342,19 +342,13 @@ async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackU
     throw error;
   }
 
-  if (!Number.isFinite(amount) || amount < 50 || amount > 5000 || amount % 50 !== 0) {
-    const error = new Error("Invalid amount (min 50, max 5000, multiple of 50).");
-    error.statusCode = 400;
-    throw error;
-  }
-
   const supportedCurrencies = getNowPaymentsCurrencies(config);
   const selectedCurrency =
     supportedCurrencies.find((currency) => currency.code === requestedCurrency) ||
     supportedCurrencies[0];
   const payCurrency = selectedCurrency.code;
-  const price = amount * 0.01;
-  const orderId = `um_buycoins:${userId}:${amount}:${shortid.generate()}`;
+  const price = amount / config.coinsPerDollar;
+  const orderId = `pm_buycoins:${userId}:${amount}:${shortid.generate()}`;
   const payload = {
     price_amount: price,
     price_currency: "usd",
