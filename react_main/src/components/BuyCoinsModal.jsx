@@ -65,8 +65,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   const dropInContainerRef = useRef(null);
 
   const paymentMethods = useMemo(
-    () =>
-      buyConfig ? buyConfig.paymentMethods: [],
+    () => (Array.isArray(buyConfig?.paymentMethods) ? buyConfig.paymentMethods : []),
     [buyConfig]
   );
   const cardMethod = paymentMethods.find((method) => method.id === "card");
