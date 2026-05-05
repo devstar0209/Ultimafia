@@ -370,6 +370,10 @@ async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackU
     payload.ipn_callback_url = ipnCallbackUrl;
   }
 
+  var error = new Error(`nowpayment baseurl: ${config.apiBase}/payment`);
+    error.statusCode = 500;
+    throw error;
+
   const nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
     headers: {
       "x-api-key": config.apiKey,
