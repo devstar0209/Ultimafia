@@ -94,7 +94,7 @@ apiRouter.use("/strategy", strategyRouter);
 apiRouter.use("/mod", modRouter);
 apiRouter.use("/chat", chatRouter);
 apiRouter.use("/notifs", notifsRouter);
-apiRouter.use("/shop/buyCoins", paymentRouter);
+apiRouter.use("/payment", paymentRouter);
 apiRouter.use("/shop", shopRouter);
 apiRouter.use("/nowpayments_ipn", nowpaymentRouter);
 apiRouter.use("/stampTrades", stampTradesRouter);

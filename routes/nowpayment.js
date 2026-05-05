@@ -11,9 +11,6 @@ const router = express.Router();
 
 const DEFAULT_NOWPAYMENTS_API_BASE = "https://api.nowpayments.io/v1";
 const NOWPAYMENTS_SUCCESS_STATUSES = new Set(["finished"]);
-const DEFAULT_NOWPAYMENTS_CURRENCIES = ["btc", "eth", "usdttrc20", "usdc"];
-const NOWPAYMENTS_DISPLAY_ORDER = ["USDT", "USDC", "ETH", "BTC"];
-const NOWPAYMENTS_DISPLAY_CURRENCIES = new Set(NOWPAYMENTS_DISPLAY_ORDER);
 const NOWPAYMENTS_CONFIG_FIELDS = [
   "apiKey",
   "baseUrl",
@@ -77,6 +74,8 @@ async function getNowPaymentsConfig() {
   if (!paymentMethod?.active) return null;
 
   return {
+    active: true,
+    mode: String(paymentMethod.mode || "test").toLowerCase(),
     apiKey: String(getPaymentConfigValue(paymentMethod, "apiKey")).trim(),
     apiBase: normalizeNowPaymentsApiBase(
       getPaymentConfigValue(paymentMethod, "baseUrl")
@@ -102,7 +101,7 @@ function getNowPaymentsCurrencyLabel(code) {
 
 function getNowPaymentsCurrencyCodes(config) {
   const raw = config?.defaultCurrencies;
-  if (!raw) return DEFAULT_NOWPAYMENTS_CURRENCIES;
+  if (!raw) return [];
 
   return raw
     .split(",")
@@ -121,19 +120,14 @@ function getNowPaymentsCurrencies(config) {
     .filter(
       ({ label }) =>
         label &&
-        NOWPAYMENTS_DISPLAY_CURRENCIES.has(label) &&
         !seenLabels.has(label) &&
         seenLabels.add(label)
     )
-    .sort(
-      (a, b) =>
-        NOWPAYMENTS_DISPLAY_ORDER.indexOf(a.label) -
-        NOWPAYMENTS_DISPLAY_ORDER.indexOf(b.label)
-    );
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function nowPaymentsEnabled(config) {
-  return Boolean(config?.apiKey) && getNowPaymentsCurrencies(config).length > 0;
+  return Boolean(config?.active && config?.apiKey && getNowPaymentsCurrencies(config).length);
 }
 
 async function getClientConfig() {

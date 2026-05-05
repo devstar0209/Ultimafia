@@ -28,18 +28,49 @@ router.get("/config", async function (req, res) {
     const coinsPerDollar = Number(settings.coinsPerDollar || 100);
     const pricePerCoin = coinsPerDollar > 0 ? 1 / coinsPerDollar : 0.01;
 
+    if (braintreeConfig.enabled) {
+      var cardProvider = {
+        id: "braintree",
+        title: "Braintree",
+        publicKey: braintreeConfig.publicKey,
+      };
+    }
+
+    if (stripeConfig.enabled) {
+      var cardProvider = {
+        id: "stripe",
+        title: "Stripe",
+        publicKey: stripeConfig.publicKey,
+      };
+    }
+
+    var paymentMethods = [];
+    if (cardProvider) {
+      paymentMethods.push({
+        id: "card",
+        optionLabel: "Option 1",
+        title: "Card Payment",
+        subtitle: "Pay by card",
+        provider: cardProvider,
+      });
+    }
+
+    if (nowPaymentsConfig.enabled === true) {
+      paymentMethods.push({
+        id: "crypto",
+        optionLabel: "Option 2",
+        title: "Crypto Payment",
+        subtitle: "Pay with supported cryptocurrencies.",
+        provider: {
+          id: "nowpayments",
+          title: "NowPayments",
+          currencies: nowPaymentsConfig.currencies,
+        },
+      });
+    }
+
     res.send({
-      enabled:
-        braintreeConfig.enabled ||
-        nowPaymentsConfig.enabled ||
-        stripeConfig.enabled,
-      braintreeEnabled: braintreeConfig.enabled,
-      nowPaymentsEnabled: nowPaymentsConfig.enabled,
-      nowPaymentsCurrencies: nowPaymentsConfig.currencies,
-      stripeEnabled: stripeConfig.enabled,
-      stripePublicKey: stripeConfig.publicKey,
-      minAmount: 50,
-      maxAmount: 5000,
+      paymentMethods,
       pricePerCoin,
       coinsPerDollar,
     });

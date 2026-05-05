@@ -46,10 +46,16 @@ function getPaymentConfigValue(paymentMethod = {}, field) {
 async function getClientConfig() {
   const paymentMethod = await getPaymentMethod();
 
-  return {
-    enabled: Boolean(getPaymentConfigValue(paymentMethod, "apiKey")),
-    publicKey: getPaymentConfigValue(paymentMethod, "publicKey"),
-    mode: paymentMethod?.mode || "test",
+  if(Boolean(paymentMethod))
+    return {
+      enabled: Boolean(getPaymentConfigValue(paymentMethod, "apiKey")),
+      publicKey: getPaymentConfigValue(paymentMethod, "publicKey"),
+      mode: paymentMethod?.mode || "test",
+    };
+  else return {
+    enabled: false,
+    publicKey: "",
+    mode: "test",
   };
 }
 
