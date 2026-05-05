@@ -5,6 +5,7 @@ const shortid = require("shortid");
 
 const models = require("../db/models");
 const redis = require("../modules/redis");
+const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
 
 const router = express.Router();
@@ -73,6 +74,9 @@ async function getNowPaymentsConfig() {
 
   if (!paymentMethod?.active) return null;
 
+  const settings = await defaultSettings.getSettings(models);
+  const coinsPerDollar = Number(settings.coinsPerDollar || 100);
+
   return {
     active: true,
     mode: String(paymentMethod.mode || "test").toLowerCase(),
@@ -86,6 +90,7 @@ async function getNowPaymentsConfig() {
     ipnSecretKey: String(
       getPaymentConfigValue(paymentMethod, "ipnSecretKey")
     ).trim(),
+    coinsPerDollar: coinsPerDollar > 0 ? coinsPerDollar : 100,
   };
 }
 
@@ -219,6 +224,8 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
     payment,
     expectedUserId
   );
+  const config = await getNowPaymentsConfig();
+  const amountUsd = amount / config.coinsPerDollar;
 
   await models.CoinPurchase.updateOne(
     { provider: "nowpayments", externalId: paymentId },
@@ -230,7 +237,7 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
         externalId: paymentId,
         amount,
         coins: amount,
-        amountUsd: amount * 0.01,
+        amountUsd,
         status: "pending",
         createdAt: Date.now(),
       },
@@ -285,7 +292,7 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
         userId,
         amount,
         coins: amount,
-        amountUsd: amount * 0.01,
+        amountUsd,
         status: "credited",
         rawStatus: paymentStatus,
         raw: payment,
