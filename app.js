@@ -25,6 +25,8 @@ const modRouter = require("./routes/mod");
 const chatRouter = require("./routes/chat");
 const notifsRouter = require("./routes/notifs");
 const shopRouter = require("./routes/shop");
+const paymentRouter = require("./routes/payment");
+const nowpaymentRouter = require("./routes/nowpayment");
 const stampTradesRouter = require("./routes/stampTrades");
 const reportRouter = require("./routes/report");
 const siteRouter = require("./routes/site");
@@ -48,7 +50,13 @@ const frontendBuildPath = path.join(__dirname, "react_main/build_public");
 const adminBuildPath = path.join(__dirname, "admin/build");
 
 app.use(morgan("combined", { stream: logger.stream }));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString("utf8");
+    },
+  })
+);
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -145,7 +153,9 @@ apiRouter.use("/strategy", strategyRouter);
 apiRouter.use("/mod", modRouter);
 apiRouter.use("/chat", chatRouter);
 apiRouter.use("/notifs", notifsRouter);
+apiRouter.use("/payment", paymentRouter);
 apiRouter.use("/shop", shopRouter);
+apiRouter.use("/nowpayments_ipn", nowpaymentRouter);
 apiRouter.use("/stampTrades", stampTradesRouter);
 apiRouter.use("/report", reportRouter);
 apiRouter.use("/site", siteRouter);

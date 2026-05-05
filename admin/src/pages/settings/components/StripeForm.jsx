@@ -13,12 +13,9 @@ import StatusChip from "../../../components/StatusChip";
 
 export default function StripeForm({
   form,
-  methodData,
   isSaving,
-  isDeleting,
   onUpdateField,
   onSave,
-  onDelete,
 }) {
   return (
     <SectionCard
@@ -84,7 +81,7 @@ export default function StripeForm({
 
         {/* Form Fields */}
         <TextField
-          label="API Key *"
+          label="Secret Key *"
           type="password"
           fullWidth
           size="small"
@@ -92,8 +89,20 @@ export default function StripeForm({
           onChange={(e) =>
             onUpdateField("stripe", "apiKey", e.target.value)
           }
-          placeholder="Enter API key"
+          placeholder="Enter secret key"
           required
+        />
+
+        <TextField
+          label="Public Key"
+          type="password"
+          fullWidth
+          size="small"
+          value={form.publicKey}
+          onChange={(e) =>
+            onUpdateField("stripe", "publicKey", e.target.value)
+          }
+          placeholder="Enter publishable key"
         />
 
         <TextField
@@ -111,9 +120,9 @@ export default function StripeForm({
           label="Default Currencies"
           fullWidth
           size="small"
-          value={form.defaultCurrencies}
+          value={form.mode === "test" ? form.test_defaultCurrencies : form.defaultCurrencies}
           onChange={(e) =>
-            onUpdateField("stripe", "defaultCurrencies", e.target.value)
+            onUpdateField("stripe", form.mode === "test" ? "test_defaultCurrencies" : "defaultCurrencies", e.target.value)
           }
           placeholder="comma-separated (e.g., usd,eur,gbp)"
           helperText="Comma-separated list of default currencies"
@@ -123,9 +132,9 @@ export default function StripeForm({
           label="IPN/Webhook URL"
           fullWidth
           size="small"
-          value={form.ipnUrl}
+          value={form.mode === "test" ? form.test_ipnSecretKey : form.ipnSecretKey}
           onChange={(e) =>
-            onUpdateField("stripe", "ipnUrl", e.target.value)
+            onUpdateField("stripe", form.mode === "test" ? "test_ipnSecretKey" : "ipnSecretKey", e.target.value)
           }
           placeholder="https://yoursite.com/webhooks/stripe"
         />
@@ -152,17 +161,6 @@ export default function StripeForm({
           >
             Save Changes
           </Button>
-          {methodData && (
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => onDelete("stripe")}
-              loading={isDeleting}
-              startIcon={<Icon icon="solar:trash-bin-bold-duotone" />}
-            >
-              Delete
-            </Button>
-          )}
         </Stack>
       </Stack>
     </SectionCard>

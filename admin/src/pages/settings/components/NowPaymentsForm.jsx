@@ -13,12 +13,9 @@ import StatusChip from "../../../components/StatusChip";
 
 export default function NowPaymentsForm({
   form,
-  methodData,
   isSaving,
-  isDeleting,
   onUpdateField,
   onSave,
-  onDelete,
 }) {
   return (
     <SectionCard
@@ -88,21 +85,46 @@ export default function NowPaymentsForm({
           type="password"
           fullWidth
           size="small"
-          value={form.apiKey}
+          value={form.mode === "test" ? form.test_apiKey : form.apiKey}
           onChange={(e) =>
-            onUpdateField("nowpayments", "apiKey", e.target.value)
+            onUpdateField("nowpayments", form.mode === "test" ? "test_apiKey" : "apiKey", e.target.value)
           }
           placeholder="Enter API key"
           required
         />
 
         <TextField
+          label="Public Key *"
+          type="text"
+          fullWidth
+          size="small"
+          value={form.mode === "test" ? form.test_publicKey : form.publicKey}
+          onChange={(e) =>
+            onUpdateField("nowpayments", form.mode === "test" ? "test_publicKey" : "publicKey", e.target.value)
+          }
+          placeholder="Enter Public key"
+          required
+        />
+
+        <TextField
+          label="IPN Secret Key"
+          type="password"
+          fullWidth
+          size="small"
+          value={form.mode === "test" ? form.test_ipnSecretKey : form.ipnSecretKey}
+          onChange={(e) =>
+            onUpdateField("nowpayments", form.mode === "test" ? "test_ipnSecretKey" : "ipnSecretKey", e.target.value)
+          }
+          placeholder="Enter IPN secret key"
+        />
+
+        <TextField
           label="Base URL"
           fullWidth
           size="small"
-          value={form.baseUrl}
+          value={form.mode === "test" ? form.test_baseUrl : form.baseUrl}
           onChange={(e) =>
-            onUpdateField("nowpayments", "baseUrl", e.target.value)
+            onUpdateField("nowpayments", form.mode === "test" ? "test_baseUrl" : "baseUrl", e.target.value)
           }
           placeholder="https://api.nowpayments.io"
         />
@@ -111,23 +133,12 @@ export default function NowPaymentsForm({
           label="Default Currencies"
           fullWidth
           size="small"
-          value={form.defaultCurrencies}
+          value={form.mode === "test" ? form.test_defaultCurrencies : form.defaultCurrencies}
           onChange={(e) =>
-            onUpdateField("nowpayments", "defaultCurrencies", e.target.value)
+            onUpdateField("nowpayments", form.mode === "test" ? "test_defaultCurrencies" : "defaultCurrencies", e.target.value)
           }
           placeholder="comma-separated (e.g., btc,eth,usdttrc20)"
           helperText="Comma-separated list of default currencies"
-        />
-
-        <TextField
-          label="IPN/Webhook URL"
-          fullWidth
-          size="small"
-          value={form.ipnUrl}
-          onChange={(e) =>
-            onUpdateField("nowpayments", "ipnUrl", e.target.value)
-          }
-          placeholder="https://yoursite.com/webhooks/nowpayments"
         />
 
         {/* Action Buttons */}
@@ -141,17 +152,6 @@ export default function NowPaymentsForm({
           >
             Save Changes
           </Button>
-          {methodData && (
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => onDelete("nowpayments")}
-              loading={isDeleting}
-              startIcon={<Icon icon="solar:trash-bin-bold-duotone" />}
-            >
-              Delete
-            </Button>
-          )}
         </Stack>
       </Stack>
     </SectionCard>

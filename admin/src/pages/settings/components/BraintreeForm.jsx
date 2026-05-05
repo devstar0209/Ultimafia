@@ -13,12 +13,9 @@ import StatusChip from "../../../components/StatusChip";
 
 export default function BraintreeForm({
   form,
-  methodData,
   isSaving,
-  isDeleting,
   onUpdateField,
   onSave,
-  onDelete,
 }) {
   return (
     <SectionCard
@@ -84,15 +81,41 @@ export default function BraintreeForm({
 
         {/* Form Fields */}
         <TextField
-          label="API Key *"
+          label="Merchant ID *"
           type="password"
           fullWidth
           size="small"
-          value={form.apiKey}
+          value={form.mode === "test" ? form.test_publicKey : form.publicKey}
           onChange={(e) =>
-            onUpdateField("braintree", "apiKey", e.target.value)
+            onUpdateField("braintree", form.mode === "test" ? "test_publicKey" : "publicKey", e.target.value)
           }
-          placeholder="Enter API key"
+          placeholder="Enter merchant ID"
+          required
+        />
+
+        <TextField
+          label="Public Key *"
+          type="password"
+          fullWidth
+          size="small"
+          value={form.mode === "test" ? form.test_ipnSecretKey : form.ipnSecretKey}
+          onChange={(e) =>
+            onUpdateField("braintree", form.mode === "test" ? "test_ipnSecretKey" : "ipnSecretKey", e.target.value)
+          }
+          placeholder="Enter public key"
+          required
+        />
+
+        <TextField
+          label="Private Key *"
+          type="password"
+          fullWidth
+          size="small"
+          value={form.mode === "test" ? form.test_baseUrl : form.baseUrl}
+          onChange={(e) =>
+            onUpdateField("braintree", form.mode === "test" ? "test_baseUrl" : "baseUrl", e.target.value)
+          }
+          placeholder="Enter private key"
           required
         />
 
@@ -152,17 +175,6 @@ export default function BraintreeForm({
           >
             Save Changes
           </Button>
-          {methodData && (
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => onDelete("braintree")}
-              loading={isDeleting}
-              startIcon={<Icon icon="solar:trash-bin-bold-duotone" />}
-            >
-              Delete
-            </Button>
-          )}
         </Stack>
       </Stack>
     </SectionCard>

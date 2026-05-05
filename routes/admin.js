@@ -1471,6 +1471,7 @@ router.get("/settings/general", async function (req, res) {
       branding: brandingUtils.buildBrandingPayload(brandingDoc),
       defaultSettings: {
         registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
+        coinsPerDollar: defaultSettings?.coinsPerDollar || 100,
         initialRedHeartCapacity: defaultSettings?.initialRedHeartCapacity || 15,
         initialGoldHeartCapacity: defaultSettings?.initialGoldHeartCapacity || 0,
         maxBonusRedHearts: defaultSettings?.maxBonusRedHearts || 5,
@@ -1496,6 +1497,7 @@ router.patch("/settings/defaults", async function (req, res) {
 
     const {
       registerCoinsReward,
+      coinsPerDollar,
       initialRedHeartCapacity,
       initialGoldHeartCapacity,
       maxBonusRedHearts,
@@ -1512,6 +1514,7 @@ router.patch("/settings/defaults", async function (req, res) {
       { key: "default" },
       {
         registerCoinsReward: Number(registerCoinsReward || 0),
+        coinsPerDollar: Number(coinsPerDollar || 100),
         initialRedHeartCapacity: Number(initialRedHeartCapacity || 15),
         initialGoldHeartCapacity: Number(initialGoldHeartCapacity || 0),
         maxBonusRedHearts: Number(maxBonusRedHearts || 5),
@@ -1534,6 +1537,7 @@ router.patch("/settings/defaults", async function (req, res) {
     res.send({
       defaultSettings: {
         registerCoinsReward: updated.registerCoinsReward,
+        coinsPerDollar: updated.coinsPerDollar,
         initialRedHeartCapacity: updated.initialRedHeartCapacity,
         initialGoldHeartCapacity: updated.initialGoldHeartCapacity,
         maxBonusRedHearts: updated.maxBonusRedHearts,
@@ -2037,6 +2041,28 @@ router.get("/settings/summary", async function (req, res) {
 });
 
 // Payment Methods Settings
+function buildPaymentMethodResponse(pm) {
+  return {
+    id: pm._id,
+    provider: pm.provider,
+    mode: pm.mode || "test",
+    active: pm.active || false,
+    apiKey: pm.apiKey ? "***" : "",
+    publicKey: pm.publicKey || "",
+    ipnSecretKey: pm.ipnSecretKey ? "***" : "",
+    baseUrl: pm.baseUrl,
+    defaultCurrencies: pm.defaultCurrencies,
+    test_apiKey: pm.test_apiKey ? "***" : "",
+    test_publicKey: pm.test_publicKey || "",
+    test_ipnSecretKey: pm.test_ipnSecretKey ? "***" : "",
+    test_baseUrl: pm.test_baseUrl,
+    test_defaultCurrencies: pm.test_defaultCurrencies,
+    createdAt: pm.createdAt,
+    updatedAt: pm.updatedAt,
+    updatedBy: pm.updatedBy,
+  };
+}
+
 router.get("/settings/payment-methods", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
@@ -2047,20 +2073,7 @@ router.get("/settings/payment-methods", async function (req, res) {
       .lean();
 
     res.send({
-      items: paymentMethods.map((pm) => ({
-        id: pm._id,
-        provider: pm.provider,
-        mode: pm.mode,
-        active: pm.active,
-        apiKey: pm.apiKey ? "***" : "",
-        baseUrl: pm.baseUrl,
-        defaultCurrencies: pm.defaultCurrencies,
-        ipnUrl: pm.ipnUrl,
-        webhookUrl: pm.webhookUrl,
-        createdAt: pm.createdAt,
-        updatedAt: pm.updatedAt,
-        updatedBy: pm.updatedBy,
-      })),
+      items: paymentMethods.map((pm) => buildPaymentMethodResponse(pm)),
     });
   } catch (e) {
     logger.error(e);
@@ -2087,19 +2100,7 @@ router.get("/settings/payment-methods/:provider", async function (req, res) {
       return;
     }
 
-    res.send({
-      provider: paymentMethod.provider,
-      mode: paymentMethod.mode,
-      active: paymentMethod.active,
-      apiKey: paymentMethod.apiKey,
-      baseUrl: paymentMethod.baseUrl,
-      defaultCurrencies: paymentMethod.defaultCurrencies,
-      ipnUrl: paymentMethod.ipnUrl,
-      webhookUrl: paymentMethod.webhookUrl,
-      createdAt: paymentMethod.createdAt,
-      updatedAt: paymentMethod.updatedAt,
-      updatedBy: paymentMethod.updatedBy,
-    });
+    res.send(buildPaymentMethodResponse(paymentMethod));
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading payment method.");
@@ -2116,10 +2117,15 @@ router.post("/settings/payment-methods/:provider", async function (req, res) {
     const mode = String(req.body?.mode || "test").toLowerCase();
     const active = Boolean(req.body?.active);
     const apiKey = String(req.body?.apiKey || "").trim();
+    const publicKey = String(req.body?.publicKey || "").trim();
+    const ipnSecretKey = String(req.body?.ipnSecretKey || "").trim();
     const baseUrl = String(req.body?.baseUrl || "").trim();
     const defaultCurrencies = String(req.body?.defaultCurrencies || "").trim();
-    const ipnUrl = String(req.body?.ipnUrl || "").trim();
-    const webhookUrl = String(req.body?.webhookUrl || "").trim();
+    const test_apiKey = String(req.body?.test_apiKey || "").trim();
+    const test_publicKey = String(req.body?.test_publicKey || "").trim();
+    const test_ipnSecretKey = String(req.body?.test_ipnSecretKey || "").trim();
+    const test_baseUrl = String(req.body?.test_baseUrl || "").trim();
+    const test_defaultCurrencies = String(req.body?.test_defaultCurrencies || "").trim();
 
     if (!provider) {
       res.status(400).send("Provider is required.");
@@ -2141,14 +2147,28 @@ router.post("/settings/payment-methods/:provider", async function (req, res) {
       provider,
       mode,
       active,
-      apiKey,
+      publicKey,
       baseUrl,
       defaultCurrencies,
-      ipnUrl,
-      webhookUrl,
+      test_publicKey,
+      test_baseUrl,
+      test_defaultCurrencies,
       updatedAt: Date.now(),
-      updatedBy: sessionInfo.user,
+      updatedBy: sessionInfo.user.id,
     };
+
+    if (apiKey != "***") {
+      updateData.apiKey = apiKey;
+    }
+    if (test_apiKey != "***") {
+      updateData.apiKey = test_apiKey;
+    }
+    if (ipnSecretKey != "***") {
+      updateData.ipnSecretKey = ipnSecretKey;
+    }
+    if (test_ipnSecretKey != "***") {
+      updateData.ipnSecretKey = test_ipnSecretKey;
+    }
 
     const paymentMethod = await models.PaymentMethod.findOneAndUpdate(
       { provider },
@@ -2156,70 +2176,16 @@ router.post("/settings/payment-methods/:provider", async function (req, res) {
       { upsert: true, new: true, runValidators: true }
     ).lean();
 
-    await models.ModAction.create({
-      user: sessionInfo.user,
-      type: "updatePaymentMethod",
-      data: {
-        provider,
-        mode,
-        active,
-        baseUrl,
-        ipnUrl,
-        webhookUrl,
-      },
-      date: Date.now(),
-    });
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      "Updated Payment Method",
+      [provider, mode, active ? "active" : "inactive"]
+    );
 
-    res.send({
-      provider: paymentMethod.provider,
-      mode: paymentMethod.mode,
-      active: paymentMethod.active,
-      apiKey: paymentMethod.apiKey ? "***" : "",
-      baseUrl: paymentMethod.baseUrl,
-      defaultCurrencies: paymentMethod.defaultCurrencies,
-      ipnUrl: paymentMethod.ipnUrl,
-      webhookUrl: paymentMethod.webhookUrl,
-      createdAt: paymentMethod.createdAt,
-      updatedAt: paymentMethod.updatedAt,
-      updatedBy: paymentMethod.updatedBy,
-    });
+    res.send(buildPaymentMethodResponse(paymentMethod));
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error updating payment method.");
-  }
-});
-
-router.delete("/settings/payment-methods/:provider", async function (req, res) {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const sessionInfo = await verifyAdminAccess(req, res);
-    if (!sessionInfo) return;
-
-    const provider = String(req.params.provider || "").toLowerCase().trim();
-
-    if (!provider) {
-      res.status(400).send("Provider is required.");
-      return;
-    }
-
-    const paymentMethod = await models.PaymentMethod.findOneAndDelete({ provider }).lean();
-
-    if (!paymentMethod) {
-      res.status(404).send("Payment method not found.");
-      return;
-    }
-
-    await models.ModAction.create({
-      user: sessionInfo.user,
-      type: "deletePaymentMethod",
-      data: { provider },
-      date: Date.now(),
-    });
-
-    res.send({ success: true, message: "Payment method deleted successfully." });
-  } catch (e) {
-    logger.error(e);
-    res.status(500).send("Error deleting payment method.");
   }
 });
 
