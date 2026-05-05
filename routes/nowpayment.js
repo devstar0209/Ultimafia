@@ -341,7 +341,7 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
   };
 }
 
-async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackUrl) {
+async function createCoinPayment(userId, amount, requestedCurrency) {
   const config = await getNowPaymentsConfig();
   if (!nowPaymentsEnabled(config)) {
     const error = new Error("NowPayments is currently unavailable.");
@@ -366,16 +366,20 @@ async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackU
     is_fixed_rate: true,
   };
 
-  if (ipnCallbackUrl) {
-    payload.ipn_callback_url = ipnCallbackUrl;
+  try {
+    const nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
+      headers: {
+        "x-api-key": config.apiKey,
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (e) {
+    logger.error("Error creating NowPayments invoice:", e.response?.data || e.message || e);
+    const errorMessage = e.response?.data?.error || e.message || "Error creating NowPayments invoice.";
+    const error = new Error(errorMessage);
+    error.statusCode = e.response?.status || 500;
+    throw error;
   }
-
-  const nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
-    headers: {
-      "x-api-key": config.apiKey,
-      "Content-Type": "application/json",
-    },
-  });
 
   const payment = nowRes.data || {};
   const paymentId = String(payment.payment_id || "");
