@@ -520,6 +520,7 @@ router.get("/current", async function (req, res) {
     // Fetch round settings for all rounds (filter out round 0 if it exists)
     const rounds = await models.CompetitiveRound.find({
       season: currentSeason.number,
+      gameCatalogKey,
       number: { $gt: 0 },
     })
       .select("number minimumPoints")

@@ -24,6 +24,7 @@ async function progressCompetitiveSeason(currentSeason) {
   const seasonNumber = currentSeason.number;
   const gameCatalogKey = currentSeason.gameCatalogKey || "Mafia";
   console.log(`[progressCompetitive]: Checking season ${seasonNumber}`);
+  const seasonQuery = { number: seasonNumber, gameCatalogKey };
 
   // Get the current round, if any
   const currentRound = await models.CompetitiveRound.findOne({
@@ -60,22 +61,50 @@ async function progressCompetitiveSeason(currentSeason) {
       startDateNew.setUTCDate(seasonStartDate.getUTCDate());
     }
 
-    const round = new models.CompetitiveRound({
-      gameCatalogKey,
-      season: seasonNumber,
-      number: currentSeason.currentRound,
-      startDate: startDateNew.toISOString().split("T")[0],
-      remainingOpenDays: constants.openDaysPerCompetitiveRound,
-      remainingReviewDays: constants.reviewDaysPerCompetitiveRound,
-    });
-    const newDocument = await round.save();
+    const roundResult = await models.CompetitiveRound.findOneAndUpdate(
+      {
+        gameCatalogKey,
+        season: seasonNumber,
+        number: currentSeason.currentRound,
+      },
+      {
+        $setOnInsert: {
+          gameCatalogKey,
+          season: seasonNumber,
+          number: currentSeason.currentRound,
+          startDate: startDateNew.toISOString().split("T")[0],
+          remainingOpenDays: constants.openDaysPerCompetitiveRound,
+          remainingReviewDays: constants.reviewDaysPerCompetitiveRound,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        includeResultMetadata: true,
+      }
+    );
+    const newDocument = roundResult.value;
+    const roundWasCreated = !roundResult.lastErrorObject.updatedExisting;
+
+    if (!roundWasCreated) {
+      console.log(
+        `[progressCompetitive]: Season ${seasonNumber} round ${currentSeason.currentRound} was already created`
+      );
+      return;
+    }
+
+    if (!newDocument?._id) {
+      throw new Error(
+        `Created competitive round ${seasonNumber}/${currentSeason.currentRound} but did not receive its id`
+      );
+    }
 
     // Append the round to the season for easy lookup
     await models.CompetitiveSeason.updateOne(
-      { number: seasonNumber },
+      seasonQuery,
       {
         $set: { currentRound: currentSeason.currentRound },
-        $push: { rounds: newDocument._id },
+        $addToSet: { rounds: newDocument._id },
       }
     );
 
@@ -280,7 +309,7 @@ async function endSeason(seasonNumber, gameCatalogKey = "Mafia") {
     console.log(`[endSeason]: No standings found for season ${seasonNumber}`);
     // Still mark the season as completed
     await models.CompetitiveSeason.updateOne(
-      { number: seasonNumber },
+      { number: seasonNumber, gameCatalogKey },
       {
         $set: {
           completed: true,
@@ -379,7 +408,7 @@ async function endSeason(seasonNumber, gameCatalogKey = "Mafia") {
 
   // Mark the season as completed
   await models.CompetitiveSeason.updateOne(
-    { number: seasonNumber },
+    { number: seasonNumber, gameCatalogKey },
     {
       $set: {
         completed: true,
@@ -476,7 +505,7 @@ async function accountCompetitiveSeason(currentSeason) {
         if (roundNumberNew <= currentSeason.numRounds) {
           // Now that this round is fully done, increment the season's round counter
           await models.CompetitiveSeason.updateOne(
-            { number: seasonNumber },
+            { number: seasonNumber, gameCatalogKey },
             { $inc: { currentRound: 1 } }
           ).exec();
         } else {
