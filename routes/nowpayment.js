@@ -132,7 +132,7 @@ function getNowPaymentsCurrencies(config) {
 }
 
 function nowPaymentsEnabled(config) {
-  return Boolean(config?.active && config?.apiKey && getNowPaymentsCurrencies(config).length);
+  return Boolean(config?.active && config?.apiKey && getNowPaymentsCurrencies(config).length > 0);
 }
 
 async function getClientConfig() {
@@ -185,8 +185,8 @@ function parseNowPaymentsOrder(payment, expectedUserId) {
   }
 
   const orderId = String(payment.order_id || "");
-  const orderParts = orderId.split(":");
-  if (orderParts.length < 4 || orderParts[0] !== "um_buycoins") {
+  const orderParts = orderId.split("-");
+  if (orderParts.length < 3 || orderParts[0] !== "PM") {
     const error = new Error("Invalid payment order metadata.");
     error.statusCode = 400;
     throw error;
@@ -355,13 +355,15 @@ async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackU
     supportedCurrencies[0];
   const payCurrency = selectedCurrency.code;
   const price = amount / config.coinsPerDollar;
-  const orderId = `pm_buycoins:${userId}:${amount}:${shortid.generate()}`;
+  const orderId = `PM-${userId}-${shortid.generate()}`;
   const payload = {
     price_amount: price,
     price_currency: "usd",
     pay_currency: payCurrency,
     order_id: orderId,
     order_description: `${amount} coins for ${userId}`,
+    is_fee_paid_by_user: true,
+    is_fixed_rate: true,
   };
 
   if (ipnCallbackUrl) {
@@ -371,13 +373,16 @@ async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackU
   const nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
     headers: {
       "x-api-key": config.apiKey,
+      "Content-Type": "application/json",
     },
   });
 
   const payment = nowRes.data || {};
   const paymentId = String(payment.payment_id || "");
-  if (!paymentId) {
-    const error = new Error("NowPayments did not return a payment ID.");
+  const payAddress = String(payment.pay_address || "");
+  const payAmount = payment.pay_amount || "";
+  if (!paymentId || !payAddress || !payAmount) {
+    const error = new Error("NowPayments did not return payment details.");
     error.statusCode = 500;
     throw error;
   }
@@ -388,30 +393,10 @@ async function createCoinPayment(userId, amount, requestedCurrency, ipnCallbackU
     paymentId,
     status: payment.payment_status || "waiting",
     invoiceUrl: payment.invoice_url || "",
-    payAddress: payment.pay_address || "",
-    payAmount: payment.pay_amount || "",
+    payAddress,
+    payAmount,
     payCurrency: payment.pay_currency || payCurrency,
   };
-}
-
-async function claimCoinPayment(userId, paymentId) {
-  const config = await getNowPaymentsConfig();
-  if (!nowPaymentsEnabled(config)) {
-    const error = new Error("NowPayments is currently unavailable.");
-    error.statusCode = 503;
-    throw error;
-  }
-
-  const nowRes = await axios.get(
-    `${config.apiBase}/payment/${encodeURIComponent(paymentId)}`,
-    {
-      headers: {
-        "x-api-key": config.apiKey,
-      },
-    }
-  );
-
-  return syncNowPaymentsPurchase(nowRes.data || {}, userId);
 }
 
 router.post("/", async function (req, res) {
@@ -444,5 +429,4 @@ router.post("/", async function (req, res) {
 
 module.exports = router;
 module.exports.createCoinPayment = createCoinPayment;
-module.exports.claimCoinPayment = claimCoinPayment;
 module.exports.getClientConfig = getClientConfig;

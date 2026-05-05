@@ -109,33 +109,6 @@ router.post("/nowpayments/createInvoice", async function (req, res) {
   }
 });
 
-router.post("/nowpayments/claim", async function (req, res) {
-  try {
-    const userId = await routeUtils.verifyLoggedIn(req);
-    const paymentId = String(req.body.paymentId || "").trim();
-    if (!paymentId) {
-      res.status(400).send("Missing payment ID.");
-      return;
-    }
-
-    const result = await nowpayment.claimCoinPayment(userId, paymentId);
-    if (!result.success) {
-      res.status(409).send({
-        status: result.status,
-        message: result.message,
-      });
-      return;
-    }
-
-    res.send(result);
-  } catch (e) {
-    logger.error(e);
-    res.status(e.statusCode || 500).send(
-      e.statusCode ? e.message : "Error finalizing NowPayments purchase."
-    );
-  }
-});
-
 router.get("/token", async function (req, res) {
   try {
     await routeUtils.verifyLoggedIn(req);

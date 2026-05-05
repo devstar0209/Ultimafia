@@ -13,6 +13,7 @@ import {
   AccordionSummary,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -43,7 +44,7 @@ const buildCryptoCurrencies = (currencies = []) => {
     .filter((currency) => currency.code);
 };
 
-const MIN_COIN_PURCHASE_AMOUNT = 100;
+const MIN_COIN_PURCHASE_AMOUNT = 200;
 
 export default function BuyCoinsModal({ open, onClose, user }) {
   const siteInfo = useContext(SiteInfoContext);
@@ -56,6 +57,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   const [nowPaymentsInvoiceUrl, setNowPaymentsInvoiceUrl] = useState("");
   const [payAddress, setPayAddress] = useState("");
   const [payAmount, setPayAmount] = useState("");
+  const [payCurrency, setPayCurrency] = useState("");
   const [clientToken, setClientToken] = useState("");
   const [dropInInstance, setDropInInstance] = useState(null);
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false);
@@ -76,7 +78,9 @@ export default function BuyCoinsModal({ open, onClose, user }) {
 
   const cryptoProvider = cryptoMethod?.provider;
   const cryptoCurrencies = buildCryptoCurrencies(cryptoProvider?.currencies);
-  const presetAmounts = [100, 200, 500, 1000];
+  const isCreatingCryptoPayment =
+    isProcessingPurchase && paymentProvider === "crypto";
+  const presetAmounts = [200, 300, 500, 1000];
   const selectedAmountNumber = Number(selectedAmount);
   const hasSelectedAmount = selectedAmount !== "";
   const isCoinAmountValid =
@@ -135,6 +139,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
     setNowPaymentsInvoiceUrl("");
     setPayAddress("");
     setPayAmount("");
+    setPayCurrency("");
     setClientToken("");
     setDropInInstance(null);
     setIsProcessingPurchase(false);
@@ -212,10 +217,9 @@ export default function BuyCoinsModal({ open, onClose, user }) {
     setSelectedAmount(newAmount);
     setNowPaymentsPaymentId("");
     setNowPaymentsInvoiceUrl("");
-  };
-
-  const handlePaymentProviderChange = (nextProvider) => {
-    setPaymentProvider(nextProvider);
+    setPayAddress("");
+    setPayAmount("");
+    setPayCurrency("");
   };
 
   const generateCryptoPayment = (currencyCode) => {
@@ -226,6 +230,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
     setNowPaymentsInvoiceUrl("");
     setPayAddress("");
     setPayAmount("");
+    setPayCurrency("");
     setIsProcessingPurchase(true);
 
     axios
@@ -239,6 +244,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
         setNowPaymentsInvoiceUrl(res.data.invoiceUrl || "");
         setPayAddress(res.data.payAddress || "");
         setPayAmount(res.data.payAmount || "");
+        setPayCurrency(res.data.payCurrency || currencyCode);
         setIsProcessingPurchase(false);
         if (res.data.invoiceUrl) {
           window.open(res.data.invoiceUrl, "_blank", "noopener,noreferrer");
@@ -287,46 +293,6 @@ export default function BuyCoinsModal({ open, onClose, user }) {
         if (isMountedRef.current) setIsProcessingPurchase(false);
       });
   };
-
-  const claimNowPaymentsInvoice = () => {
-    if (!nowPaymentsPaymentId) return;
-
-    setIsProcessingPurchase(true);
-    axios
-      .post("/api/payment/nowpayments/claim", {
-        paymentId: nowPaymentsPaymentId,
-      })
-      .then((res) => {
-        if (!isMountedRef.current) return;
-        user.set((prev) => ({
-          ...prev,
-          coins: res.data.balance,
-        }));
-        siteInfo.showAlert(
-          `Purchased ${res.data.coinsAdded} coins successfully.`,
-          "success"
-        );
-        onClose();
-      })
-      .catch((err) => {
-        if (!isMountedRef.current) return;
-        const waitingMessage = err?.response?.data?.message;
-        if (waitingMessage) {
-          siteInfo.showAlert(waitingMessage, "basic");
-          return;
-        }
-        errorAlert(err);
-      })
-      .finally(() => {
-        if (isMountedRef.current) setIsProcessingPurchase(false);
-      });
-  };
-
-  const renderNoMethods = () => (
-    <Typography variant="body2" sx={{ opacity: 0.8 }}>
-      No payment methods are currently available. Please check back later.
-    </Typography>
-  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -439,7 +405,9 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                         disabled={!isCoinAmountValid || isProcessingPurchase}
                         size="small"
                         startIcon={
-                          currency.icon ? <i className={`fab fa-${currency.icon}`} /> : null
+                          currency.icon ? (
+                            <i className={`fab fa-${currency.icon}`} />
+                          ) : null
                         }
                       >
                         {currency.label}
@@ -451,6 +419,17 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                     </Typography>
                   )}
                 </Stack>
+                {isCreatingCryptoPayment && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      py: 2,
+                    }}
+                  >
+                    <CircularProgress size={18} />
+                  </Box>
+                )}
                 {nowPaymentsPaymentId && (
                   <Typography variant="body2" sx={{ mb: 2 }}>
                     Payment ID: {nowPaymentsPaymentId}
@@ -465,32 +444,36 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                     Open Invoice
                   </Button>
                 )}
-                {nowPaymentsPaymentId ? (
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={claimNowPaymentsInvoice}
-                    disabled={isProcessingPurchase}
-                  >
-                    {isProcessingPurchase ? "Processing..." : "Claim Payment"}
-                  </Button>
-                ) : (
-                  <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                    Select a currency above to generate a payment invoice.
-                  </Typography>
-                )}
+                <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                  {nowPaymentsPaymentId
+                    ? "Coins will be added automatically once the payment is confirmed."
+                    : "Select a currency above to generate payment details."}
+                </Typography>
                 {payAddress && payAmount && (
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      Send exactly {payAmount} {String(nowPaymentsCurrency).toUpperCase()} to:
+                      Send exactly {payAmount}{" "}
+                      {String(payCurrency || nowPaymentsCurrency).toUpperCase()} to:
                     </Typography>
-                    <Box sx={{ p: 2, bgcolor: "background.paper", borderRadius: 1, textAlign: "center" }}>
-                      <Typography variant="h6" sx={{ mb: 1 }}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: "background.paper",
+                        borderRadius: 1,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{ mb: 1, overflowWrap: "anywhere" }}
+                      >
                         {payAddress}
                       </Typography>
                       <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${payAddress}`}
-                        alt="QR Code"
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                          payAddress
+                        )}`}
+                        alt="Payment address QR code"
                       />
                     </Box>
                   </Box>
