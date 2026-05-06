@@ -35,6 +35,7 @@ const coinPurchaseSchema = new mongoose.Schema({
   provider: { type: String, index: true },
   externalId: { type: String, index: true },
   packageId: { type: String, index: true },
+  purchaseType: { type: String, default: "coins", index: true },
   coins: { type: Number, default: 0 },
   amountUsd: { type: Number, default: 0 },
   status: { type: String, index: true, default: "pending" },
@@ -174,6 +175,7 @@ var schemas = {
     ],
     blockedUsers: [String],
     coins: { type: Number, default: 0 },
+    balanceDollar: { type: Number, default: 0 },
     itemsOwned: {
       customProfile: { type: Number, default: 0 },
       avatarShape: { type: Number, default: 0 },

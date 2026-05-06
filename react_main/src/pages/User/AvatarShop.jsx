@@ -20,12 +20,21 @@ import { Loading } from "../../components/Loading";
 
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
+const formatUsdAmount = (amount) =>
+  Number(amount || 0).toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 export default function AvatarShop(props) {
   const [shopInfo, setShopInfo] = useState({
     shopItems: [],
     avatarItems: [],
     equippedAvatarKey: "",
     balance: 0,
+    balanceDollar: 0,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -69,22 +78,28 @@ export default function AvatarShop(props) {
     if (!avatar) return;
 
     const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${avatar.name} for ${avatar.price} coins?`
+      `Are you sure you wish to buy ${avatar.name} for ${formatUsdAmount(
+        avatar.priceDollar
+      )}?`
     );
 
     if (!shouldBuy) return;
 
     axios
       .post("/api/shop/spendCoins", { item: shopInfo.shopItems.findIndex((item) => item.key === avatarKey) })
-      .then(() => {
+      .then((res) => {
         siteInfo.showAlert("Avatar purchased.", "success");
 
         setShopInfo((prev) => ({
           ...prev,
-          balance: prev.balance - avatar.price,
+          balanceDollar: res.data.balanceDollar,
           avatarItems: prev.avatarItems.map((item) =>
             item.key === avatarKey ? { ...item, owned: true } : item
           ),
+        }));
+        user.set((prev) => ({
+          ...prev,
+          balanceDollar: res.data.balanceDollar,
         }));
 
         // Auto-equip the newly purchased avatar
@@ -126,13 +141,13 @@ export default function AvatarShop(props) {
               }}
             >
               <Typography variant="h4" className="balance">
-                {shopInfo.balance}
+                {formatUsdAmount(shopInfo.balanceDollar)}
               </Typography>
               <Box
                 component="i"
-                className="fas fa-coins"
-                aria-label="Coins"
-                sx={{ fontSize: 24, color: "#f5c542" }}
+                className="fas fa-wallet"
+                aria-label="Dollar balance"
+                sx={{ fontSize: 24, color: "success.main" }}
               />
             </Stack>
           </Stack>
@@ -200,12 +215,14 @@ export default function AvatarShop(props) {
                           alignItems: "center",
                         }}
                       >
-                        <Typography variant="h6">{avatar.price}</Typography>
+                        <Typography variant="h6">
+                          {formatUsdAmount(avatar.priceDollar)}
+                        </Typography>
                         <Box
                           component="i"
-                          className="fas fa-coins"
-                          aria-label="Coins"
-                          sx={{ fontSize: 16, color: "#f5c542" }}
+                          className="fas fa-wallet"
+                          aria-label="Dollar balance"
+                          sx={{ fontSize: 16, color: "success.main" }}
                         />
                       </Stack>
                     </Stack>

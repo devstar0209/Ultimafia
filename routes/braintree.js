@@ -137,8 +137,72 @@ async function checkoutCoinPurchase(userId, amount, paymentMethodNonce) {
   };
 }
 
+function normalizeDollarAmount(amount) {
+  const number = Number(amount);
+  if (!Number.isFinite(number)) return null;
+
+  return Math.round(number * 100) / 100;
+}
+
+async function checkoutBalanceTopUp(userId, amountUsd, paymentMethodNonce) {
+  const gateway = await getGateway();
+  if (!gateway) {
+    const error = new Error("Top ups are currently unavailable.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const normalizedAmount = normalizeDollarAmount(amountUsd);
+  if (
+    !Number.isFinite(normalizedAmount) ||
+    normalizedAmount < 1 ||
+    normalizedAmount > 500 ||
+    normalizedAmount !== Number(amountUsd)
+  ) {
+    const error = new Error("Invalid top up amount (min $1, max $500).");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!paymentMethodNonce) {
+    const error = new Error("Missing payment method.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const saleResult = await gateway.transaction.sale({
+    amount: normalizedAmount.toFixed(2),
+    paymentMethodNonce,
+    options: {
+      submitForSettlement: true,
+    },
+  });
+
+  if (!saleResult.success) {
+    const error = new Error(saleResult.message || "Payment failed.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  await models.User.updateOne(
+    { id: userId },
+    { $inc: { balanceDollar: normalizedAmount } }
+  ).exec();
+  await redis.cacheUserInfo(userId, true);
+
+  const updatedUser = await models.User.findOne({ id: userId }).select(
+    "balanceDollar"
+  );
+  return {
+    success: true,
+    balanceDollarAdded: normalizedAmount,
+    balanceDollar: updatedUser?.balanceDollar || 0,
+  };
+}
+
 module.exports = {
   checkoutCoinPurchase,
+  checkoutBalanceTopUp,
   generateClientToken,
   getClientConfig,
 };

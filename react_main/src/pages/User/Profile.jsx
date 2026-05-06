@@ -72,6 +72,14 @@ export const KARMA_ICON = require(`images/karma.png`);
 export const ACHIEVEMENTS_ICON = require(`images/achievements.png`);
 export const DAILY_ICON = require(`images/dailyChallenges.png`);
 
+const formatUsdAmount = (amount) =>
+  Number(amount || 0).toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 function FavoritedRolesPanel({
   favoriteRoles = [],
   panelStyle = {},
@@ -1600,7 +1608,7 @@ export default function Profile() {
                               <Box>
                                 <Typography>{avatar.name}</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {avatar.price} coins
+                                  {formatUsdAmount(avatar.priceDollar)}
                                 </Typography>
                               </Box>
                             </Box>
