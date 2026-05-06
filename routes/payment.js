@@ -65,6 +65,8 @@ router.get("/config", async function (req, res) {
           id: "nowpayments",
           title: "NowPayments",
           currencies: nowPaymentsConfig.currencies,
+          minimumPaymentAmount: nowPaymentsConfig.minimumPaymentAmount,
+          minimumPaymentAmounts: nowPaymentsConfig.minimumPaymentAmounts,
         },
       });
     }

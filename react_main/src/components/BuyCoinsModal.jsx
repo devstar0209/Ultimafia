@@ -46,6 +46,18 @@ const buildCryptoCurrencies = (currencies = []) => {
 
 const MIN_COIN_PURCHASE_AMOUNT = 200;
 
+const formatUsdAmount = (amount) => {
+  const number = Number(amount);
+  if (!Number.isFinite(number)) return "";
+
+  return number.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 export default function BuyCoinsModal({ open, onClose, user }) {
   const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
@@ -77,6 +89,11 @@ export default function BuyCoinsModal({ open, onClose, user }) {
 
   const cryptoProvider = cryptoMethod?.provider;
   const cryptoCurrencies = buildCryptoCurrencies(cryptoProvider?.currencies);
+  const cryptoMinimumPaymentAmounts = Array.isArray(
+    cryptoProvider?.minimumPaymentAmounts
+  )
+    ? cryptoProvider.minimumPaymentAmounts
+    : [];
   const isCreatingCryptoPayment =
     isProcessingPurchase && paymentProvider === "crypto";
   const presetAmounts = [200, 300, 500, 1000];
@@ -95,6 +112,30 @@ export default function BuyCoinsModal({ open, onClose, user }) {
           : 0
       ).toFixed(2)
     : "0.00";
+  const selectedPriceNumber = Number(selectedPrice);
+  const priceHelperText = buyConfig
+    ? `$${selectedPrice} (${buyConfig.coinsPerDollar} coins/$)`
+    : "";
+
+  const getMinimumPaymentAmountUsd = (currencyCode) => {
+    const minimumPaymentAmount =
+      cryptoMinimumPaymentAmounts.find(
+        (amount) => amount.currency === currencyCode
+      ) || cryptoProvider?.minimumPaymentAmount;
+    const amountUsd = Number(minimumPaymentAmount?.fiatEquivalent);
+
+    return Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : null;
+  };
+
+  const isBelowCryptoMinimumPaymentAmount = (currencyCode) => {
+    const amountUsd = getMinimumPaymentAmountUsd(currencyCode);
+
+    return (
+      amountUsd !== null &&
+      Number.isFinite(selectedPriceNumber) &&
+      selectedPriceNumber < amountUsd
+    );
+  };
 
   const loadBuyConfig = useCallback(() => {
     return axios
@@ -222,7 +263,12 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   };
 
   const generateCryptoPayment = (currencyCode) => {
-    if (!isCoinAmountValid) return;
+    if (
+      !isCoinAmountValid ||
+      isBelowCryptoMinimumPaymentAmount(currencyCode)
+    ) {
+      return;
+    }
 
     setNowPaymentsCurrency(currencyCode);
     setNowPaymentsPaymentId("");
@@ -323,9 +369,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
             helperText={
               amountError
                 ? `Minimum custom amount is ${MIN_COIN_PURCHASE_AMOUNT} coins.`
-                : buyConfig
-                ? `$${selectedPrice} (${buyConfig.coinsPerDollar} coins/$)`
-                : ""
+                : priceHelperText
             }
             inputProps={{ min: MIN_COIN_PURCHASE_AMOUNT }}
           />
@@ -401,7 +445,11 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                         key={currency.code}
                         variant={nowPaymentsCurrency === currency.code ? "contained" : "outlined"}
                         onClick={() => generateCryptoPayment(currency.code)}
-                        disabled={!isCoinAmountValid || isProcessingPurchase}
+                        disabled={
+                          !isCoinAmountValid ||
+                          isProcessingPurchase ||
+                          isBelowCryptoMinimumPaymentAmount(currency.code)
+                        }
                         size="small"
                         startIcon={
                           currency.icon ? (
@@ -448,6 +496,43 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                     ? "Coins will be added automatically once the payment is confirmed."
                     : "Select a currency above to generate payment details."}
                 </Typography>
+                {!nowPaymentsPaymentId &&
+                  cryptoMinimumPaymentAmounts.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          alignItems: "center",
+                          display: "flex",
+                          gap: 0.75,
+                          opacity: 0.75,
+                          mb: 0.75,
+                        }}
+                      >
+                        <i className="fas fa-exclamation-triangle" />
+                        Minimum payment amounts:
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gap: 0.75,
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(140px, 1fr))",
+                        }}
+                      >
+                        {cryptoMinimumPaymentAmounts.map((amount) => (
+                          <Typography
+                            key={amount.currency}
+                            variant="caption"
+                            sx={{ opacity: 0.75 }}
+                          >
+                            {String(amount.currency).toUpperCase()} : {" "}
+                            {formatUsdAmount(amount.fiatEquivalent)}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
                 {payAddress && payAmount && (
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" sx={{ mb: 1 }}>

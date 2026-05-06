@@ -108,12 +108,73 @@ function nowPaymentsEnabled(config) {
   return Boolean(config?.active && config?.apiKey && getNowPaymentsCurrencyCodes(config).length > 0);
 }
 
+async function getMinimumPaymentAmount(config, currency) {
+  try {
+    const nowRes = await axios.get(`${config.apiBase}/min-amount`, {
+      params: {
+        currency_from: "usd",
+        currency_to: currency,
+        fiat_equivalent: "usd",
+        is_fixed_rate: true,
+        is_fee_paid_by_user: true,
+      },
+      headers: {
+        "x-api-key": config.apiKey,
+      },
+      timeout: 5000,
+    });
+
+    const data = nowRes.data || {};
+    const minAmount = Number(data.min_amount);
+    const fiatEquivalent = Number(data.fiat_equivalent);
+    const amountUsd = Number.isFinite(fiatEquivalent)
+      ? fiatEquivalent
+      : minAmount;
+
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+
+    return {
+      currency,
+      amount: Number.isFinite(minAmount) ? minAmount : amountUsd,
+      fiatEquivalent: amountUsd,
+    };
+  } catch (e) {
+    logger.warn(
+      `Error fetching NowPayments minimum amount for ${currency}: ${
+        e.response?.data?.message || e.message || e
+      }`
+    );
+    return null;
+  }
+}
+
+async function getMinimumPaymentAmounts(config) {
+  if (!nowPaymentsEnabled(config)) return [];
+
+  const currencies = getNowPaymentsCurrencyCodes(config);
+  const minimumAmounts = await Promise.all(
+    currencies.map((currency) => getMinimumPaymentAmount(config, currency))
+  );
+
+  return minimumAmounts.filter(Boolean);
+}
+
 async function getClientConfig() {
   const config = await getNowPaymentsConfig();
+  const minimumAmounts = await getMinimumPaymentAmounts(config);
+  const requiredMinimumAmount = minimumAmounts.reduce((highest, amount) => {
+    if (!highest || amount.fiatEquivalent > highest.fiatEquivalent) {
+      return amount;
+    }
+
+    return highest;
+  }, null);
 
   return {
     enabled: nowPaymentsEnabled(config),
     currencies: getNowPaymentsCurrencyCodes(config),
+    minimumPaymentAmount: requiredMinimumAmount,
+    minimumPaymentAmounts: minimumAmounts,
   };
 }
 
@@ -313,16 +374,16 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
 
   const supportedCurrencies = getNowPaymentsCurrencyCodes(config);
   const selectedCurrency =
-    supportedCurrencies.find((currency) => currency.code === requestedCurrency) ||
+    supportedCurrencies.find((currency) => currency === requestedCurrency) ||
     supportedCurrencies[0];
-  const payCurrency = selectedCurrency.code;
+  const payCurrency = selectedCurrency;
   const price = amount / config.coinsPerDollar;
   const orderId = `pm:${userId}:${amount}:${shortid.generate()}`;
   
   const payload = {
     price_amount: price,
     price_currency: "usd",
-    pay_currency: requestedCurrency,
+    pay_currency: payCurrency,
     order_id: orderId,
     order_description: `${amount} coins for ${userId}`,
     is_fee_paid_by_user: true,
