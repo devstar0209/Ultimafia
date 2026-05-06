@@ -72,7 +72,10 @@ async function getShopItems() {
   try {
     // Fetch from database, excluding hidden items
     // Use $or to include items that are either explicitly not hidden or don't have the field
-    const dbItems = await models.ShopItem.find({ $or: [{ hidden: false }, { hidden: { $exists: false } }] })
+    const dbItems = await models.ShopItem.find({
+      key: { $ne: "bonusRedHearts" },
+      $or: [{ hidden: false }, { hidden: { $exists: false } }],
+    })
       .sort("sortOrder")
       .lean();
 

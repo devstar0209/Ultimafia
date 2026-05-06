@@ -318,7 +318,7 @@ const violationDefinitions = [
       {
         type: "paragraph",
         content:
-          "If a user must step away, they are expected to notify other users and review the progress of the game upon returning to ensure vital information is not missed. Please note, Insufficient Participation (ISP) is applied more leniently in designated red heart games compared to yellow heart games, but expectations of good faith effort and engagement remain.",
+          "If a user must step away, they are expected to notify other users and review the progress of the game upon returning to ensure vital information is not missed. Insufficient Participation (ISP) may be applied with context, but expectations of good faith effort and engagement remain.",
       },
     ],
     offenses: ["1 hour", "12 hours", "24 hours", "3 months"],

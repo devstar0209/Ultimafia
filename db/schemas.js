@@ -194,7 +194,6 @@ var schemas = {
       customEmotesExtra: { type: Number, default: 0 },
       archivedGames: { type: Number, default: 0 },
       archivedGamesMax: { type: Number, default: 0 },
-      bonusRedHearts: { type: Number, default: 0 },
       vanityUrl: { type: Number, default: 0 },
       profileBackground: { type: Number, default: 0 },
       createFamily: { type: Number, default: 0 },
@@ -205,8 +204,6 @@ var schemas = {
     achievementCount: { type: Number, default: 0 },
     favoriteRoles: { type: [String], default: [] },
     roleIconCredits: { type: [String], default: [] },
-    redHearts: { type: Number, default: 0 },
-    goldHearts: { type: Number, default: 0 },
     kudos: { type: Number, default: 0 },
     karma: { type: Number, default: 0 },
     points: { type: Number, default: 0 },
@@ -265,12 +262,6 @@ var schemas = {
     {
       key: { type: String, index: true, unique: true, default: "default" },
       registerCoinsReward: { type: Number, default: 0 },
-      // Currency Settings
-      initialRedHeartCapacity: { type: Number, default: 15 },
-      initialGoldHeartCapacity: { type: Number, default: 0 },
-      maxBonusRedHearts: { type: Number, default: 5 },
-      redHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
-      goldHeartRefreshIntervalMillis: { type: Number, default: 82800000 },
       coinsPerDollar: { type: Number, default: 100 },
       // Ranked/Competitive Settings
       minimumGamesForRanked: { type: Number, default: 5 },
@@ -841,11 +832,6 @@ var schemas = {
   }),
   Restart: new mongoose.Schema({
     when: Number,
-  }),
-  HeartRefresh: new mongoose.Schema({
-    userId: { type: String, index: true },
-    when: { type: Number, index: true },
-    type: { type: String, index: true },
   }),
   DailyChallengeRefresh: new mongoose.Schema({
     when: { type: Number, index: true },

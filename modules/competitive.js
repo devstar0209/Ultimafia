@@ -108,9 +108,6 @@ async function progressCompetitiveSeason(currentSeason) {
       }
     );
 
-    console.log(`[progressCompetitive]: Setting everyone's gold hearts to 0`);
-    await models.User.updateMany({}, { $set: { goldHearts: 0 } }).exec();
-    await redis.invalidateAllCachedUsers();
   } else if (!currentRound.completed) {
     const now = new Date();
     const startDate = new Date(currentRound.startDate);
@@ -135,19 +132,12 @@ async function progressCompetitiveSeason(currentSeason) {
           }
         ).exec();
       } else if (currentRound.remainingOpenDays > 0) {
-        // Check to see if the round is still open. If so, progress the day by one and give everyone their gold hearts
+        // Check to see if the round is still open. If so, progress the day by one.
         console.log(
           `[progressCompetitive]: Starting season ${seasonNumber} round ${
             currentRound.number
           } day ${currentRound.currentDay + 1}`
         );
-
-        // Only give out gold hearts on the first seven days of a round
-        if (constants.openDaysPerCompetitiveRound - currentRound.remainingOpenDays < 7) {
-          console.log(`[progressCompetitive]: Giving everyone 4 gold hearts`);
-          await models.User.updateMany({}, { $inc: { goldHearts: 4 } }).exec();
-          await redis.invalidateAllCachedUsers();
-        }
 
         await models.CompetitiveRound.updateOne(
           { _id: ObjectID(currentRound._id) },
@@ -427,9 +417,6 @@ async function endSeason(seasonNumber, gameCatalogKey = "Mafia") {
       .join(", ")}`
   );
 
-  console.log(`[endSeason]: Setting everyone's gold hearts to 0`);
-  await models.User.updateMany({}, { $set: { goldHearts: 0 } }).exec();
-  await redis.invalidateAllCachedUsers();
 }
 
 async function accountCompetitiveRounds() {

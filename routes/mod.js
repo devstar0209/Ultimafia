@@ -1617,7 +1617,6 @@ router.post("/restoreDeletedUser", async (req, res) => {
       customEmotesExtra: 0,
       archivedGames: 0,
       archivedGamesMax: 0,
-      bonusRedHearts: 0,
       vanityUrl: 0,
     };
 
@@ -2455,19 +2454,6 @@ router.post("/refundGame", async (req, res) => {
         // Revert coins
         if (coinsToRevert > 0) {
           incOps.coins = -coinsToRevert;
-        }
-
-        // Revert hearts
-        if (game.ranked) {
-          var itemsOwned = await redis.getUserItemsOwned(userIdToRefund);
-          const redHeartCapacity =
-            constants.initialRedHeartCapacity +
-            (itemsOwned?.bonusRedHearts || 0);
-          updateOps.$set.redHearts = redHeartCapacity;
-        }
-
-        if (game.competitive) {
-          updateOps.$set.goldHearts = constants.initialGoldHeartCapacity;
         }
 
         // Revert fortune/misfortune points

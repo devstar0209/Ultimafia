@@ -285,8 +285,6 @@ module.exports = {
   maxDeckSize: 50, // maxPlayers
   maxNameLengthInDeck: 20, // maxUserNameLength
   maxTrophyNameLength: 40,
-  maxBonusRedHearts: 5,
-
   maxGameMessageLength: 240,
   maxGameTextInputLength: 100,
   maxWillLength: 280,
@@ -348,16 +346,10 @@ module.exports = {
   minMafiaSetupTotal: process.env.NODE_ENV.includes("development") ? 3 : 3,
   captchaThreshold: 0.25,
 
-  initialRedHeartCapacity: 15,
-  initialGoldHeartCapacity: 0,
-
   // X days of open play -> Y days of review -> (14 - X - Y) days of nothing
   openDaysPerCompetitiveRound: 9,
   reviewDaysPerCompetitiveRound: 4,
 
-  // Refresh every 23 hours
-  redHeartRefreshIntervalMillis: 82800000,
-  goldHeartRefreshIntervalMillis: 82800000,
   dailyChallengesRefreshIntervalMillis: 82800000,
 
   // Poke feature

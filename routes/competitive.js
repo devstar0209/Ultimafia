@@ -189,18 +189,12 @@ router.post("/refund", async function (req, res) {
 
     const gameCompletions = await models.CompetitiveGameCompletion.find({ game: game._id });
 
-    console.log(`Refunding competitive completion for game ${gameId}`);
+    console.log(`Invalidating competitive completion for game ${gameId}`);
     for (const gameCompletion of gameCompletions) {
-      console.log(`Refunding one gold heart to user ${gameCompletion.userId}`);
-      await models.User.updateOne(
-        { id: gameCompletion.userId },
-        { $inc: { goldHearts: 1 } }
-      );
       await models.CompetitiveGameCompletion.updateOne(
         { _id: gameCompletion._id },
         { $set: { valid: false, } }
       );
-      await redis.invalidateCachedUser(gameCompletion.userId);
     }
 
     // Create mod action

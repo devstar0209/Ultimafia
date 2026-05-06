@@ -227,28 +227,6 @@ export const GameRow = (props) => {
                   alignItems: "center",
                 }}
               >
-                {props.game.ranked && (
-                  <Tooltip title="ranked">
-                    <i
-                      className="fas fa-heart"
-                      style={{
-                        fontSize: "1rem",
-                        color: "rgb(226, 59, 59)",
-                      }}
-                    />
-                  </Tooltip>
-                )}
-                {props.game.competitive && (
-                  <Tooltip title="competitive">
-                    <i
-                      className="fas fa-heart"
-                      style={{
-                        fontSize: "1rem",
-                        color: "var(--gold-heart-color)",
-                      }}
-                    />
-                  </Tooltip>
-                )}
                 {props.game.anonymousGame && (
                   <Tooltip title="Anonymous game">
                     <i

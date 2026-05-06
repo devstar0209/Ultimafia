@@ -1,10 +1,6 @@
 import React from "react";
 import {
   Typography,
-  Link,
-  List,
-  ListItem,
-  ListItemText,
   Table,
   TableHead,
   TableRow,
@@ -31,36 +27,9 @@ export function CompetitiveFaqContent() {
       </Typography>
       <Typography paragraph>
         Competitive is a tournament-style game mode where players compete in
-        matches to earn fortune points and prestige. Players can join
-        competitive games using gold hearts, which are limited-use tokens that
-        allow entry into these games. Competitive games follow the same rules as
-        ranked games, with the added element of being able to win permanent
-        trophies at the end of a season.
-      </Typography>
-      <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-        <i
-          className="fas fa-heart"
-          style={{
-            fontSize: "24px",
-            color: "var(--gold-heart-color)",
-          }}
-        />
-        <Typography variant="h3">When and how do I get gold hearts?</Typography>
-      </Stack>
-      <Typography paragraph>
-        All players receive 4 gold hearts per day for the first
-        <Typography
-          component="span"
-          sx={{ display: "inline", fontWeight: "bold", fontStyle: "italic" }}
-        >
-          {" seven "}
-        </Typography>
-        days of a round. Each day progresses to the next when UTC/GMT midnight
-        passes. These gold hearts are consumed upon the completion of a
-        competitive game (they are not spent if a player leaves the game). All
-        players will eventually receive a total of 28 gold hearts per round.
-        Your gold hearts roll over between days in a round, but are reset to 0
-        at the start of a new round.
+        matches to earn fortune points and prestige. Competitive games follow
+        the same rules as ranked games, with the added element of being able to
+        win permanent trophies at the end of a season.
       </Typography>
       <Typography variant="h3" gutterBottom>
         How are rounds structured?
@@ -88,7 +57,7 @@ export function CompetitiveFaqContent() {
           mb: 0.5,
         }}
       >
-        <img src={POINTS_ICON} />
+        <img src={POINTS_ICON} alt="Fortune" />
         <Typography variant="h3">What are fortune points?</Typography>
       </Stack>
       <Typography paragraph>
@@ -121,7 +90,7 @@ export function CompetitiveFaqContent() {
           mb: 0.5,
         }}
       >
-        <img src={PRESTIGE_ICON} />
+        <img src={PRESTIGE_ICON} alt="Prestige" />
         <Typography variant="h3" gutterBottom>
           How many prestige points do I earn if I place in a round?
         </Typography>
