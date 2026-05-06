@@ -2161,13 +2161,13 @@ router.post("/settings/payment-methods/:provider", async function (req, res) {
       updateData.apiKey = apiKey;
     }
     if (test_apiKey != "***") {
-      updateData.apiKey = test_apiKey;
+      updateData.test_apiKey = test_apiKey;
     }
     if (ipnSecretKey != "***") {
       updateData.ipnSecretKey = ipnSecretKey;
     }
     if (test_ipnSecretKey != "***") {
-      updateData.ipnSecretKey = test_ipnSecretKey;
+      updateData.test_ipnSecretKey = test_ipnSecretKey;
     }
 
     const paymentMethod = await models.PaymentMethod.findOneAndUpdate(
