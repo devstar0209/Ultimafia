@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Avatar } from "./User";
-import { useNow } from "../../hooks/useNow";
 import { useIsPhoneDevice } from "../../hooks/useIsPhoneDevice";
 import {
   Divider,
   Stack,
-  Tooltip,
   Typography,
   Badge,
   Box,
@@ -16,7 +14,6 @@ import {
 import NavDropdown from "../../components/NavDropdown";
 import BuyCoinsModal from "../../components/BuyCoinsModal";
 import TopUpModal from "../../components/TopUpModal";
-import { useErrorAlert } from "components/Alerts";
 import { SiteInfoContext } from "../../Contexts";
 
 import "css/main.css";
@@ -27,11 +24,9 @@ export default function UserNavSection({
   user,
   useUnreadNotifications,
 }) {
-  const now = useNow(200);
   const navigate = useNavigate();
   const isMobile = useIsPhoneDevice();
   const unreadCount = useUnreadNotifications();
-  const errorAlert = useErrorAlert();
   const [userFamily, setUserFamily] = useState(null);
   const siteInfo = useContext(SiteInfoContext);
   const { cacheVal } = siteInfo;
@@ -162,39 +157,6 @@ export default function UserNavSection({
     setTopUpDialogOpen(true);
   }
 
-  function timeToGo(timestamp) {
-    // Utility to add leading zero
-    function z(n) {
-      return (n < 10 ? "0" : "") + n;
-    }
-
-    var diff = timestamp - now;
-    if (diff < 0) diff = 0;
-
-    // Get time components
-    var hours = (diff / 3.6e6) | 0;
-    var mins = ((diff % 3.6e6) / 6e4) | 0;
-    var secs = Math.round((diff % 6e4) / 1e3);
-
-    // Return formatted string
-    return z(hours) + ":" + z(mins) + ":" + z(secs);
-  }
-
-  function getHeartRefreshMessage(user, type) {
-    var timestamp = null;
-
-    if (type === "red") timestamp = user.redHeartRefreshTimestamp;
-    else if (type === "gold") timestamp = user.goldHeartRefreshTimestamp;
-
-    if (timestamp && timestamp > 0) {
-      const timeToGoString = timeToGo(timestamp);
-      //console.log(type, timestamp, timeToGoString, user)
-      return `Your ${type} hearts will replenish in: ${timeToGoString}`;
-    } else {
-      return `Your ${type} hearts are at full capacity. Go play some games!`;
-    }
-  }
-
   return (
     <>
       <Stack
@@ -264,37 +226,6 @@ export default function UserNavSection({
             aria-label="Coins"
             sx={{ fontSize: 18, color: "#f5c542" }}
           />
-        </Stack>
-        <Stack>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1em",
-              columnGap: 0.5,
-              width: "3em",
-              alignItems: "center",
-              textAlign: "right",
-            }}
-          >
-            <Typography variant="body2">
-              {user.redHearts ?? 0}
-            </Typography>
-            <Tooltip title={getHeartRefreshMessage(user, "red")}>
-              <i
-                className="fas fa-heart"
-                style={{ color: "#e23b3b", marginLeft: "auto" }}
-              />
-            </Tooltip>
-            <Typography variant="body2">
-              {user.goldHearts ?? 0}
-            </Typography>
-            <Link to="/fame/competitive">
-              <i
-                className="fas fa-heart"
-                style={{ color: "var(--gold-heart-color)", marginLeft: "auto" }}
-              />
-            </Link>
-          </Box>
         </Stack>
         <Badge badgeContent={unreadCount} color="error" max={99}>
           <NavDropdown

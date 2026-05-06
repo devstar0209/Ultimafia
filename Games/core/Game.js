@@ -71,8 +71,6 @@ module.exports = class Game {
     this.noVeg = options.settings.noVeg;
     this.anonymousGame = options.settings.anonymousGame;
     this.anonymousDeck = options.settings.anonymousDeck;
-    this.heartsChargedAtStart = false;
-    this.heartsRefundedOnIntegrityBreak = false;
     this.coinsChargedAtStart = false;
     this.readyCountdownLength =
       options.settings.readyCountdownLength != null
@@ -801,17 +799,10 @@ module.exports = class Game {
     } else {
       if (this.started && !this.finished && (player.alive || (this.graveyardParticipation == true && !player.exorcised) || (this.type == "Mafia" && player.requiresGraveyardParticipation()))) {
         this.broadcast("audio", "veg");
-        const wasRanked = this.ranked;
-        const wasCompetitive = this.competitive;
         this.makeUnranked();
         this.makeUncompetitive();
 
         if (this.breakIntegrity()) {
-          await this.refundHeartsForIntegrityBreak(
-            player,
-            wasRanked,
-            wasCompetitive
-          );
           if (!player.isBot) {
             const userId = player.userId || player.user.id;
             this.penalizePlayerForLeaving(userId);
@@ -855,13 +846,10 @@ module.exports = class Game {
     if (player.hasEffect("Unveggable")) return;
     if (player.left) return;
     this.broadcast("audio", "veg");
-    const wasRanked = this.ranked;
-    const wasCompetitive = this.competitive;
     this.makeUnranked();
     this.makeUncompetitive();
 
     if (this.breakIntegrity()) {
-      await this.refundHeartsForIntegrityBreak(player, wasRanked, wasCompetitive);
       if (!player.isBot) {
         const userId = player.userId || player.user.id;
         this.penalizePlayerForLeaving(userId);
@@ -913,31 +901,6 @@ module.exports = class Game {
     }
 
     return hadIntegrity;
-  }
-
-  async refundHeartsForIntegrityBreak(excludedPlayer, wasRanked, wasCompetitive) {
-    if (!this.heartsChargedAtStart) return;
-    if (this.heartsRefundedOnIntegrityBreak) return;
-    if (!wasRanked && !wasCompetitive) return;
-
-    this.heartsRefundedOnIntegrityBreak = true;
-
-    for (let player of this.players) {
-      if (!player || player.left || player.isBot) continue;
-      if (excludedPlayer && player.id === excludedPlayer.id) continue;
-
-      const userId = player.userId || player.user.id;
-      await models.User.updateOne(
-        { id: userId },
-        {
-          $inc: {
-            redHearts: wasRanked ? 1 : 0,
-            goldHearts: wasCompetitive ? 1 : 0,
-          },
-        }
-      ).exec();
-      await redis.cacheUserInfo(userId, true);
-    }
   }
 
   makeUnranked() {
@@ -1359,26 +1322,6 @@ module.exports = class Game {
     // Record start time
     this.startTime = Date.now();
     this.clearTimer("pregameWait");
-
-    // Charge hearts at game start so players cannot queue extra games before deduction.
-    if (this.ranked || this.competitive) {
-      for (let player of this.players) {
-        if (!player.isBot) {
-          const userId = player.userId || player.user.id;
-          await models.User.updateOne(
-            { id: userId },
-            {
-              $inc: {
-                redHearts: this.ranked ? -1 : 0,
-                goldHearts: this.competitive ? -1 : 0,
-              },
-            }
-          ).exec();
-          await redis.cacheUserInfo(userId, true);
-        }
-      }
-      this.heartsChargedAtStart = true;
-    }
 
     // Tell clients the game started, assign roles, and move to the next state
     this.assignRoles();
@@ -4027,21 +3970,6 @@ module.exports = class Game {
               },
             }
           ).exec();
-        }
-
-        if (this.ranked && !player.isBot) {
-          let heartRefresh = await models.HeartRefresh.findOne({
-            userId: player.user.id,
-            type: "red",
-          }).select("_id");
-          if (!heartRefresh) {
-            heartRefresh = new models.HeartRefresh({
-              userId: player.user.id,
-              when: Date.now() + constants.redHeartRefreshIntervalMillis,
-              type: "red",
-            });
-            await heartRefresh.save();
-          }
         }
 
         let dailyRefresh = await models.DailyChallengeRefresh.findOne().select(

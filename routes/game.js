@@ -17,10 +17,6 @@ async function userCanPlayCompetitive(userId, minimumPoints = constants.minimumP
     return `You cannot play competitive games until you've earned ${minimumPoints} fortune.`;
   }
 
-  if (!user || user.goldHearts <= 0) {
-    return "You cannot play competitive games because your Gold Hearts are depleted.";
-  }
-
   return null;
 }
 
@@ -338,13 +334,6 @@ router.get("/:id/connect", async function (req, res) {
           return;
         }
 
-        if (!user || user.redHearts <= 0) {
-          res.status(400);
-          res.send(
-            "You cannot play ranked games because your Red Hearts are depleted."
-          );
-          return;
-        }
       }
 
       // Competitive checks
@@ -816,13 +805,6 @@ router.post("/host", async function (req, res) {
         return;
       }
 
-      if (user && user.redHearts <= 0) {
-        res.status(400);
-        res.send(
-          "You cannot play ranked games because your Red Hearts are depleted."
-        );
-        return;
-      }
     }
 
     if (userId && req.body.competitive) {

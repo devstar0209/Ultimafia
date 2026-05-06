@@ -129,15 +129,6 @@ const shopItemsData = [
     sortOrder: 12,
   },
   {
-    name: "Bonus Red Heart Capacity",
-    desc: "Increases the amount of red hearts that you can hold.",
-    key: "bonusRedHearts",
-    hidden: false,
-    price: 10,
-    limit: null, // Note: Original had constants.maxBonusRedHearts - update if needed
-    sortOrder: 13,
-  },
-  {
     name: "Square",
     desc: "Unlock the ability to become a square (currently profile only)",
     key: "avatarShape",

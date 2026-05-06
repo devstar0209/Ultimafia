@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import {
   Typography,
-  CircularProgress,
   Stack,
   Grid2,
   Divider,
@@ -268,10 +267,9 @@ function Overview({ roundInfo, seasonInfo }) {
                     </Typography>
                     <Tooltip title="games played">
                       <i
-                        className="fas fa-heart"
+                        className="fas fa-gamepad"
                         style={{
                           fontSize: "1em",
-                          color: "var(--gold-heart-color)",
                         }}
                       />
                     </Tooltip>

@@ -10,7 +10,6 @@ import {
   CircularProgress,
 } from "@mui/material";
 
-import ActionCard from "../../components/admin/ActionCard";
 import ImageUploadField from "../../components/admin/ImageUploadField";
 import CarouselBannersUploadField from "../../components/admin/CarouselBannersUploadField";
 import PageFeedback from "../../components/admin/PageFeedback";
@@ -40,15 +39,6 @@ export default function GeneralSettingsPage() {
   const [registerCoinsReward, setRegisterCoinsReward] = useState(0);
   const [coinsPerDollar, setCoinsPerDollar] = useState(100);
 
-  // Red Hearts
-  const [initialRedHeartCapacity, setInitialRedHeartCapacity] = useState(15);
-  const [maxBonusRedHearts, setMaxBonusRedHearts] = useState(5);
-  const [redHeartRefreshIntervalMillis, setRedHeartRefreshIntervalMillis] = useState(82800000);
-
-  // Gold Hearts
-  const [initialGoldHeartCapacity, setInitialGoldHeartCapacity] = useState(0);
-  const [goldHeartRefreshIntervalMillis, setGoldHeartRefreshIntervalMillis] = useState(82800000);
-
   // Ranked/Competitive
   const [minimumGamesForRanked, setMinimumGamesForRanked] = useState(5);
   const [minimumPointsForCompetitive, setMinimumPointsForCompetitive] = useState(150);
@@ -66,11 +56,6 @@ export default function GeneralSettingsPage() {
     if (data?.defaultSettings) {
       setRegisterCoinsReward(data.defaultSettings.registerCoinsReward || 0);
       setCoinsPerDollar(data.defaultSettings.coinsPerDollar || 100);
-      setInitialRedHeartCapacity(data.defaultSettings.initialRedHeartCapacity || 15);
-      setMaxBonusRedHearts(data.defaultSettings.maxBonusRedHearts || 5);
-      setRedHeartRefreshIntervalMillis(data.defaultSettings.redHeartRefreshIntervalMillis || 82800000);
-      setInitialGoldHeartCapacity(data.defaultSettings.initialGoldHeartCapacity || 0);
-      setGoldHeartRefreshIntervalMillis(data.defaultSettings.goldHeartRefreshIntervalMillis || 82800000);
       setMinimumGamesForRanked(data.defaultSettings.minimumGamesForRanked || 5);
       setMinimumPointsForCompetitive(data.defaultSettings.minimumPointsForCompetitive || 150);
       setPointsNominalAmount(data.defaultSettings.pointsNominalAmount || 60);
@@ -132,11 +117,6 @@ export default function GeneralSettingsPage() {
       await updateAdminDefaultSettings({
         registerCoinsReward: Number(registerCoinsReward || 0),
         coinsPerDollar: Number(coinsPerDollar || 100),
-        initialRedHeartCapacity: Number(initialRedHeartCapacity || 15),
-        maxBonusRedHearts: Number(maxBonusRedHearts || 5),
-        redHeartRefreshIntervalMillis: Number(redHeartRefreshIntervalMillis || 82800000),
-        initialGoldHeartCapacity: Number(initialGoldHeartCapacity || 0),
-        goldHeartRefreshIntervalMillis: Number(goldHeartRefreshIntervalMillis || 82800000),
         minimumGamesForRanked: Number(minimumGamesForRanked || 5),
         minimumPointsForCompetitive: Number(minimumPointsForCompetitive || 150),
         pointsNominalAmount: Number(pointsNominalAmount || 60),
@@ -280,66 +260,6 @@ export default function GeneralSettingsPage() {
                   placeholder="100"
                   helperText="Number of coins granted for each dollar spent"
                   inputProps={{ min: 1 }}
-                />
-              </Stack>
-
-              {/* Red Hearts */}
-              <Stack spacing={2}>
-                <Typography variant="h6">❤️ Red Hearts Settings</Typography>
-                <TextField
-                  fullWidth
-                  label="Initial Red Heart Capacity"
-                  type="number"
-                  value={initialRedHeartCapacity}
-                  onChange={(e) => setInitialRedHeartCapacity(e.target.value)}
-                  placeholder="15"
-                  helperText="Base red hearts capacity per user per day"
-                  inputProps={{ min: 0 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Max Bonus Red Hearts"
-                  type="number"
-                  value={maxBonusRedHearts}
-                  onChange={(e) => setMaxBonusRedHearts(e.target.value)}
-                  placeholder="5"
-                  helperText="Maximum purchasable bonus red hearts"
-                  inputProps={{ min: 0 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Red Heart Refresh Interval (ms)"
-                  type="number"
-                  value={redHeartRefreshIntervalMillis}
-                  onChange={(e) => setRedHeartRefreshIntervalMillis(e.target.value)}
-                  placeholder="82800000"
-                  helperText="Time between daily refreshes in milliseconds (82800000 = 23 hours)"
-                  inputProps={{ min: 0 }}
-                />
-              </Stack>
-
-              {/* Gold Hearts */}
-              <Stack spacing={2}>
-                <Typography variant="h6">💛 Gold Hearts Settings</Typography>
-                <TextField
-                  fullWidth
-                  label="Initial Gold Heart Capacity"
-                  type="number"
-                  value={initialGoldHeartCapacity}
-                  onChange={(e) => setInitialGoldHeartCapacity(e.target.value)}
-                  placeholder="0"
-                  helperText="Starting gold hearts for new users"
-                  inputProps={{ min: 0 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Gold Heart Refresh Interval (ms)"
-                  type="number"
-                  value={goldHeartRefreshIntervalMillis}
-                  onChange={(e) => setGoldHeartRefreshIntervalMillis(e.target.value)}
-                  placeholder="82800000"
-                  helperText="Refresh interval in milliseconds"
-                  inputProps={{ min: 0 }}
                 />
               </Stack>
 
