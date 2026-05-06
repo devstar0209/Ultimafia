@@ -18,6 +18,8 @@ const NOWPAYMENTS_CONFIG_FIELDS = [
   "defaultCurrencies",
   "ipnSecretKey",
 ];
+const NOWPAYMENTS_BALANCE_ORDER_PREFIX = "topup";
+const NOWPAYMENTS_COIN_ORDER_PREFIX = "pm";
 
 function normalizeNowPaymentsApiBase(baseUrl) {
   const trimmed = String(baseUrl || DEFAULT_NOWPAYMENTS_API_BASE)
@@ -220,7 +222,13 @@ function parseNowPaymentsOrder(payment, expectedUserId) {
 
   const orderId = String(payment.order_id || "");
   const orderParts = orderId.split(":");
-  if (orderParts.length < 4 || orderParts[0] !== "pm") {
+  const orderPrefix = orderParts[0];
+  if (
+    orderParts.length < 4 ||
+    ![NOWPAYMENTS_COIN_ORDER_PREFIX, NOWPAYMENTS_BALANCE_ORDER_PREFIX].includes(
+      orderPrefix
+    )
+  ) {
     const error = new Error("Invalid payment order metadata.");
     error.statusCode = 400;
     throw error;
@@ -238,17 +246,21 @@ function parseNowPaymentsOrder(payment, expectedUserId) {
     paymentId,
     userId,
     amount,
+    purchaseType:
+      orderPrefix === NOWPAYMENTS_BALANCE_ORDER_PREFIX
+        ? "balanceDollar"
+        : "coins",
     paymentStatus: String(payment.payment_status || "").toLowerCase(),
   };
 }
 
 async function syncNowPaymentsPurchase(payment, expectedUserId) {
-  const { paymentId, userId, amount, paymentStatus } = parseNowPaymentsOrder(
-    payment,
-    expectedUserId
-  );
+  const { paymentId, userId, amount, purchaseType, paymentStatus } =
+    parseNowPaymentsOrder(payment, expectedUserId);
   const config = await getNowPaymentsConfig();
-  const amountUsd = amount / config.coinsPerDollar;
+  const isBalanceTopUp = purchaseType === "balanceDollar";
+  const coins = isBalanceTopUp ? 0 : amount;
+  const amountUsd = isBalanceTopUp ? amount : amount / config.coinsPerDollar;
 
   await models.CoinPurchase.updateOne(
     { provider: "nowpayments", externalId: paymentId },
@@ -258,8 +270,9 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
         userId,
         provider: "nowpayments",
         externalId: paymentId,
-        amount,
-        coins: amount,
+        purchaseType,
+        amount: coins,
+        coins,
         amountUsd,
         status: "pending",
         createdAt: Date.now(),
@@ -276,7 +289,7 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
     provider: "nowpayments",
     externalId: paymentId,
   })
-    .select("status userId")
+    .select("status userId purchaseType")
     .lean()
     .exec();
 
@@ -289,18 +302,24 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
   if (!NOWPAYMENTS_SUCCESS_STATUSES.has(paymentStatus)) {
     return {
       success: false,
+      purchaseType,
       status: paymentStatus || "unknown",
-      message: `Payment status is '${paymentStatus || "unknown"}'. Coins will be added once confirmed.`,
+      message: `Payment status is '${paymentStatus || "unknown"}'. Balance will be updated once confirmed.`,
     };
   }
 
   if (existing && existing.status === "credited") {
-    const updatedUser = await models.User.findOne({ id: userId }).select("coins");
+    const updatedUser = await models.User.findOne({ id: userId }).select(
+      "coins balanceDollar"
+    );
     return {
       success: true,
+      purchaseType,
       alreadyCredited: true,
       coinsAdded: 0,
       balance: updatedUser?.coins || 0,
+      balanceDollarAdded: 0,
+      balanceDollar: updatedUser?.balanceDollar || 0,
     };
   }
 
@@ -313,13 +332,14 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
     {
       $set: {
         userId,
-        amount,
-        coins: amount,
+        amount: coins,
+        coins,
         amountUsd,
         status: "credited",
         rawStatus: paymentStatus,
         raw: payment,
         creditedAt: Date.now(),
+        purchaseType,
       },
     }
   ).exec();
@@ -331,17 +351,25 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
     0;
 
   if (!changed) {
-    const updatedUser = await models.User.findOne({ id: userId }).select("coins");
+    const updatedUser = await models.User.findOne({ id: userId }).select(
+      "coins balanceDollar"
+    );
     return {
       success: true,
+      purchaseType,
       alreadyCredited: true,
       coinsAdded: 0,
       balance: updatedUser?.coins || 0,
+      balanceDollarAdded: 0,
+      balanceDollar: updatedUser?.balanceDollar || 0,
     };
   }
 
   try {
-    await models.User.updateOne({ id: userId }, { $inc: { coins: amount } }).exec();
+    await models.User.updateOne(
+      { id: userId },
+      { $inc: isBalanceTopUp ? { balanceDollar: amountUsd } : { coins } }
+    ).exec();
     await redis.cacheUserInfo(userId, true);
   } catch (creditErr) {
     await models.CoinPurchase.updateOne(
@@ -356,10 +384,23 @@ async function syncNowPaymentsPurchase(payment, expectedUserId) {
     throw creditErr;
   }
 
-  const updatedUser = await models.User.findOne({ id: userId }).select("coins");
+  const updatedUser = await models.User.findOne({ id: userId }).select(
+    "coins balanceDollar"
+  );
+
+  if (isBalanceTopUp) {
+    return {
+      success: true,
+      purchaseType,
+      balanceDollarAdded: amountUsd,
+      balanceDollar: updatedUser?.balanceDollar || 0,
+    };
+  }
+
   return {
     success: true,
-    coinsAdded: amount,
+    purchaseType,
+    coinsAdded: coins,
     balance: updatedUser?.coins || 0,
   };
 }
@@ -427,6 +468,86 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
   };
 }
 
+function normalizeDollarAmount(amount) {
+  const number = Number(amount);
+  if (!Number.isFinite(number)) return null;
+
+  return Math.round(number * 100) / 100;
+}
+
+async function createBalanceTopUpPayment(userId, amountUsd, requestedCurrency) {
+  const config = await getNowPaymentsConfig();
+  if (!nowPaymentsEnabled(config)) {
+    const error = new Error("NowPayments is currently unavailable.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const normalizedAmount = normalizeDollarAmount(amountUsd);
+  if (
+    !Number.isFinite(normalizedAmount) ||
+    normalizedAmount < 1 ||
+    normalizedAmount > 500 ||
+    normalizedAmount !== Number(amountUsd)
+  ) {
+    const error = new Error("Invalid top up amount (min $1, max $500).");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const supportedCurrencies = getNowPaymentsCurrencyCodes(config);
+  const selectedCurrency =
+    supportedCurrencies.find((currency) => currency === requestedCurrency) ||
+    supportedCurrencies[0];
+  const payCurrency = selectedCurrency;
+  const orderId = `${NOWPAYMENTS_BALANCE_ORDER_PREFIX}:${userId}:${normalizedAmount}:${shortid.generate()}`;
+
+  const payload = {
+    price_amount: normalizedAmount,
+    price_currency: "usd",
+    pay_currency: payCurrency,
+    order_id: orderId,
+    order_description: `$${normalizedAmount.toFixed(2)} balance top up for ${userId}`,
+    is_fee_paid_by_user: true,
+    is_fixed_rate: true,
+  };
+
+  try {
+    var nowRes = await axios.post(`${config.apiBase}/payment`, payload, {
+      headers: {
+        "x-api-key": config.apiKey,
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (e) {
+    logger.error("Error creating NowPayments top up:", e.response?.data || e.message || e);
+    const error = new Error(e.message || e);
+    error.statusCode = e.response?.status || 500;
+    throw error;
+  }
+
+  const payment = nowRes.data || {};
+  const paymentId = String(payment.payment_id || "");
+  const payAddress = String(payment.pay_address || "");
+  const payAmount = payment.pay_amount || "";
+  if (!paymentId || !payAddress || !payAmount) {
+    const error = new Error("NowPayments did not return payment details.");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  await syncNowPaymentsPurchase(payment, userId);
+
+  return {
+    paymentId,
+    status: payment.payment_status || "waiting",
+    invoiceUrl: payment.invoice_url || "",
+    payAddress,
+    payAmount,
+    payCurrency: payment.pay_currency || payCurrency,
+  };
+}
+
 async function getCoinPaymentStatus(userId, paymentId) {
   const normalizedPaymentId = String(paymentId || "").trim();
   if (!normalizedPaymentId) {
@@ -440,7 +561,7 @@ async function getCoinPaymentStatus(userId, paymentId) {
     externalId: normalizedPaymentId,
     userId,
   })
-    .select("raw rawStatus status")
+    .select("raw rawStatus status purchaseType")
     .lean()
     .exec();
 
@@ -451,12 +572,17 @@ async function getCoinPaymentStatus(userId, paymentId) {
   }
 
   if (existing.status === "credited") {
-    const updatedUser = await models.User.findOne({ id: userId }).select("coins");
+    const updatedUser = await models.User.findOne({ id: userId }).select(
+      "coins balanceDollar"
+    );
     return {
       success: true,
+      purchaseType: existing.purchaseType || "coins",
       alreadyCredited: true,
       coinsAdded: 0,
       balance: updatedUser?.coins || 0,
+      balanceDollarAdded: 0,
+      balanceDollar: updatedUser?.balanceDollar || 0,
       status: existing.rawStatus || "finished",
     };
   }
@@ -527,5 +653,6 @@ router.post("/", async function (req, res) {
 
 module.exports = router;
 module.exports.createCoinPayment = createCoinPayment;
+module.exports.createBalanceTopUpPayment = createBalanceTopUpPayment;
 module.exports.getCoinPaymentStatus = getCoinPaymentStatus;
 module.exports.getClientConfig = getClientConfig;

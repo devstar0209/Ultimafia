@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import NavDropdown from "../../components/NavDropdown";
 import BuyCoinsModal from "../../components/BuyCoinsModal";
+import TopUpModal from "../../components/TopUpModal";
 import { useErrorAlert } from "components/Alerts";
 import { SiteInfoContext } from "../../Contexts";
 
@@ -35,6 +36,7 @@ export default function UserNavSection({
   const siteInfo = useContext(SiteInfoContext);
   const { cacheVal } = siteInfo;
   const [buyCoinsDialogOpen, setBuyCoinsDialogOpen] = useState(false);
+  const [topUpDialogOpen, setTopUpDialogOpen] = useState(false);
   const isMountedRef = useRef(false);
 
   useEffect(() => {
@@ -148,10 +150,17 @@ export default function UserNavSection({
     setBuyCoinsDialogOpen(false);
   }
 
-function openBuyCoinsDialog() {
-  // don't change here
-  setBuyCoinsDialogOpen(true);
-}
+  function openBuyCoinsDialog() {
+    setBuyCoinsDialogOpen(true);
+  }
+
+  function closeTopUpDialog() {
+    setTopUpDialogOpen(false);
+  }
+
+  function openTopUpDialog() {
+    setTopUpDialogOpen(true);
+  }
 
   function timeToGo(timestamp) {
     // Utility to add leading zero
@@ -199,6 +208,17 @@ function openBuyCoinsDialog() {
         }}
       >
         <Button
+          onClick={openTopUpDialog}
+          size="small"
+          sx={{
+            minWidth: 0,
+            px: 1,
+            py: 0.25,
+          }}
+        >
+          Top Up
+        </Button>
+        <Button
           onClick={openBuyCoinsDialog}
           size="small"
           sx={{
@@ -209,6 +229,24 @@ function openBuyCoinsDialog() {
         >
           {isMobile ? "Buy" : "Buy Coins"}
         </Button>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: "center",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <Typography variant="body2">
+            ${Number(user.balanceDollar || 0).toFixed(2)}
+          </Typography>
+          <Box
+            component="i"
+            className="fas fa-wallet"
+            aria-label="Dollar balance"
+            sx={{ fontSize: 18, color: "success.main" }}
+          />
+        </Stack>
         <Stack
           direction="row"
           spacing={0.5}
@@ -265,6 +303,7 @@ function openBuyCoinsDialog() {
           />
         </Badge>
       </Stack>
+      <TopUpModal open={topUpDialogOpen} onClose={closeTopUpDialog} user={user} />
       <BuyCoinsModal open={buyCoinsDialogOpen} onClose={closeBuyCoinsDialog} user={user} />
     </>
   );

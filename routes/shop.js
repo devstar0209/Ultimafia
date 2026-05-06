@@ -4,6 +4,7 @@ const routeUtils = require("./utils");
 const redis = require("../modules/redis");
 const models = require("../db/models");
 const constants = require("../data/constants");
+const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
 const shortid = require("shortid");
 const router = express.Router();
@@ -107,16 +108,40 @@ function buildAvatarImageUrl(avatarKey) {
   return `/uploads/store/avatars/${avatarKey}.webp`;
 }
 
+function isDollarBalanceItem(item = {}) {
+  return String(item.key || "").startsWith("avatar-");
+}
+
+function roundDollarAmount(amount) {
+  return Math.round(Number(amount || 0) * 100) / 100;
+}
+
+async function getItemDollarPrice(item) {
+  const settings = await defaultSettings.getSettings(models);
+  const coinsPerDollar = Number(settings.coinsPerDollar || 100);
+  const divisor = coinsPerDollar > 0 ? coinsPerDollar : 100;
+
+  return roundDollarAmount(Number(item.price || 0) / divisor);
+}
+
 router.get("/info", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     var userId = await routeUtils.verifyLoggedIn(req);
     var user = await models.User.findOne({ id: userId }).select(
-      "coins itemsOwned settings"
+      "coins balanceDollar itemsOwned settings"
     );
     
     const shopItems = await getShopItems();
-    const avatarItems = shopItems
+    const shopItemsWithPricing = await Promise.all(
+      shopItems.map(async (item) => ({
+        ...item,
+        priceDollar: isDollarBalanceItem(item)
+          ? await getItemDollarPrice(item)
+          : null,
+      }))
+    );
+    const avatarItems = shopItemsWithPricing
       .filter((item) => String(item.key || "").startsWith("avatar-"))
       .map((item) => {
         const key = String(item.key || "");
@@ -125,6 +150,7 @@ router.get("/info", async function (req, res) {
           key,
           name: item.name,
           price: Number(item.price || 0),
+          priceDollar: item.priceDollar,
           description: item.desc || "",
           owned: Number(user?.itemsOwned?.[key] || 0) > 0,
           available: fs.existsSync(absolutePath),
@@ -133,10 +159,11 @@ router.get("/info", async function (req, res) {
       });
 
     res.send({
-      shopItems: shopItems,
+      shopItems: shopItemsWithPricing,
       avatarItems,
       equippedAvatarKey: String(user?.settings?.equippedAvatarKey || ""),
       balance: Number(user?.coins || 0),
+      balanceDollar: Number(user?.balanceDollar || 0),
     });
   } catch (e) {
     logger.error(e);
@@ -162,12 +189,24 @@ router.post(
       var item = shopItems[itemIndex];
 
       var user = await models.User.findOne({ id: userId }).select(
-        "coins itemsOwned"
+        "coins balanceDollar itemsOwned"
       );
+      const usesDollarBalance = isDollarBalanceItem(item);
+      const dollarPrice = usesDollarBalance
+        ? await getItemDollarPrice(item)
+        : 0;
 
-      if (user.coins < item.price) {
+      if (
+        usesDollarBalance
+          ? Number(user.balanceDollar || 0) < dollarPrice
+          : user.coins < item.price
+      ) {
         res.status(500);
-        res.send("You do not have enough coins to purchase this.");
+        res.send(
+          usesDollarBalance
+            ? "You do not have enough dollar balance to purchase this."
+            : "You do not have enough coins to purchase this."
+        );
         return;
       }
 
@@ -190,8 +229,9 @@ router.post(
 
       let userChanges = {
         [`itemsOwned.${item.key}`]: 1,
-        coins: -1 * item.price,
       };
+      userChanges[usesDollarBalance ? "balanceDollar" : "coins"] =
+        -1 * (usesDollarBalance ? dollarPrice : item.price);
 
       for (let k in item.propagateItemUpdates) {
         let change = item.propagateItemUpdates[k];
@@ -209,7 +249,13 @@ router.post(
 
       await redis.cacheUserInfo(userId, true);
 
-      res.send(context || {});
+      res.send({
+        ...(context || {}),
+        balanceType: usesDollarBalance ? "balanceDollar" : "coins",
+        balance: Number(user.coins || 0) - (usesDollarBalance ? 0 : item.price),
+        balanceDollar:
+          Number(user.balanceDollar || 0) - (usesDollarBalance ? dollarPrice : 0),
+      });
     } catch (e) {
       logger.error(e);
       res.status(500);

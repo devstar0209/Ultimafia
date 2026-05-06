@@ -40,12 +40,24 @@ function parseGameId(input) {
   return "";
 }
 
+const formatUsdAmount = (amount) =>
+  Number(amount || 0).toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const isDollarBalanceItem = (item = {}) =>
+  String(item.key || "").startsWith("avatar-");
+
 export default function Shop(props) {
   const [shopInfo, setShopInfo] = useState({
     shopItems: [],
     avatarItems: [],
     equippedAvatarKey: "",
     balance: 0,
+    balanceDollar: 0,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -130,24 +142,26 @@ export default function Shop(props) {
 
   function onBuyItem(index) {
     const item = shopInfo.shopItems[index];
+    const usesDollarBalance = isDollarBalanceItem(item);
+    const itemPrice = usesDollarBalance
+      ? formatUsdAmount(item.priceDollar)
+      : `${item.price} coins`;
     const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${item.name} for ${item.price} coins?`
+      `Are you sure you wish to buy ${item.name} for ${itemPrice}?`
     );
 
     if (!shouldBuy) return;
 
     axios
       .post("/api/shop/spendCoins", { item: index })
-      .then(() => {
+      .then((res) => {
         siteInfo.showAlert("Item purchased.", "success");
 
-        setShopInfo(
-          update(shopInfo, {
-            balance: {
-              $set: shopInfo.balance - item.price,
-            },
-          })
-        );
+        setShopInfo((prev) => ({
+          ...prev,
+          balance: res.data.balance,
+          balanceDollar: res.data.balanceDollar,
+        }));
 
         let itemsOwnedChanges = {
           [item.key]: {
@@ -163,11 +177,15 @@ export default function Shop(props) {
         }
 
         const nextOwnedCount = (user.itemsOwned[item.key] || 0) + 1;
-        user.set(
-          update(user.state, {
-            itemsOwned: itemsOwnedChanges,
-          })
-        );
+        const userUpdate = {
+          itemsOwned: itemsOwnedChanges,
+        };
+        if (usesDollarBalance) {
+          userUpdate.balanceDollar = { $set: res.data.balanceDollar };
+        } else {
+          userUpdate.coins = { $set: res.data.balance };
+        }
+        user.set(update(user.state, userUpdate));
 
         if (item.key.startsWith("avatar-") && nextOwnedCount > 0) {
           return axios.post("/api/user/avatar/equip", { avatarKey: item.key });
@@ -215,12 +233,19 @@ export default function Shop(props) {
           justifyContent: "center",
         }}
       >
-        <Typography>{item.price}</Typography>
+        <Typography>
+          {isDollarBalanceItem(item)
+            ? formatUsdAmount(item.priceDollar)
+            : item.price}
+        </Typography>
         <Box
           component="i"
-          className="fas fa-coins"
-          aria-label="Coins"
-          sx={{ fontSize: 20, color: "#f5c542" }}
+          className={isDollarBalanceItem(item) ? "fas fa-wallet" : "fas fa-coins"}
+          aria-label={isDollarBalanceItem(item) ? "Dollar balance" : "Coins"}
+          sx={{
+            fontSize: 20,
+            color: isDollarBalanceItem(item) ? "success.main" : "#f5c542",
+          }}
         />
       </Stack>
     );
@@ -337,6 +362,24 @@ export default function Shop(props) {
             className="fas fa-coins"
             aria-label="Coins"
             sx={{ fontSize: 20, color: "#f5c542" }}
+          />
+        </Stack>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            justifyContent: "center",
+            mt: 1,
+          }}
+        >
+          <Typography variant="h3" className="balance">
+            Dollar balance: {formatUsdAmount(shopInfo.balanceDollar)}
+          </Typography>
+          <Box
+            component="i"
+            className="fas fa-wallet"
+            aria-label="Dollar balance"
+            sx={{ fontSize: 20, color: "success.main" }}
           />
         </Stack>
       </Paper>
@@ -562,7 +605,11 @@ export default function Shop(props) {
                   setStampDialogOpen(false);
                   setShopInfo((prev) => ({
                     ...prev,
-                    balance: prev.balance - stampItem.price,
+                    balance: res.data.balance,
+                  }));
+                  user.set((prev) => ({
+                    ...prev,
+                    coins: res.data.balance,
                   }));
                 })
                 .catch(errorAlert);
