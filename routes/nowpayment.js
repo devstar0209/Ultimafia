@@ -94,16 +94,6 @@ async function getNowPaymentsConfig() {
   };
 }
 
-function getNowPaymentsCurrencyLabel(code) {
-  const normalized = String(code || "").trim().toLowerCase();
-  if (!normalized) return "";
-  if (normalized === "btc") return "BTC";
-  if (normalized === "eth") return "ETH";
-  if (normalized.startsWith("usdt")) return "USDT";
-  if (normalized.startsWith("usdc")) return "USDC";
-  return normalized.toUpperCase();
-}
-
 function getNowPaymentsCurrencyCodes(config) {
   const raw = config?.defaultCurrencies;
   if (!raw) return [];
@@ -114,25 +104,8 @@ function getNowPaymentsCurrencyCodes(config) {
     .filter((c) => c.length > 0);
 }
 
-function getNowPaymentsCurrencies(config) {
-  const seenLabels = new Set();
-
-  return getNowPaymentsCurrencyCodes(config)
-    .map((code) => ({
-      code,
-      label: getNowPaymentsCurrencyLabel(code),
-    }))
-    .filter(
-      ({ label }) =>
-        label &&
-        !seenLabels.has(label) &&
-        seenLabels.add(label)
-    )
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
-
 function nowPaymentsEnabled(config) {
-  return Boolean(config?.active && config?.apiKey && getNowPaymentsCurrencies(config).length > 0);
+  return Boolean(config?.active && config?.apiKey && getNowPaymentsCurrencyCodes(config).length > 0);
 }
 
 async function getClientConfig() {
@@ -140,7 +113,7 @@ async function getClientConfig() {
 
   return {
     enabled: nowPaymentsEnabled(config),
-    currencies: getNowPaymentsCurrencies(config),
+    currencies: getNowPaymentsCurrencyCodes(config),
   };
 }
 
@@ -197,17 +170,6 @@ function parseNowPaymentsOrder(payment, expectedUserId) {
   if (expectedUserId && userId !== expectedUserId) {
     const error = new Error("This payment belongs to a different account.");
     error.statusCode = 403;
-    throw error;
-  }
-
-  if (
-    !Number.isFinite(amount) ||
-    amount < 50 ||
-    amount > 5000 ||
-    amount % 50 !== 0
-  ) {
-    const error = new Error("Invalid amount in payment metadata.");
-    error.statusCode = 400;
     throw error;
   }
 
@@ -349,7 +311,7 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
     throw error;
   }
 
-  const supportedCurrencies = getNowPaymentsCurrencies(config);
+  const supportedCurrencies = getNowPaymentsCurrencyCodes(config);
   const selectedCurrency =
     supportedCurrencies.find((currency) => currency.code === requestedCurrency) ||
     supportedCurrencies[0];
@@ -360,7 +322,7 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
   const payload = {
     price_amount: price,
     price_currency: "usd",
-    pay_currency: payCurrency,
+    pay_currency: requestedCurrency,
     order_id: orderId,
     order_description: `${amount} coins for ${userId}`,
     is_fee_paid_by_user: true,
