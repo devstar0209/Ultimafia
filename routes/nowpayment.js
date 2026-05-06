@@ -427,6 +427,76 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
   };
 }
 
+async function getCoinPaymentStatus(userId, paymentId) {
+  const normalizedPaymentId = String(paymentId || "").trim();
+  if (!normalizedPaymentId) {
+    const error = new Error("Missing payment ID.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existing = await models.CoinPurchase.findOne({
+    provider: "nowpayments",
+    externalId: normalizedPaymentId,
+    userId,
+  })
+    .select("raw rawStatus status")
+    .lean()
+    .exec();
+
+  if (!existing) {
+    const error = new Error("Payment not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (existing.status === "credited") {
+    const updatedUser = await models.User.findOne({ id: userId }).select("coins");
+    return {
+      success: true,
+      alreadyCredited: true,
+      coinsAdded: 0,
+      balance: updatedUser?.coins || 0,
+      status: existing.rawStatus || "finished",
+    };
+  }
+
+  const config = await getNowPaymentsConfig();
+  if (!nowPaymentsEnabled(config)) {
+    const error = new Error("NowPayments is currently unavailable.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  let payment;
+  try {
+    const nowRes = await axios.get(
+      `${config.apiBase}/payment/${encodeURIComponent(normalizedPaymentId)}`,
+      {
+        headers: {
+          "x-api-key": config.apiKey,
+        },
+      }
+    );
+    payment = {
+      ...(existing.raw || {}),
+      ...(nowRes.data || {}),
+    };
+  } catch (e) {
+    logger.error("Error fetching NowPayments payment status:", e.response?.data || e.message || e);
+    const error = new Error(e.message || e);
+    error.statusCode = e.response?.status || 500;
+    throw error;
+  }
+
+  const result = await syncNowPaymentsPurchase(payment, userId);
+
+  return {
+    ...result,
+    status: result.status || String(payment.payment_status || "").toLowerCase(),
+  };
+}
+
 router.post("/", async function (req, res) {
   try {
     const config = await getNowPaymentsConfig();
@@ -457,4 +527,5 @@ router.post("/", async function (req, res) {
 
 module.exports = router;
 module.exports.createCoinPayment = createCoinPayment;
+module.exports.getCoinPaymentStatus = getCoinPaymentStatus;
 module.exports.getClientConfig = getClientConfig;

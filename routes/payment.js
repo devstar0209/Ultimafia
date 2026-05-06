@@ -105,6 +105,23 @@ router.post("/nowpayments/createInvoice", async function (req, res) {
   }
 });
 
+router.get("/nowpayments/status/:paymentId", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    res.send(
+      await nowpayment.getCoinPaymentStatus(
+        userId,
+        req.params.paymentId
+      )
+    );
+  } catch (e) {
+    logger.error(e);
+    res.status(e.statusCode || 500).send(
+      e.statusCode ? e.message : "Error checking NowPayments payment status."
+    );
+  }
+});
+
 router.get("/token", async function (req, res) {
   try {
     await routeUtils.verifyLoggedIn(req);

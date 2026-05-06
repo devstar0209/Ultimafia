@@ -66,6 +66,8 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   const [paymentProvider, setPaymentProvider] = useState("");
   const [nowPaymentsCurrency, setNowPaymentsCurrency] = useState("");
   const [nowPaymentsPaymentId, setNowPaymentsPaymentId] = useState("");
+  const [nowPaymentsStatus, setNowPaymentsStatus] = useState("");
+  const [nowPaymentsSuccessMessage, setNowPaymentsSuccessMessage] = useState("");
   const [nowPaymentsInvoiceUrl, setNowPaymentsInvoiceUrl] = useState("");
   const [payAddress, setPayAddress] = useState("");
   const [payAmount, setPayAmount] = useState("");
@@ -176,6 +178,8 @@ export default function BuyCoinsModal({ open, onClose, user }) {
     setPaymentProvider("");
     setNowPaymentsCurrency("");
     setNowPaymentsPaymentId("");
+    setNowPaymentsStatus("");
+    setNowPaymentsSuccessMessage("");
     setNowPaymentsInvoiceUrl("");
     setPayAddress("");
     setPayAmount("");
@@ -256,6 +260,8 @@ export default function BuyCoinsModal({ open, onClose, user }) {
   const handleAmountChange = (newAmount) => {
     setSelectedAmount(newAmount);
     setNowPaymentsPaymentId("");
+    setNowPaymentsStatus("");
+    setNowPaymentsSuccessMessage("");
     setNowPaymentsInvoiceUrl("");
     setPayAddress("");
     setPayAmount("");
@@ -270,8 +276,11 @@ export default function BuyCoinsModal({ open, onClose, user }) {
       return;
     }
 
+    setPaymentProvider("crypto");
     setNowPaymentsCurrency(currencyCode);
     setNowPaymentsPaymentId("");
+    setNowPaymentsStatus("");
+    setNowPaymentsSuccessMessage("");
     setNowPaymentsInvoiceUrl("");
     setPayAddress("");
     setPayAmount("");
@@ -286,6 +295,7 @@ export default function BuyCoinsModal({ open, onClose, user }) {
       .then((res) => {
         if (!isMountedRef.current) return;
         setNowPaymentsPaymentId(res.data.paymentId || "");
+        setNowPaymentsStatus(res.data.status || "waiting");
         setNowPaymentsInvoiceUrl(res.data.invoiceUrl || "");
         setPayAddress(res.data.payAddress || "");
         setPayAmount(res.data.payAmount || "");
@@ -302,6 +312,61 @@ export default function BuyCoinsModal({ open, onClose, user }) {
         if (isMountedRef.current) setIsProcessingPurchase(false);
       });
   };
+
+  const checkNowPaymentsStatus = useCallback(() => {
+    if (!nowPaymentsPaymentId || nowPaymentsSuccessMessage) return;
+
+    return axios
+      .get(
+        `/api/payment/nowpayments/status/${encodeURIComponent(
+          nowPaymentsPaymentId
+        )}`
+      )
+      .then((res) => {
+        if (!isMountedRef.current) return;
+
+        setNowPaymentsStatus(res.data.status || "");
+        if (!res.data.success) return;
+
+        user.set((prev) => ({
+          ...prev,
+          coins: res.data.balance,
+        }));
+
+        setNowPaymentsSuccessMessage(
+          res.data.alreadyCredited
+            ? "Payment confirmed. Coins were already added to your balance."
+            : `Payment confirmed. ${res.data.coinsAdded} coins were added to your balance.`
+        );
+      })
+      .catch((e) => {
+        if (isMountedRef.current) {
+          console.error("Unable to check NowPayments status", e);
+        }
+      });
+  }, [nowPaymentsPaymentId, nowPaymentsSuccessMessage, user]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      paymentProvider !== "crypto" ||
+      !nowPaymentsPaymentId ||
+      nowPaymentsSuccessMessage
+    ) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(checkNowPaymentsStatus, 10000);
+    checkNowPaymentsStatus();
+
+    return () => window.clearInterval(interval);
+  }, [
+    checkNowPaymentsStatus,
+    nowPaymentsPaymentId,
+    nowPaymentsSuccessMessage,
+    open,
+    paymentProvider,
+  ]);
 
   const buyCoinsWithBraintree = () => {
     if (!dropInInstance || !isCoinAmountValid) return;
@@ -492,10 +557,42 @@ export default function BuyCoinsModal({ open, onClose, user }) {
                   </Button>
                 )}
                 <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                  {nowPaymentsPaymentId
+                  {nowPaymentsSuccessMessage
+                    ? "Payment complete."
+                    : nowPaymentsPaymentId
                     ? "Coins will be added automatically once the payment is confirmed."
                     : "Select a currency above to generate payment details."}
                 </Typography>
+                {nowPaymentsSuccessMessage && (
+                  <Box
+                    sx={{
+                      alignItems: "center",
+                      border: "1px solid",
+                      borderColor: "success.main",
+                      borderRadius: 1,
+                      color: "success.main",
+                      display: "flex",
+                      gap: 1,
+                      mt: 2,
+                      p: 1.5,
+                    }}
+                  >
+                    <i className="fas fa-check-circle" />
+                    <Typography variant="body2">
+                      {nowPaymentsSuccessMessage}
+                    </Typography>
+                  </Box>
+                )}
+                {nowPaymentsPaymentId &&
+                  nowPaymentsStatus &&
+                  !nowPaymentsSuccessMessage && (
+                    <Typography
+                      variant="caption"
+                      sx={{ display: "block", mt: 1, opacity: 0.65 }}
+                    >
+                      Current status: {nowPaymentsStatus}
+                    </Typography>
+                  )}
                 {!nowPaymentsPaymentId &&
                   cryptoMinimumPaymentAmounts.length > 0 && (
                     <Box sx={{ mt: 1 }}>
