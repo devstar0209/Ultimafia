@@ -185,8 +185,8 @@ function parseNowPaymentsOrder(payment, expectedUserId) {
   }
 
   const orderId = String(payment.order_id || "");
-  const orderParts = orderId.split("-");
-  if (orderParts.length < 3 || orderParts[0] !== "PM") {
+  const orderParts = orderId.split(":");
+  if (orderParts.length < 4 || orderParts[0] !== "pm") {
     const error = new Error("Invalid payment order metadata.");
     error.statusCode = 400;
     throw error;
@@ -355,7 +355,8 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
     supportedCurrencies[0];
   const payCurrency = selectedCurrency.code;
   const price = amount / config.coinsPerDollar;
-  const orderId = `PM-${userId}-${shortid.generate()}`;
+  const orderId = `pm:${userId}:${amount}:${shortid.generate()}`;
+  
   const payload = {
     price_amount: price,
     price_currency: "usd",
@@ -375,7 +376,7 @@ async function createCoinPayment(userId, amount, requestedCurrency) {
     });
   } catch (e) {
     logger.error("Error creating NowPayments invoice:", e.response?.data || e.message || e);
-    const errorMessage = e.response?.data?.error || e.message || "Error creating NowPayments invoice.";
+    const errorMessage = e.message || e ;
     const error = new Error(errorMessage);
     error.statusCode = e.response?.status || 500;
     throw error;
