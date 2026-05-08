@@ -15,6 +15,10 @@ const logger = require("../modules/logging")(".");
 const shopModule = require("./shop");
 
 const router = express.Router();
+const EMOTE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const EMOTE_GROUP_MAX_UPLOADS = 100;
+const EMOTE_GROUP_BATCH_MAX_BYTES =
+  EMOTE_IMAGE_MAX_BYTES * EMOTE_GROUP_MAX_UPLOADS;
 
 function hasAdminAccess(permissionInfo) {
   return Boolean(permissionInfo?.admin);
@@ -156,6 +160,122 @@ function normalizeAvatarKey(rawKey = "") {
 
 function getAvatarAssetRelativePath(avatarKey) {
   return `store/avatars/${avatarKey}.webp`;
+}
+
+function normalizeEmoteKey(rawKey = "") {
+  const trimmed = String(rawKey || "").trim().toLowerCase();
+  if (!trimmed) return "";
+  return trimmed.startsWith("emote-group-")
+    ? trimmed
+    : `emote-group-${trimmed.replace(/^emote-/, "")}`;
+}
+
+function getEmoteGroupIconRelativePath(groupKey) {
+  return `store/emote-groups/${groupKey}.webp`;
+}
+
+function getEmoteAssetRelativePath(assetId) {
+  return `store/emotes/${assetId}.webp`;
+}
+
+function toAssetSlug(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getUploadedFiles(files, fieldName) {
+  const value = files?.[fieldName];
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function getAllUploadedFiles(files = {}) {
+  return Object.values(files).flatMap((value) =>
+    Array.isArray(value) ? value : [value]
+  );
+}
+
+function buildEmoteAssetId(groupKey, file, index = 0) {
+  const filename = file?.originalFilename || file?.name || `emote-${Date.now()}-${index}`;
+  const slug = toAssetSlug(filename) || `emote-${Date.now()}-${index}`;
+  if (slug.startsWith(`${groupKey}-`)) return slug;
+  return `${groupKey}-${slug}`;
+}
+
+function listEmoteGroupAssets(groupKey) {
+  const emoteDir = brandingUtils.resolveUploadPath("store/emotes");
+  if (!fs.existsSync(emoteDir)) return [];
+
+  return fs
+    .readdirSync(emoteDir)
+    .filter((filename) => filename.startsWith(`${groupKey}-`) && filename.endsWith(".webp"))
+    .map((filename) => {
+      const id = filename.replace(/\.webp$/i, "");
+      return {
+        id,
+        name: id.replace(`${groupKey}-`, ""),
+        imageUrl: brandingUtils.toPublicUrl(getEmoteAssetRelativePath(id)),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function removeEmoteGroupAssets(groupKey) {
+  for (const asset of listEmoteGroupAssets(groupKey)) {
+    removeUploadFile(getEmoteAssetRelativePath(asset.id));
+  }
+}
+
+async function grantEmoteAssetsToGroupOwners(groupKey, assets = []) {
+  if (!assets.length) return;
+
+  const owners = await models.User.find({
+    [`itemsOwned.${groupKey}`]: { $gt: 0 },
+    deleted: false,
+  })
+    .select("id _id")
+    .lean();
+
+  for (const owner of owners) {
+    const customEmoteIds = [];
+    for (const asset of assets) {
+      const existingSameName = await models.CustomEmote.findOne({
+        creator: owner._id,
+        name: asset.name,
+        deleted: false,
+      })
+        .select("id")
+        .lean();
+      if (existingSameName && existingSameName.id !== asset.id) continue;
+
+      const customEmote = await models.CustomEmote.findOneAndUpdate(
+        { creator: owner._id, id: asset.id },
+        {
+          $set: {
+            id: asset.id,
+            name: asset.name,
+            extension: "webp",
+            creator: owner._id,
+            deleted: false,
+          },
+        },
+        { new: true, upsert: true }
+      );
+      customEmoteIds.push(customEmote._id);
+    }
+
+    if (customEmoteIds.length) {
+      await models.User.updateOne(
+        { _id: owner._id },
+        { $addToSet: { customEmotes: { $each: customEmoteIds } } }
+      ).exec();
+      await redis.cacheUserInfo(owner.id, true);
+    }
+  }
 }
 
 async function createBrandingModAction(userId, name, args = []) {
@@ -1057,6 +1177,504 @@ router.delete("/avatars/:key", async function (req, res) {
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error deleting avatar item.");
+  }
+});
+
+router.get("/emotes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 10)));
+    const search = String(req.query?.search || "").trim();
+
+    const query = { key: /^emote-group-/i };
+    if (search) {
+      query.$or = [
+        { key: new RegExp(search, "i") },
+        { name: new RegExp(search, "i") },
+        { desc: new RegExp(search, "i") },
+      ];
+    }
+
+    const [total, emoteShopItems, allEmoteItems] = await Promise.all([
+      models.ShopItem.countDocuments(query),
+      models.ShopItem.find(query)
+        .sort("sortOrder")
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .select("_id key name desc price limit hidden sortOrder updatedAt -_id")
+        .lean(),
+      models.ShopItem.find({ key: /^emote-group-/i })
+        .select("hidden -_id")
+        .lean(),
+    ]);
+
+    const entries = emoteShopItems.map((item) => ({
+      id: item.key,
+      key: item.key,
+      name: item.name || item.key,
+      description: item.desc || "",
+      price: Number(item.price || 0),
+      limit: item.limit == null ? null : Number(item.limit),
+      hidden: Boolean(item.hidden),
+      sortOrder: Number(item.sortOrder || 0),
+      imageUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      iconUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      emotes: listEmoteGroupAssets(item.key),
+      collection: "Chat Emote Groups",
+      artist: "Store Asset",
+      rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
+      status: item.hidden ? "Hidden" : "Published",
+      updated: formatRelativeTime(item.updatedAt || Date.now()),
+    }));
+
+    const publishedCount = allEmoteItems.filter((item) => !item.hidden).length;
+    const hiddenCount = allEmoteItems.length - publishedCount;
+
+    const collections = [
+      {
+        name: "Chat Emote Groups",
+        count: `${allEmoteItems.length} assets`,
+        theme: "Store-managed chat emote groups users can unlock.",
+        releaseWindow: `${publishedCount} published / ${hiddenCount} hidden`,
+      },
+    ];
+
+    res.send({
+      entries,
+      collections,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading emote assets.");
+  }
+});
+
+router.post("/emotes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.body?.key);
+    const name = String(req.body?.name || "").trim();
+    const description = String(req.body?.description || "").trim();
+    const price = Number(req.body?.price || 0);
+    const limit =
+      req.body?.limit == null || req.body?.limit === ""
+        ? 1
+        : Number(req.body?.limit);
+    const hidden = Boolean(req.body?.hidden);
+
+    if (!key || !/^emote-group-[a-z0-9-]+$/.test(key)) {
+      res.status(400).send("Emote group key must start with emote-group- and use letters, numbers, or hyphens.");
+      return;
+    }
+    if (!name) {
+      res.status(400).send("Emote group name is required.");
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      res.status(400).send("Emote group price must be a positive number.");
+      return;
+    }
+    if (limit != null && (!Number.isFinite(limit) || limit < 1)) {
+      res.status(400).send("Emote group limit must be null or a number greater than 0.");
+      return;
+    }
+
+    const exists = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (exists) {
+      res.status(400).send("Emote group key already exists.");
+      return;
+    }
+
+    const lastItem = await models.ShopItem.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder")
+      .lean();
+
+    const created = await models.ShopItem.create({
+      key,
+      name,
+      desc: description,
+      price,
+      limit,
+      hidden,
+      sortOrder: Number(lastItem?.sortOrder || 0) + 1,
+      updatedAt: Date.now(),
+    });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Emote Group", [
+      key,
+      name,
+    ]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        key: created.key,
+        name: created.name,
+        description: created.desc || "",
+        price: Number(created.price || 0),
+        limit: created.limit == null ? null : Number(created.limit),
+        hidden: Boolean(created.hidden),
+        sortOrder: Number(created.sortOrder || 0),
+        imageUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
+        iconUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
+        emotes: [],
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating emote group.");
+  }
+});
+
+router.patch("/emotes/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    if (!key) {
+      res.status(400).send("Invalid emote group key.");
+      return;
+    }
+
+    const updates = {};
+    if (req.body?.name !== undefined) updates.name = String(req.body.name || "").trim();
+    if (req.body?.description !== undefined)
+      updates.desc = String(req.body.description || "").trim();
+    if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
+    if (req.body?.limit !== undefined)
+      updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
+    if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
+    updates.updatedAt = Date.now();
+
+    if (updates.name !== undefined && !updates.name) {
+      res.status(400).send("Emote group name is required.");
+      return;
+    }
+    if (updates.price !== undefined && (!Number.isFinite(updates.price) || updates.price < 0)) {
+      res.status(400).send("Emote group price must be a positive number.");
+      return;
+    }
+    if (
+      updates.limit !== undefined &&
+      updates.limit != null &&
+      (!Number.isFinite(updates.limit) || updates.limit < 1)
+    ) {
+      res.status(400).send("Emote group limit must be null or a number greater than 0.");
+      return;
+    }
+
+    const updated = await models.ShopItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
+      .select("key name desc price limit hidden sortOrder")
+      .lean();
+    if (!updated) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        key: updated.key,
+        name: updated.name,
+        description: updated.desc || "",
+        price: Number(updated.price || 0),
+        limit: updated.limit == null ? null : Number(updated.limit),
+        hidden: Boolean(updated.hidden),
+        sortOrder: Number(updated.sortOrder || 0),
+        imageUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        iconUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        emotes: listEmoteGroupAssets(updated.key),
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating emote group.");
+  }
+});
+
+router.patch("/emotes/:key/hidden", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const hidden = Boolean(req.body?.hidden);
+    const updated = await models.ShopItem.findOneAndUpdate(
+      { key },
+      { $set: { hidden, updatedAt: Date.now() } },
+      { new: true }
+    )
+      .select("key hidden -_id")
+      .lean();
+    if (!updated) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      hidden ? "Hid Emote Group" : "Unhid Emote Group",
+      [key]
+    );
+    shopModule.invalidateShopItemsCache();
+    res.send({ ok: true, key, hidden: updated.hidden });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating emote group visibility.");
+  }
+});
+
+router.post("/emotes/:key/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    const form = new formidable();
+    form.maxFileSize = EMOTE_IMAGE_MAX_BYTES;
+    form.maxFields = 1;
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const relativePath = getEmoteGroupIconRelativePath(key);
+    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+    await sharp(file.path, { animated: true })
+      .rotate()
+      .resize({
+        width: 64,
+        height: 64,
+        fit: "inside",
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .webp({ quality: 92 })
+      .toFile(absolutePath);
+
+    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group Icon", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, imageUrl: brandingUtils.toPublicUrl(relativePath) });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 2 MB.");
+      return;
+    }
+    logger.error(e);
+    res.status(500).send("Error uploading emote group icon.");
+  }
+});
+
+router.post("/emotes/:key/items", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    const form = new formidable({
+      multiples: true,
+      maxFileSize: EMOTE_GROUP_BATCH_MAX_BYTES,
+      maxFields: 10,
+    });
+    const [, files] = await parseUploadForm(form, req);
+    const fieldFiles = [
+      ...getUploadedFiles(files, "emotes"),
+      ...getUploadedFiles(files, "emotes[]"),
+      ...getUploadedFiles(files, "images"),
+      ...getUploadedFiles(files, "image"),
+    ];
+    const uploadedFiles = (fieldFiles.length ? fieldFiles : getAllUploadedFiles(files))
+      .filter((file) => file?.path);
+
+    if (!uploadedFiles.length) {
+      res.status(400).send("No emote image files were received.");
+      return;
+    }
+    if (uploadedFiles.length > EMOTE_GROUP_MAX_UPLOADS) {
+      res.status(400).send(`Upload up to ${EMOTE_GROUP_MAX_UPLOADS} emotes at once.`);
+      return;
+    }
+    if (uploadedFiles.some((file) => Number(file.size || 0) > EMOTE_IMAGE_MAX_BYTES)) {
+      res.status(400).send("Each image must be less than 2 MB.");
+      return;
+    }
+
+    const saved = [];
+    for (let index = 0; index < uploadedFiles.length; index++) {
+      const file = uploadedFiles[index];
+      const assetId = buildEmoteAssetId(key, file, index);
+      const relativePath = getEmoteAssetRelativePath(assetId);
+      const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+      brandingUtils.ensureDirectory(path.dirname(absolutePath));
+
+      await sharp(file.path, { animated: true })
+        .rotate()
+        .resize({
+          width: 64,
+          height: 64,
+          fit: "inside",
+          withoutEnlargement: true,
+          kernel: sharp.kernel.lanczos3,
+        })
+        .webp({ quality: 92 })
+        .toFile(absolutePath);
+
+      saved.push({
+        id: assetId,
+        name: assetId.replace(`${key}-`, ""),
+        imageUrl: brandingUtils.toPublicUrl(relativePath),
+      });
+    }
+
+    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Uploaded Emote Group Items", [
+      key,
+      `${saved.length}`,
+    ]);
+    await grantEmoteAssetsToGroupOwners(key, saved);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, emotes: listEmoteGroupAssets(key), saved });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Upload batch is too large. Upload fewer images at once.");
+      return;
+    }
+    logger.error(e);
+    res.status(500).send("Error uploading emote group items.");
+  }
+});
+
+router.delete("/emotes/:key/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    removeUploadFile(getEmoteGroupIconRelativePath(key));
+    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Removed Emote Group Icon", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing emote group icon.");
+  }
+});
+
+router.delete("/emotes/:key/items/:itemId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const itemId = String(req.params.itemId || "").trim().toLowerCase();
+    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+    if (!itemId.startsWith(`${key}-`)) {
+      res.status(400).send("Invalid emote item.");
+      return;
+    }
+
+    removeUploadFile(getEmoteAssetRelativePath(itemId));
+    await models.CustomEmote.updateMany(
+      { id: itemId },
+      { $set: { deleted: true } }
+    ).exec();
+    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group Item", [
+      key,
+      itemId,
+    ]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, emotes: listEmoteGroupAssets(key) });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting emote group item.");
+  }
+});
+
+router.delete("/emotes/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const existing = await models.ShopItem.findOne({ key }).select("key name -_id").lean();
+    if (!existing) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    const groupAssets = listEmoteGroupAssets(key);
+    removeUploadFile(getEmoteGroupIconRelativePath(key));
+    removeEmoteGroupAssets(key);
+    await models.CustomEmote.updateMany(
+      { id: { $in: groupAssets.map((asset) => asset.id) } },
+      { $set: { deleted: true } }
+    ).exec();
+    await models.ShopItem.deleteOne({ key }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, name: existing.name });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting emote group.");
   }
 });
 

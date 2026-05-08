@@ -1568,9 +1568,6 @@ router.get("/:id/nameHistory", async function (req, res) {
 router.get("/settings/data", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
-    const maxOwnedCustomEmotes =
-      constants.maxOwnedCustomEmotes + constants.maxOwnedCustomEmotesExtra;
-
     var userId = await routeUtils.verifyLoggedIn(req, true);
     var user =
       userId &&
@@ -1579,7 +1576,6 @@ router.get("/settings/data", async function (req, res) {
         .populate({
           path: "customEmotes",
           select: "id extension name -_id",
-          options: { limit: maxOwnedCustomEmotes },
         }));
 
     if (user) {
@@ -1746,134 +1742,10 @@ router.post("/deathMessage", async function (req, res) {
 
 router.post("/customEmote/create", async function (req, res) {
   try {
-    const userId = await routeUtils.verifyLoggedIn(req);
-
-    var user = await models.User.findOne({ id: userId, deleted: false }).select(
-      "itemsOwned customEmotes _id"
-    );
-    user = user.toJSON();
-
-    const ownedCustomEmotes =
-      user.itemsOwned.customEmotes + user.itemsOwned.customEmotesExtra;
-    if (user.customEmotes.length >= ownedCustomEmotes) {
-      res.status(500);
-      res.send("You need to purchase more custom emotes from the shop.");
-      return;
-    }
-
-    const maxOwnedCustomEmotes =
-      constants.maxOwnedCustomEmotes + constants.maxOwnedCustomEmotesExtra;
-    if (user.customEmotes.length >= maxOwnedCustomEmotes) {
-      res.status(500);
-      res.send(
-        `You can only have up to ${maxOwnedCustomEmotes} custom emotes linked to your account.`
-      );
-      return;
-    }
-
-    var form = new formidable();
-    form.maxFileSize = 2 * 1024 * 1024;
-    form.maxFields = 1;
-
-    var [fields, files] = await form.parseAsync(req);
-
-    let customEmote = Object();
-    customEmote.name = String(fields.emoteText || "");
-
-    /* customEmote name checks
-    - must be non-empty
-    - must fit within the constraints for emotify
-    - must not be too long
-    - must be unique per player
-    */
-    if (!customEmote.name || !customEmote.name.length) {
-      res.status(400);
-      res.send("You must give your custom emote a name.");
-      return;
-    }
-
-    if (customEmote.name.match(/( |:)/)) {
-      res.status(400);
-      res.send("Custom emote names may not have spaces or colons in them.");
-      return;
-    }
-
-    if (customEmote.name.length > constants.maxCustomEmoteNameLength) {
-      res.status(400);
-      res.send("Emote name is too long.");
-      return;
-    }
-
-    var existingCustomEmote = await models.CustomEmote.findOne({
-      creator: new ObjectID(user._id),
-      name: customEmote.name,
-      deleted: false,
-    }).select("-_id");
-    if (existingCustomEmote) {
-      res.status(400);
-      res.send(`You already have a custom emote with that name.`);
-      return;
-    }
-
-    customEmote.id = shortid.generate();
-    customEmote.extension = "webp";
-    customEmote.creator = req.session.user._id;
-
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    // Convert the data in the file from an octet stream to its original raw bytes
-    // https://stackoverflow.com/a/20272545
-    const fileContents = fs.readFileSync(files.file.path).toString();
-    const matches = fileContents.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-
-    if (matches.length !== 3) {
-      res.status(400);
-      res.send("Invalid octet stream.");
-      return;
-    }
-
-    const buffer = Buffer.from(matches[2], "base64");
-
-    const image = sharp(buffer, { animated: true });
-    image
-      .metadata()
-      .then(function (metadata) {
-        if (metadata.width <= 30 && metadata.height <= 30) {
-          // No resizing necessary, construct image.
-          return sharp(buffer, { animated: true }).webp();
-        } else {
-          // Resizing necessary.
-          return sharp(buffer, { animated: true }).webp().resize({
-            width: 30,
-            height: 30,
-            fit: "inside",
-            withoutEnlargement: true,
-          });
-        }
-      })
-      .then(function (webp) {
-        // Save to disk
-        webp.toFile(
-          utils.getCustomEmoteFilepath(
-            userId,
-            customEmote.id,
-            customEmote.extension
-          )
-        );
-      });
-
-    customEmote = new models.CustomEmote(customEmote);
-    await customEmote.save();
-    await models.User.updateOne(
-      { id: userId },
-      { $push: { customEmotes: customEmote._id } }
-    ).exec();
-
-    // Allow the new custom emote to be cached
-    redis.invalidateCachedUser(userId);
-
-    res.send(customEmote);
+    await routeUtils.verifyLoggedIn(req);
+    res.status(410);
+    res.send("Custom emote uploads are disabled. Buy emotes from the Shop.");
+    return;
   } catch (e) {
     logger.error(e);
     res.status(500);
@@ -1902,6 +1774,12 @@ router.post("/customEmote/delete", async function (req, res) {
     if (!customEmote || customEmote.creator.id != userId) {
       res.status(500);
       res.send("You can only delete custom emotes you have created.");
+      return;
+    }
+
+    if (String(customEmote.id || "").startsWith("emote-")) {
+      res.status(400);
+      res.send("Purchased emotes cannot be deleted.");
       return;
     }
 

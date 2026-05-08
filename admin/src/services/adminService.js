@@ -87,6 +87,75 @@ export async function deleteAdminAvatar(key) {
   return response.data;
 }
 
+export async function getAdminEmotes(params = {}) {
+  const response = await axios.get("/api/admin/emotes", { params });
+  return response.data;
+}
+
+export async function createAdminEmote(payload) {
+  const response = await axios.post("/api/admin/emotes", payload);
+  return response.data;
+}
+
+export async function updateAdminEmote(key, payload) {
+  const response = await axios.patch(
+    `/api/admin/emotes/${encodeURIComponent(key)}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function toggleAdminEmoteHidden(key, hidden) {
+  const response = await axios.patch(
+    `/api/admin/emotes/${encodeURIComponent(key)}/hidden`,
+    { hidden }
+  );
+  return response.data;
+}
+
+export async function uploadAdminEmoteImage(key, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `/api/admin/emotes/${encodeURIComponent(key)}/image`,
+    formData
+  );
+  return response.data;
+}
+
+export async function uploadAdminEmoteItems(key, files) {
+  const formData = new FormData();
+  Array.from(files || []).forEach((file) => {
+    formData.append("emotes", file);
+  });
+  const response = await axios.post(
+    `/api/admin/emotes/${encodeURIComponent(key)}/items`,
+    formData
+  );
+  return response.data;
+}
+
+export async function removeAdminEmoteImage(key) {
+  const response = await axios.delete(
+    `/api/admin/emotes/${encodeURIComponent(key)}/image`
+  );
+  return response.data;
+}
+
+export async function deleteAdminEmoteItem(key, itemId) {
+  const response = await axios.delete(
+    `/api/admin/emotes/${encodeURIComponent(key)}/items/${encodeURIComponent(itemId)}`
+  );
+  return response.data;
+}
+
+export async function deleteAdminEmote(key) {
+  const response = await axios.delete(
+    `/api/admin/emotes/${encodeURIComponent(key)}`
+  );
+  return response.data;
+}
+
 export async function getAdminSettingsSummary() {
   const response = await axios.get("/api/admin/settings/summary");
   return response.data;

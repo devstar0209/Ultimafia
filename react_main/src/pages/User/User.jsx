@@ -7,6 +7,7 @@ import Profile from "./Profile";
 import Settings from "./Settings";
 import Shop from "./Shop";
 import AvatarShop from "./AvatarShop";
+import EmoteShop from "./EmoteShop";
 import Inbox from "./Inbox";
 import Family from "./Family";
 import { UserContext, SiteInfoContext, GameContext } from "Contexts";
@@ -14,13 +15,6 @@ import AvatarUpload from "components/AvatarUpload";
 
 import "css/user.css";
 import { Time, youtubeRegex } from "components/Basic";
-
-const soundcloudRegex = /^https?:\/\/(www\.)?soundcloud\.com\/[^\/]+\/[^\/\?]+/;
-const spotifyRegex =
-  /^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/[a-zA-Z0-9]+/;
-const vimeoRegex = /^https?:\/\/(www\.)?vimeo\.com\/(\d+)/;
-const invidiousRegex =
-  /^https?:\/\/(www\.)?(invidious\.io|yewtu\.be|invidious\.flokinet\.to|invidious\.nixnet\.xyz|invidious\.privacydev\.net|invidious\.kavin\.rocks|invidious\.tux\.pizza|invidious\.projectsegfau\.lt|invidious\.riverside\.rocks|invidious\.busa\.co|invidious\.tinfoil-hat\.net|invidious\.jotoma\.de|invidious\.fdn\.fr|invidious\.mastodon\.host|invidious\.lelux\.fi|invidious\.mint\.lgbt|invidious\.fdn\.fr|invidious\.lelux\.fi|invidious\.mint\.lgbt|invidious\.nixnet\.xyz|invidious\.privacydev\.net|invidious\.kavin\.rocks|invidious\.tux\.pizza|invidious\.projectsegfau\.lt|invidious\.riverside\.rocks|invidious\.busa\.co|invidious\.tinfoil-hat\.net|invidious\.jotoma\.de|invidious\.fdn\.fr|invidious\.mastodon\.host|invidious\.lelux\.fi|invidious\.mint\.lgbt)\/watch\?v=([a-zA-Z0-9_-]{11})/;
 import { useTheme } from "@mui/material/styles";
 import { Popover } from "@mui/material";
 import { Box, IconButton, Stack, Typography } from "@mui/material";
@@ -30,6 +24,13 @@ import Miniprofile from "components/Miniprofile";
 import { usePopoverOpen } from "hooks/usePopoverOpen";
 
 import santaDir from "images/holiday/santahat.png";
+
+const soundcloudRegex = /^https?:\/\/(www\.)?soundcloud\.com\/[^\/]+\/[^\/\?]+/;
+const spotifyRegex =
+  /^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/[a-zA-Z0-9]+/;
+const vimeoRegex = /^https?:\/\/(www\.)?vimeo\.com\/(\d+)/;
+const invidiousRegex =
+  /^https?:\/\/(www\.)?(invidious\.io|yewtu\.be|invidious\.flokinet\.to|invidious\.nixnet\.xyz|invidious\.privacydev\.net|invidious\.kavin\.rocks|invidious\.tux\.pizza|invidious\.projectsegfau\.lt|invidious\.riverside\.rocks|invidious\.busa\.co|invidious\.tinfoil-hat\.net|invidious\.jotoma\.de|invidious\.fdn\.fr|invidious\.mastodon\.host|invidious\.lelux\.fi|invidious\.mint\.lgbt|invidious\.fdn\.fr|invidious\.lelux\.fi|invidious\.mint\.lgbt|invidious\.nixnet\.xyz|invidious\.privacydev\.net|invidious\.kavin\.rocks|invidious\.tux\.pizza|invidious\.projectsegfau\.lt|invidious\.riverside\.rocks|invidious\.busa\.co|invidious\.tinfoil-hat\.net|invidious\.jotoma\.de|invidious\.fdn\.fr|invidious\.mastodon\.host|invidious\.lelux\.fi|invidious\.mint\.lgbt)\/watch\?v=([a-zA-Z0-9_-]{11})/;
 
 export function YouTubeEmbed(props) {
   const embedId = props.embedId;
@@ -287,6 +288,7 @@ export default function User(props) {
       <Route path="settings/*" element={<Settings />} />
       <Route path="shop" element={<Shop />} />
       <Route path="shop/avatars" element={<AvatarShop />} />
+      <Route path="shop/emotes" element={<EmoteShop />} />
       <Route path="inbox" element={<Inbox />} />
       <Route path="family/:familyId" element={<Family />} />
       <Route path=":userId" element={<Profile />} />

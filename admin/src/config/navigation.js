@@ -89,7 +89,7 @@ export const menuGroups = [
     key: "catalog",
     label: "Store & Assets",
     icon: "solar:shop-bold-duotone",
-    description: "Price items and avatar inventory",
+    description: "Price items and store asset inventory",
     items: [
       {
         key: "catalog-prices",
@@ -102,6 +102,12 @@ export const menuGroups = [
         label: "Avatars",
         path: "/catalog/avatars",
         description: "User profile avatars",
+      },
+      {
+        key: "catalog-emotes",
+        label: "Emotes",
+        path: "/catalog/emotes",
+        description: "Chat emotes",
       },
     ],
   },

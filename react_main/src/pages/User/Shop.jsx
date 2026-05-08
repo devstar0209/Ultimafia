@@ -437,7 +437,7 @@ export default function Shop(props) {
             }}
           >
             <CardActionArea
-              onClick={() => navigate("/user/shop")}
+              onClick={() => navigate("/user/shop/emotes")}
               sx={{ height: "100%" }}
             >
               <CardContent>
