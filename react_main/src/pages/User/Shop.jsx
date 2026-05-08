@@ -48,8 +48,25 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
-const isDollarBalanceItem = (item = {}) =>
-  String(item.key || "").startsWith("avatar-");
+function getItemCurrency(item = {}) {
+  const currency = String(item.currency || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  const key = String(item.key || "");
+  return key.startsWith("avatar-") || key.startsWith("emote-group-")
+    ? "dollar"
+    : "coins";
+}
+
+const isDollarBalanceItem = (item = {}) => getItemCurrency(item) === "dollar";
+
+function formatItemPrice(item = {}) {
+  return isDollarBalanceItem(item)
+    ? formatUsdAmount(item.priceDollar ?? item.price)
+    : `${item.price} coins`;
+}
 
 export default function Shop(props) {
   const [shopInfo, setShopInfo] = useState({
@@ -142,10 +159,7 @@ export default function Shop(props) {
 
   function onBuyItem(index) {
     const item = shopInfo.shopItems[index];
-    const usesDollarBalance = isDollarBalanceItem(item);
-    const itemPrice = usesDollarBalance
-      ? formatUsdAmount(item.priceDollar)
-      : `${item.price} coins`;
+    const itemPrice = formatItemPrice(item);
     const shouldBuy = window.confirm(
       `Are you sure you wish to buy ${item.name} for ${itemPrice}?`
     );
@@ -153,7 +167,7 @@ export default function Shop(props) {
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/purchase", { item: item.shopIndex ?? index })
+      .post("/api/shop/purchase", { key: item.key, item: item.shopIndex ?? index })
       .then((res) => {
         siteInfo.showAlert("Item purchased.", "success");
 
@@ -165,26 +179,23 @@ export default function Shop(props) {
 
         let itemsOwnedChanges = {
           [item.key]: {
-            $set: user.itemsOwned[item.key] + 1,
+            $set: Number(user.itemsOwned?.[item.key] || 0) + 1,
           },
         };
 
-        for (let k in item.propagateItemUpdates) {
+        for (let k in item.propagateItemUpdates || {}) {
           let change = item.propagateItemUpdates[k];
           itemsOwnedChanges[k] = {
-            $set: user.itemsOwned[k] + change,
+            $set: Number(user.itemsOwned?.[k] || 0) + change,
           };
         }
 
         const nextOwnedCount = (user.itemsOwned[item.key] || 0) + 1;
         const userUpdate = {
           itemsOwned: itemsOwnedChanges,
+          coins: { $set: res.data.balance },
+          balanceDollar: { $set: res.data.balanceDollar },
         };
-        if (usesDollarBalance) {
-          userUpdate.balanceDollar = { $set: res.data.balanceDollar };
-        } else {
-          userUpdate.coins = { $set: res.data.balance };
-        }
         user.set(update(user.state, userUpdate));
 
         if (item.key.startsWith("avatar-") && nextOwnedCount > 0) {
@@ -235,7 +246,7 @@ export default function Shop(props) {
       >
         <Typography>
           {isDollarBalanceItem(item)
-            ? formatUsdAmount(item.priceDollar)
+            ? formatUsdAmount(item.priceDollar ?? item.price)
             : item.price}
         </Typography>
         <Box
@@ -585,10 +596,11 @@ export default function Shop(props) {
                 .post("/api/shop/checkStampEligibility", { gameId })
                 .then((eligibility) => {
                   const shouldBuy = window.confirm(
-                    `You will receive a stamp for ${eligibility.data.role}. Purchase for ${stampItem.price} coins?`
+                    `You will receive a stamp for ${eligibility.data.role}. Purchase for ${formatItemPrice(stampItem)}?`
                   );
                   if (!shouldBuy) return;
                   return axios.post("/api/shop/purchase", {
+                    key: stampItem.key,
                     item: stampItem.shopIndex ?? stampIndex,
                     gameId: eligibility.data.gameId,
                   });
@@ -606,10 +618,12 @@ export default function Shop(props) {
                   setShopInfo((prev) => ({
                     ...prev,
                     balance: res.data.balance,
+                    balanceDollar: res.data.balanceDollar,
                   }));
                   user.set((prev) => ({
                     ...prev,
                     coins: res.data.balance,
+                    balanceDollar: res.data.balanceDollar,
                   }));
                 })
                 .catch(errorAlert);

@@ -80,6 +80,23 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
+function getShopItemCurrency(item = {}) {
+  const currency = String(item.currency || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  const key = String(item.key || "");
+  return key.startsWith("avatar-") || key.startsWith("emote-group-")
+    ? "dollar"
+    : "coins";
+}
+
+const formatShopPrice = (item = {}) =>
+  getShopItemCurrency(item) === "dollar"
+    ? formatUsdAmount(item.priceDollar ?? item.price)
+    : `${item.price} coins`;
+
 function FavoritedRolesPanel({
   favoriteRoles = [],
   panelStyle = {},
@@ -1612,7 +1629,7 @@ export default function Profile() {
                               <Box>
                                 <Typography>{avatar.name}</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {formatUsdAmount(avatar.priceDollar)}
+                                  {formatShopPrice(avatar)}
                                 </Typography>
                               </Box>
                             </Box>

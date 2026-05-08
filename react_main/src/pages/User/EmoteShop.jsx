@@ -18,11 +18,37 @@ import {
 
 import { Loading } from "../../components/Loading";
 
+const formatUsdAmount = (amount) =>
+  Number(amount || 0).toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+function getItemCurrency(item = {}) {
+  const currency = String(item.currency || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  return String(item.key || "").startsWith("emote-group-") ? "dollar" : "coins";
+}
+
+const isDollarBalanceItem = (item = {}) => getItemCurrency(item) === "dollar";
+
+function formatItemPrice(item = {}) {
+  return isDollarBalanceItem(item)
+    ? formatUsdAmount(item.priceDollar ?? item.price)
+    : `${item.price} coins`;
+}
+
 export default function EmoteShop() {
   const [shopInfo, setShopInfo] = useState({
     shopItems: [],
     emoteGroups: [],
     balance: 0,
+    balanceDollar: 0,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -54,19 +80,20 @@ export default function EmoteShop() {
     if (!group || !group.available) return;
 
     const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${group.name} for ${group.price} coins?`
+      `Are you sure you wish to buy ${group.name} for ${formatItemPrice(group)}?`
     );
 
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/purchase", { item: group.shopIndex })
+      .post("/api/shop/purchase", { key: group.key })
       .then((res) => {
         siteInfo.showAlert("Emote group purchased.", "success");
 
         setShopInfo((prev) => ({
           ...prev,
           balance: res.data.balance,
+          balanceDollar: res.data.balanceDollar,
           emoteGroups: (prev.emoteGroups || prev.emoteItems || []).map((item) =>
             item.key === groupKey ? { ...item, owned: true } : item
           ),
@@ -75,6 +102,7 @@ export default function EmoteShop() {
         user.set((prev) => ({
           ...prev,
           coins: res.data.balance,
+          balanceDollar: res.data.balanceDollar,
           itemsOwned: {
             ...(prev.itemsOwned || {}),
             [groupKey]: Number(prev.itemsOwned?.[groupKey] || 0) + 1,
@@ -124,6 +152,15 @@ export default function EmoteShop() {
                 className="fas fa-coins"
                 aria-label="Coins"
                 sx={{ fontSize: 24, color: "#f5c542" }}
+              />
+              <Typography variant="h4" className="balance">
+                {formatUsdAmount(shopInfo.balanceDollar)}
+              </Typography>
+              <Box
+                component="i"
+                className="fas fa-wallet"
+                aria-label="Dollar balance"
+                sx={{ fontSize: 24, color: "success.main" }}
               />
             </Stack>
           </Stack>
@@ -218,12 +255,27 @@ export default function EmoteShop() {
                         alignItems: "center",
                       }}
                     >
-                      <Typography variant="h6">{group.price}</Typography>
+                      <Typography variant="h6">
+                        {isDollarBalanceItem(group)
+                          ? formatUsdAmount(group.priceDollar ?? group.price)
+                          : group.price}
+                      </Typography>
                       <Box
                         component="i"
-                        className="fas fa-coins"
-                        aria-label="Coins"
-                        sx={{ fontSize: 16, color: "#f5c542" }}
+                        className={
+                          isDollarBalanceItem(group)
+                            ? "fas fa-wallet"
+                            : "fas fa-coins"
+                        }
+                        aria-label={
+                          isDollarBalanceItem(group) ? "Dollar balance" : "Coins"
+                        }
+                        sx={{
+                          fontSize: 16,
+                          color: isDollarBalanceItem(group)
+                            ? "success.main"
+                            : "#f5c542",
+                        }}
                       />
                     </Stack>
                   </Stack>

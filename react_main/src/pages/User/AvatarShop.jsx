@@ -28,6 +28,23 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
+function getItemCurrency(item = {}) {
+  const currency = String(item.currency || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  return String(item.key || "").startsWith("avatar-") ? "dollar" : "coins";
+}
+
+const isDollarBalanceItem = (item = {}) => getItemCurrency(item) === "dollar";
+
+function formatItemPrice(item = {}) {
+  return isDollarBalanceItem(item)
+    ? formatUsdAmount(item.priceDollar ?? item.price)
+    : `${item.price} coins`;
+}
+
 export default function AvatarShop(props) {
   const [shopInfo, setShopInfo] = useState({
     shopItems: [],
@@ -78,20 +95,19 @@ export default function AvatarShop(props) {
     if (!avatar) return;
 
     const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${avatar.name} for ${formatUsdAmount(
-        avatar.priceDollar
-      )}?`
+      `Are you sure you wish to buy ${avatar.name} for ${formatItemPrice(avatar)}?`
     );
 
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/purchase", { item: avatar.shopIndex })
+      .post("/api/shop/purchase", { key: avatar.key })
       .then((res) => {
         siteInfo.showAlert("Avatar purchased.", "success");
 
         setShopInfo((prev) => ({
           ...prev,
+          balance: res.data.balance,
           balanceDollar: res.data.balanceDollar,
           avatarItems: prev.avatarItems.map((item) =>
             item.key === avatarKey ? { ...item, owned: true } : item
@@ -99,6 +115,7 @@ export default function AvatarShop(props) {
         }));
         user.set((prev) => ({
           ...prev,
+          coins: res.data.balance,
           balanceDollar: res.data.balanceDollar,
         }));
 
@@ -148,6 +165,15 @@ export default function AvatarShop(props) {
                 className="fas fa-wallet"
                 aria-label="Dollar balance"
                 sx={{ fontSize: 24, color: "success.main" }}
+              />
+              <Typography variant="h4" className="balance">
+                {shopInfo.balance}
+              </Typography>
+              <Box
+                component="i"
+                className="fas fa-coins"
+                aria-label="Coins"
+                sx={{ fontSize: 24, color: "#f5c542" }}
               />
             </Stack>
           </Stack>
@@ -216,13 +242,28 @@ export default function AvatarShop(props) {
                         }}
                       >
                         <Typography variant="h6">
-                          {formatUsdAmount(avatar.priceDollar)}
+                          {isDollarBalanceItem(avatar)
+                            ? formatUsdAmount(avatar.priceDollar ?? avatar.price)
+                            : avatar.price}
                         </Typography>
                         <Box
                           component="i"
-                          className="fas fa-wallet"
-                          aria-label="Dollar balance"
-                          sx={{ fontSize: 16, color: "success.main" }}
+                          className={
+                            isDollarBalanceItem(avatar)
+                              ? "fas fa-wallet"
+                              : "fas fa-coins"
+                          }
+                          aria-label={
+                            isDollarBalanceItem(avatar)
+                              ? "Dollar balance"
+                              : "Coins"
+                          }
+                          sx={{
+                            fontSize: 16,
+                            color: isDollarBalanceItem(avatar)
+                              ? "success.main"
+                              : "#f5c542",
+                          }}
                         />
                       </Stack>
                     </Stack>

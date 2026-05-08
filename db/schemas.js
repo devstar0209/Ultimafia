@@ -1101,7 +1101,32 @@ var schemas = {
     name: { type: String },
     desc: { type: String, default: "" },
     price: { type: Number, default: 0 },
+    currency: { type: String, enum: ["coins", "dollar"], default: "coins" },
     limit: { type: Number, default: null }, // null = unlimited, 1 = one-time purchase, >1 = purchasable N times
+    hidden: { type: Boolean, default: false, index: true },
+    sortOrder: { type: Number, default: 0, index: true },
+    createdAt: { type: Number, default: Date.now, index: true },
+    updatedAt: { type: Number, default: Date.now },
+  }),
+  AvatarItem: new mongoose.Schema({
+    key: { type: String, index: true, unique: true },
+    name: { type: String },
+    desc: { type: String, default: "" },
+    price: { type: Number, default: 0 },
+    currency: { type: String, enum: ["coins", "dollar"], default: "dollar" },
+    limit: { type: Number, default: 1 },
+    hidden: { type: Boolean, default: false, index: true },
+    sortOrder: { type: Number, default: 0, index: true },
+    createdAt: { type: Number, default: Date.now, index: true },
+    updatedAt: { type: Number, default: Date.now },
+  }),
+  EmoteGroup: new mongoose.Schema({
+    key: { type: String, index: true, unique: true },
+    name: { type: String },
+    desc: { type: String, default: "" },
+    price: { type: Number, default: 0 },
+    currency: { type: String, enum: ["coins", "dollar"], default: "dollar" },
+    limit: { type: Number, default: 1 },
     hidden: { type: Boolean, default: false, index: true },
     sortOrder: { type: Number, default: 0, index: true },
     createdAt: { type: Number, default: Date.now, index: true },
@@ -1373,5 +1398,9 @@ schemas.ViolationTicket.index({ userId: 1, violationName: 1, activeUntil: 1 });
 // ShopItem index
 schemas.ShopItem.index({ key: 1 }, { unique: true });
 schemas.ShopItem.index({ sortOrder: 1 });
+schemas.AvatarItem.index({ key: 1 }, { unique: true });
+schemas.AvatarItem.index({ sortOrder: 1 });
+schemas.EmoteGroup.index({ key: 1 }, { unique: true });
+schemas.EmoteGroup.index({ sortOrder: 1 });
 
 module.exports = schemas;

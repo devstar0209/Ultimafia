@@ -20,6 +20,96 @@ const EMOTE_GROUP_MAX_UPLOADS = 100;
 const EMOTE_GROUP_BATCH_MAX_BYTES =
   EMOTE_IMAGE_MAX_BYTES * EMOTE_GROUP_MAX_UPLOADS;
 
+function normalizeShopCurrency(value, item = {}) {
+  const currency = String(value || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  if (
+    String(item.key || "").startsWith("avatar-") ||
+    String(item.key || "").startsWith("emote-group-")
+  ) {
+    return "dollar";
+  }
+  return "coins";
+}
+
+function isAvatarItem(item = {}) {
+  return String(item.key || "").startsWith("avatar-");
+}
+
+function isEmoteCatalogItem(item = {}) {
+  return String(item.key || "").startsWith("emote-");
+}
+
+async function migrateLegacyCatalogItems(
+  model,
+  keyPattern,
+  defaultLimit,
+  defaultCurrency = "dollar"
+) {
+  const legacyItems = await models.ShopItem.find({ key: keyPattern })
+    .sort("sortOrder")
+    .lean();
+
+  for (const item of legacyItems) {
+    const legacyUpdatedAt = Number(item.updatedAt || 0);
+    const existing = await model
+      .findOne({ key: item.key })
+      .select("currency updatedAt")
+      .lean();
+
+    if (
+      existing &&
+      defaultCurrency === "dollar" &&
+      normalizeShopCurrency(existing.currency, item) === "coins" &&
+      Number(existing.updatedAt || 0) === legacyUpdatedAt
+    ) {
+      await model
+        .updateOne(
+          { key: item.key },
+          {
+            $set: {
+              currency: "dollar",
+              updatedAt: Date.now(),
+            },
+          }
+        )
+        .exec();
+      continue;
+    }
+
+    await model
+      .updateOne(
+        { key: item.key },
+        {
+          $setOnInsert: {
+            key: item.key,
+            name: item.name || item.key,
+            desc: item.desc || "",
+            price: Number(item.price || 0),
+            currency: normalizeShopCurrency(defaultCurrency, item),
+            limit: item.limit == null ? defaultLimit : Number(item.limit),
+            hidden: Boolean(item.hidden),
+            sortOrder: Number(item.sortOrder || 0),
+            createdAt: item.createdAt || Date.now(),
+            updatedAt: item.updatedAt || Date.now(),
+          },
+        },
+        { upsert: true }
+      )
+      .exec();
+  }
+}
+
+async function ensureAdminCatalogCollections() {
+  await Promise.all([
+    migrateLegacyCatalogItems(models.AvatarItem, /^avatar-/i, 1, "dollar"),
+    migrateLegacyCatalogItems(models.EmoteGroup, /^emote-group-/i, 1, "dollar"),
+  ]);
+}
+
 function hasAdminAccess(permissionInfo) {
   return Boolean(permissionInfo?.admin);
 }
@@ -822,6 +912,7 @@ router.get("/avatars", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     if (!(await verifyAdminAccess(req, res))) return;
+    await ensureAdminCatalogCollections();
 
     const page = Math.max(1, Number(req.query?.page || 1));
     const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 10)));
@@ -837,14 +928,14 @@ router.get("/avatars", async function (req, res) {
     }
 
     const [total, avatarShopItems, allAvatarItems] = await Promise.all([
-      models.ShopItem.countDocuments(query),
-      models.ShopItem.find(query)
+      models.AvatarItem.countDocuments(query),
+      models.AvatarItem.find(query)
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .select("_id key name desc price limit hidden sortOrder updatedAt -_id")
+        .select("_id key name desc price currency limit hidden sortOrder updatedAt -_id")
         .lean(),
-      models.ShopItem.find({ key: /^avatar-/i })
+      models.AvatarItem.find({ key: /^avatar-/i })
         .select("hidden -_id")
         .lean(),
     ]);
@@ -855,6 +946,7 @@ router.get("/avatars", async function (req, res) {
       name: item.name || item.key,
       description: item.desc || "",
       price: Number(item.price || 0),
+      currency: normalizeShopCurrency(item.currency, item),
       limit: item.limit == null ? null : Number(item.limit),
       hidden: Boolean(item.hidden),
       sortOrder: Number(item.sortOrder || 0),
@@ -904,6 +996,9 @@ router.post("/avatars", async function (req, res) {
     const name = String(req.body?.name || "").trim();
     const description = String(req.body?.description || "").trim();
     const price = Number(req.body?.price || 0);
+    const currency = normalizeShopCurrency(req.body?.currency, {
+      key,
+    });
     const limit =
       req.body?.limit == null || req.body?.limit === ""
         ? null
@@ -927,22 +1022,24 @@ router.post("/avatars", async function (req, res) {
       return;
     }
 
-    const exists = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const exists = await models.AvatarItem.findOne({ key }).select("key -_id").lean();
     if (exists) {
       res.status(400).send("Avatar key already exists.");
       return;
     }
 
-    const lastItem = await models.ShopItem.findOne({})
+    const lastItem = await models.AvatarItem.findOne({})
       .sort("-sortOrder")
       .select("sortOrder")
       .lean();
 
-    const created = await models.ShopItem.create({
+    const created = await models.AvatarItem.create({
       key,
       name,
       desc: description,
       price,
+      currency,
       limit,
       hidden,
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
@@ -962,6 +1059,7 @@ router.post("/avatars", async function (req, res) {
         name: created.name,
         description: created.desc || "",
         price: Number(created.price || 0),
+        currency: normalizeShopCurrency(created.currency, created),
         limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0),
@@ -991,6 +1089,8 @@ router.patch("/avatars/:key", async function (req, res) {
     if (req.body?.description !== undefined)
       updates.desc = String(req.body.description || "").trim();
     if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
+    if (req.body?.currency !== undefined)
+      updates.currency = normalizeShopCurrency(req.body.currency, { key });
     if (req.body?.limit !== undefined)
       updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
     if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
@@ -1013,8 +1113,9 @@ router.patch("/avatars/:key", async function (req, res) {
       return;
     }
 
-    const updated = await models.ShopItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
-      .select("key name desc price limit hidden sortOrder")
+    await ensureAdminCatalogCollections();
+    const updated = await models.AvatarItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
+      .select("key name desc price currency limit hidden sortOrder")
       .lean();
     if (!updated) {
       res.status(404).send("Avatar item not found.");
@@ -1031,6 +1132,7 @@ router.patch("/avatars/:key", async function (req, res) {
         name: updated.name,
         description: updated.desc || "",
         price: Number(updated.price || 0),
+        currency: normalizeShopCurrency(updated.currency, updated),
         limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
@@ -1051,7 +1153,8 @@ router.patch("/avatars/:key/hidden", async function (req, res) {
 
     const key = normalizeAvatarKey(req.params.key);
     const hidden = Boolean(req.body?.hidden);
-    const updated = await models.ShopItem.findOneAndUpdate(
+    await ensureAdminCatalogCollections();
+    const updated = await models.AvatarItem.findOneAndUpdate(
       { key },
       { $set: { hidden, updatedAt: Date.now() } },
       { new: true }
@@ -1083,7 +1186,8 @@ router.post("/avatars/:key/image", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeAvatarKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const item = await models.AvatarItem.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Avatar item not found.");
       return;
@@ -1115,7 +1219,7 @@ router.post("/avatars/:key/image", async function (req, res) {
       .webp({ quality: 92 })
       .toFile(absolutePath);
 
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.AvatarItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1137,14 +1241,15 @@ router.delete("/avatars/:key/image", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeAvatarKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const item = await models.AvatarItem.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Avatar item not found.");
       return;
     }
 
     removeUploadFile(getAvatarAssetRelativePath(key));
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.AvatarItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Removed Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1162,14 +1267,15 @@ router.delete("/avatars/:key", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeAvatarKey(req.params.key);
-    const existing = await models.ShopItem.findOne({ key }).select("key name -_id").lean();
+    await ensureAdminCatalogCollections();
+    const existing = await models.AvatarItem.findOne({ key }).select("key name -_id").lean();
     if (!existing) {
       res.status(404).send("Avatar item not found.");
       return;
     }
 
     removeUploadFile(getAvatarAssetRelativePath(key));
-    await models.ShopItem.deleteOne({ key }).exec();
+    await models.AvatarItem.deleteOne({ key }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Avatar Item", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1184,6 +1290,7 @@ router.get("/emotes", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     if (!(await verifyAdminAccess(req, res))) return;
+    await ensureAdminCatalogCollections();
 
     const page = Math.max(1, Number(req.query?.page || 1));
     const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 10)));
@@ -1199,14 +1306,14 @@ router.get("/emotes", async function (req, res) {
     }
 
     const [total, emoteShopItems, allEmoteItems] = await Promise.all([
-      models.ShopItem.countDocuments(query),
-      models.ShopItem.find(query)
+      models.EmoteGroup.countDocuments(query),
+      models.EmoteGroup.find(query)
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .select("_id key name desc price limit hidden sortOrder updatedAt -_id")
+        .select("_id key name desc price currency limit hidden sortOrder updatedAt -_id")
         .lean(),
-      models.ShopItem.find({ key: /^emote-group-/i })
+      models.EmoteGroup.find({ key: /^emote-group-/i })
         .select("hidden -_id")
         .lean(),
     ]);
@@ -1217,6 +1324,7 @@ router.get("/emotes", async function (req, res) {
       name: item.name || item.key,
       description: item.desc || "",
       price: Number(item.price || 0),
+      currency: normalizeShopCurrency(item.currency, item),
       limit: item.limit == null ? null : Number(item.limit),
       hidden: Boolean(item.hidden),
       sortOrder: Number(item.sortOrder || 0),
@@ -1268,6 +1376,9 @@ router.post("/emotes", async function (req, res) {
     const name = String(req.body?.name || "").trim();
     const description = String(req.body?.description || "").trim();
     const price = Number(req.body?.price || 0);
+    const currency = normalizeShopCurrency(req.body?.currency, {
+      key,
+    });
     const limit =
       req.body?.limit == null || req.body?.limit === ""
         ? 1
@@ -1291,22 +1402,24 @@ router.post("/emotes", async function (req, res) {
       return;
     }
 
-    const exists = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const exists = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
     if (exists) {
       res.status(400).send("Emote group key already exists.");
       return;
     }
 
-    const lastItem = await models.ShopItem.findOne({})
+    const lastItem = await models.EmoteGroup.findOne({})
       .sort("-sortOrder")
       .select("sortOrder")
       .lean();
 
-    const created = await models.ShopItem.create({
+    const created = await models.EmoteGroup.create({
       key,
       name,
       desc: description,
       price,
+      currency,
       limit,
       hidden,
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
@@ -1326,6 +1439,7 @@ router.post("/emotes", async function (req, res) {
         name: created.name,
         description: created.desc || "",
         price: Number(created.price || 0),
+        currency: normalizeShopCurrency(created.currency, created),
         limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0),
@@ -1357,6 +1471,8 @@ router.patch("/emotes/:key", async function (req, res) {
     if (req.body?.description !== undefined)
       updates.desc = String(req.body.description || "").trim();
     if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
+    if (req.body?.currency !== undefined)
+      updates.currency = normalizeShopCurrency(req.body.currency, { key });
     if (req.body?.limit !== undefined)
       updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
     if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
@@ -1379,8 +1495,9 @@ router.patch("/emotes/:key", async function (req, res) {
       return;
     }
 
-    const updated = await models.ShopItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
-      .select("key name desc price limit hidden sortOrder")
+    await ensureAdminCatalogCollections();
+    const updated = await models.EmoteGroup.findOneAndUpdate({ key }, { $set: updates }, { new: true })
+      .select("key name desc price currency limit hidden sortOrder")
       .lean();
     if (!updated) {
       res.status(404).send("Emote group not found.");
@@ -1397,6 +1514,7 @@ router.patch("/emotes/:key", async function (req, res) {
         name: updated.name,
         description: updated.desc || "",
         price: Number(updated.price || 0),
+        currency: normalizeShopCurrency(updated.currency, updated),
         limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
@@ -1419,7 +1537,8 @@ router.patch("/emotes/:key/hidden", async function (req, res) {
 
     const key = normalizeEmoteKey(req.params.key);
     const hidden = Boolean(req.body?.hidden);
-    const updated = await models.ShopItem.findOneAndUpdate(
+    await ensureAdminCatalogCollections();
+    const updated = await models.EmoteGroup.findOneAndUpdate(
       { key },
       { $set: { hidden, updatedAt: Date.now() } },
       { new: true }
@@ -1451,7 +1570,8 @@ router.post("/emotes/:key/image", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeEmoteKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Emote group not found.");
       return;
@@ -1483,7 +1603,7 @@ router.post("/emotes/:key/image", async function (req, res) {
       .webp({ quality: 92 })
       .toFile(absolutePath);
 
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group Icon", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1505,7 +1625,8 @@ router.post("/emotes/:key/items", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeEmoteKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Emote group not found.");
       return;
@@ -1566,7 +1687,7 @@ router.post("/emotes/:key/items", async function (req, res) {
       });
     }
 
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Uploaded Emote Group Items", [
       key,
       `${saved.length}`,
@@ -1592,14 +1713,15 @@ router.delete("/emotes/:key/image", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeEmoteKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Emote group not found.");
       return;
     }
 
     removeUploadFile(getEmoteGroupIconRelativePath(key));
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Removed Emote Group Icon", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1618,7 +1740,8 @@ router.delete("/emotes/:key/items/:itemId", async function (req, res) {
 
     const key = normalizeEmoteKey(req.params.key);
     const itemId = String(req.params.itemId || "").trim().toLowerCase();
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    await ensureAdminCatalogCollections();
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Emote group not found.");
       return;
@@ -1633,7 +1756,7 @@ router.delete("/emotes/:key/items/:itemId", async function (req, res) {
       { id: itemId },
       { $set: { deleted: true } }
     ).exec();
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group Item", [
       key,
       itemId,
@@ -1654,7 +1777,8 @@ router.delete("/emotes/:key", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeEmoteKey(req.params.key);
-    const existing = await models.ShopItem.findOne({ key }).select("key name -_id").lean();
+    await ensureAdminCatalogCollections();
+    const existing = await models.EmoteGroup.findOne({ key }).select("key name -_id").lean();
     if (!existing) {
       res.status(404).send("Emote group not found.");
       return;
@@ -1667,7 +1791,7 @@ router.delete("/emotes/:key", async function (req, res) {
       { id: { $in: groupAssets.map((asset) => asset.id) } },
       { $set: { deleted: true } }
     ).exec();
-    await models.ShopItem.deleteOne({ key }).exec();
+    await models.EmoteGroup.deleteOne({ key }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -2793,9 +2917,11 @@ router.get("/shop/items", async function (req, res) {
   try {
     if (!(await verifyAdminAccess(req, res))) return;
 
-    const shopItems = await models.ShopItem.find({})
+    const shopItems = await models.ShopItem.find({
+      key: { $not: /^(avatar-|emote-)/i },
+    })
       .sort("sortOrder")
-      .select("_id key name desc price limit hidden sortOrder")
+      .select("_id key name desc price currency limit hidden sortOrder")
       .lean();
 
     res.send({
@@ -2805,6 +2931,7 @@ router.get("/shop/items", async function (req, res) {
         name: item.name,
         description: item.desc || "",
         price: Number(item.price || 0),
+        currency: normalizeShopCurrency(item.currency, item),
         limit: item.limit,
         hidden: Boolean(item.hidden || false),
         sortOrder: item.sortOrder || 0,
@@ -2822,10 +2949,14 @@ router.post("/shop/items", async function (req, res) {
     const sessionInfo = await verifyAdminAccess(req, res);
     if (!sessionInfo) return;
 
-    const { key, name, description, price, limit, hidden } = req.body;
+    const { key, name, description, price, currency, limit, hidden } = req.body;
+    const itemKey = String(key || "").trim().toLowerCase();
 
-    if (!key || !name) {
+    if (!itemKey || !name) {
       return res.status(400).send("Key and name are required.");
+    }
+    if (isAvatarItem({ key: itemKey }) || isEmoteCatalogItem({ key: itemKey })) {
+      return res.status(400).send("Use the avatar or emote group catalog for this item type.");
     }
 
     const lastItem = await models.ShopItem.findOne({})
@@ -2834,10 +2965,11 @@ router.post("/shop/items", async function (req, res) {
       .lean();
 
     const item = await models.ShopItem.create({
-      key: String(key).trim().toLowerCase(),
+      key: itemKey,
       name: String(name).trim(),
       desc: String(description || "").trim(),
       price: Number(price || 0),
+      currency: normalizeShopCurrency(currency, { key: itemKey }),
       limit: limit == null ? null : Number(limit),
       hidden: Boolean(hidden || false),
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
@@ -2859,6 +2991,7 @@ router.post("/shop/items", async function (req, res) {
         name: item.name,
         description: item.desc,
         price: item.price,
+        currency: normalizeShopCurrency(item.currency, item),
         limit: item.limit,
         hidden: item.hidden,
         sortOrder: item.sortOrder,
@@ -2877,7 +3010,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
     if (!sessionInfo) return;
 
     const { itemId } = req.params;
-    const { name, description, price, limit, hidden } = req.body;
+    const { name, description, price, currency, limit, hidden } = req.body;
 
     const item = await models.ShopItem.findById(itemId);
     if (!item) {
@@ -2888,6 +3021,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
     if (name !== undefined) updates.name = String(name).trim();
     if (description !== undefined) updates.desc = String(description || "").trim();
     if (price !== undefined) updates.price = Number(price || 0);
+    if (currency !== undefined) updates.currency = normalizeShopCurrency(currency, item);
     if (limit !== undefined) updates.limit = limit == null ? null : Number(limit);
     if (hidden !== undefined) updates.hidden = Boolean(hidden);
 
@@ -2911,6 +3045,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
         name: updated.name,
         description: updated.desc,
         price: updated.price,
+        currency: normalizeShopCurrency(updated.currency, updated),
         limit: updated.limit,
         hidden: updated.hidden,
         sortOrder: updated.sortOrder,

@@ -10,6 +10,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -53,6 +54,7 @@ export default function AvatarsPage({ search = "" }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [formData, setFormData] = useState({
     price: 0,
+    currency: "dollar",
   });
 
   async function loadAvatars(nextPage = page, nextRowsPerPage = rowsPerPage) {
@@ -116,6 +118,7 @@ export default function AvatarsPage({ search = "" }) {
     setRemoveImage(false);
     setFormData({
       price: 0,
+      currency: "dollar",
     });
     setDialogOpen(true);
   }
@@ -126,6 +129,7 @@ export default function AvatarsPage({ search = "" }) {
     setRemoveImage(false);
     setFormData({
       price: Number(avatar.price || 0),
+      currency: avatar.currency || "dollar",
     });
     setDialogOpen(true);
   }
@@ -166,6 +170,7 @@ export default function AvatarsPage({ search = "" }) {
       if (editingKey) {
         const updateResponse = await updateAdminAvatar(editingKey, {
           price: Number(formData.price || 0),
+          currency: formData.currency,
         });
         const activeKey = updateResponse?.item?.key || editingKey;
         if (removeImage) {
@@ -183,6 +188,7 @@ export default function AvatarsPage({ search = "" }) {
           name: generatedName,
           description: "",
           price: Number(formData.price || 0),
+          currency: formData.currency,
         });
         const activeKey = createResponse?.item?.key;
         if (activeKey && imageFile) {
@@ -330,7 +336,11 @@ export default function AvatarsPage({ search = "" }) {
                             {avatar.key}
                           </Typography>
                         </TableCell>
-                        <TableCell align="right">{avatar.price}</TableCell>
+                        <TableCell align="right">
+                          {avatar.currency === "coins"
+                            ? `${avatar.price} coins`
+                            : `$${Number(avatar.price || 0).toFixed(2)}`}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             size="small"
@@ -444,6 +454,17 @@ export default function AvatarsPage({ search = "" }) {
               onChange={(event) => setFormData((prev) => ({ ...prev, price: event.target.value }))}
               inputProps={{ min: 0 }}
             />
+            <TextField
+              label="Currency"
+              select
+              value={formData.currency}
+              onChange={(event) =>
+                setFormData((prev) => ({ ...prev, currency: event.target.value }))
+              }
+            >
+              <MenuItem value="dollar">Dollar</MenuItem>
+              <MenuItem value="coins">Coins</MenuItem>
+            </TextField>
             {editingKey ? (
               <Typography variant="caption" color="text.secondary">
                 Editing: {editingAvatar?.name || editingKey}

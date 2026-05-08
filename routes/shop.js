@@ -5,7 +5,6 @@ const routeUtils = require("./utils");
 const redis = require("../modules/redis");
 const models = require("../db/models");
 const constants = require("../data/constants");
-const defaultSettings = require("../lib/defaultSettings");
 const customEmoteUtils = require("../lib/Utils");
 const logger = require("../modules/logging")(".");
 const shortid = require("shortid");
@@ -16,6 +15,21 @@ const HIDDEN_SHOP_ITEM_KEYS = [
   "customEmotes",
   "customEmotesExtra",
 ];
+
+function normalizeShopCurrency(value, item = {}) {
+  const currency = String(value || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  if (
+    String(item.key || "").startsWith("avatar-") ||
+    String(item.key || "").startsWith("emote-group-")
+  ) {
+    return "dollar";
+  }
+  return "coins";
+}
 
 async function checkStampEligibility(userId, gameId) {
   const game = await models.Game.findOne({ id: gameId }).select(
@@ -163,25 +177,19 @@ async function grantPurchasedEmoteGroup(userId, item, context = {}) {
       extension
     );
 
-    let customEmote = await models.CustomEmote.findOne({
-      creator: userMongoId,
-      id: asset.id,
-    });
-
-    if (customEmote) {
-      customEmote.name = asset.name;
-      customEmote.extension = extension;
-      customEmote.deleted = false;
-      await customEmote.save();
-    } else {
-      customEmote = await models.CustomEmote.create({
-        id: asset.id,
-        name: asset.name,
-        extension,
-        creator: userMongoId,
-        deleted: false,
-      });
-    }
+    const customEmote = await models.CustomEmote.findOneAndUpdate(
+      { creator: userMongoId, id: asset.id },
+      {
+        $set: {
+          id: asset.id,
+          name: asset.name,
+          extension,
+          creator: userMongoId,
+          deleted: false,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).exec();
 
     customEmoteIds.push(customEmote._id);
     customEmotesByToken[`:${asset.name}:`] = {
@@ -194,11 +202,98 @@ async function grantPurchasedEmoteGroup(userId, item, context = {}) {
   }
 
   await models.User.updateOne(
-    { id: userId },
+    userMongoId ? { _id: userMongoId } : { id: userId },
     { $addToSet: { customEmotes: { $each: customEmoteIds } } }
   ).exec();
 
   context.customEmote = customEmotesByToken;
+}
+
+function buildRuntimeShopItem(item) {
+  return {
+    name: item.name || "",
+    desc: item.desc || "",
+    key: item.key || "",
+    hidden: item.hidden,
+    price: Number(item.price || 0),
+    currency: normalizeShopCurrency(item.currency, item),
+    limit: item.limit || null,
+    disabled: false,
+    propagateItemUpdates: {},
+    validate: isEmoteGroupItem(item)
+      ? (userId) => validateEmoteGroupPurchase(userId, item)
+      : undefined,
+    onBuy: isEmoteGroupItem(item)
+      ? (userId, context) => grantPurchasedEmoteGroup(userId, item, context)
+      : async function (userId) {},
+  };
+}
+
+async function migrateLegacyCatalogItems(
+  model,
+  keyPattern,
+  defaultLimit,
+  defaultCurrency = "dollar"
+) {
+  const legacyItems = await models.ShopItem.find({ key: keyPattern })
+    .sort("sortOrder")
+    .lean();
+
+  for (const item of legacyItems) {
+    const legacyUpdatedAt = Number(item.updatedAt || 0);
+    const existing = await model
+      .findOne({ key: item.key })
+      .select("currency updatedAt")
+      .lean();
+
+    if (
+      existing &&
+      defaultCurrency === "dollar" &&
+      normalizeShopCurrency(existing.currency, item) === "coins" &&
+      Number(existing.updatedAt || 0) === legacyUpdatedAt
+    ) {
+      await model
+        .updateOne(
+          { key: item.key },
+          {
+            $set: {
+              currency: "dollar",
+              updatedAt: Date.now(),
+            },
+          }
+        )
+        .exec();
+      continue;
+    }
+
+    await model
+      .updateOne(
+        { key: item.key },
+        {
+          $setOnInsert: {
+            key: item.key,
+            name: item.name || item.key,
+            desc: item.desc || "",
+            price: Number(item.price || 0),
+            currency: normalizeShopCurrency(defaultCurrency, item),
+            limit: item.limit == null ? defaultLimit : Number(item.limit),
+            hidden: Boolean(item.hidden),
+            sortOrder: Number(item.sortOrder || 0),
+            createdAt: item.createdAt || Date.now(),
+            updatedAt: item.updatedAt || Date.now(),
+          },
+        },
+        { upsert: true }
+      )
+      .exec();
+  }
+}
+
+async function ensureCatalogCollections() {
+  await Promise.all([
+    migrateLegacyCatalogItems(models.AvatarItem, /^avatar-/i, 1, "dollar"),
+    migrateLegacyCatalogItems(models.EmoteGroup, /^emote-group-/i, 1, "dollar"),
+  ]);
 }
 
 async function getShopItems() {
@@ -221,25 +316,10 @@ async function getShopItems() {
 
     // Map database items to shop items format
     const visibleItems = dbItems.filter(
-      (item) => !isEmoteCatalogItem(item) || isEmoteGroupItem(item)
+      (item) => !isAvatarItem(item) && !isEmoteCatalogItem(item)
     );
 
-    const shopItems = visibleItems.map((item) => ({
-      name: item.name || "",
-      desc: item.desc || "",
-      key: item.key || "",
-      hidden: item.hidden,
-      price: Number(item.price || 0),
-      limit: item.limit || null,
-      disabled: false,
-      propagateItemUpdates: {},
-      validate: isEmoteGroupItem(item)
-        ? (userId) => validateEmoteGroupPurchase(userId, item)
-        : undefined,
-      onBuy: isEmoteGroupItem(item)
-        ? (userId, context) => grantPurchasedEmoteGroup(userId, item, context)
-        : async function (userId) {},
-    }));
+    const shopItems = visibleItems.map(buildRuntimeShopItem);
 
     shopItemsCache = shopItems;
     shopItemsCacheTime = now;
@@ -249,6 +329,104 @@ async function getShopItems() {
     // Fallback to empty array if database fails
     return [];
   }
+}
+
+async function getAvatarItems() {
+  const avatarItems = await models.AvatarItem.find({
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  })
+    .sort("sortOrder")
+    .lean();
+  return avatarItems.map(buildRuntimeShopItem);
+}
+
+async function getEmoteGroupItems() {
+  const emoteGroups = await models.EmoteGroup.find({
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  })
+    .sort("sortOrder")
+    .lean();
+  return emoteGroups.map(buildRuntimeShopItem);
+}
+
+async function resolveAvatarPurchaseItem(key) {
+  if (!isAvatarItem({ key })) return null;
+  await ensureCatalogCollections();
+
+  const dbItem = await models.AvatarItem.findOne({
+    key,
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  }).lean();
+
+  return dbItem
+    ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "avatar" }
+    : null;
+}
+
+async function resolveEmoteGroupPurchaseItem(key) {
+  if (!isEmoteGroupItem({ key })) return null;
+  await ensureCatalogCollections();
+
+  const dbItem = await models.EmoteGroup.findOne({
+    key,
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  }).lean();
+
+  return dbItem
+    ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "emoteGroup" }
+    : null;
+}
+
+async function resolveShopPurchaseItem(key, itemIndex) {
+  if (key) {
+    if (
+      HIDDEN_SHOP_ITEM_KEYS.includes(key) ||
+      isAvatarItem({ key }) ||
+      isEmoteCatalogItem({ key })
+    ) {
+      return null;
+    }
+
+    const dbItem = await models.ShopItem.findOne({
+      key,
+      $or: [{ hidden: false }, { hidden: { $exists: false } }],
+    }).lean();
+
+    return dbItem
+      ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "shopItem" }
+      : null;
+  }
+
+  const shopItems = await getShopItems();
+  if (itemIndex < 0 || itemIndex >= shopItems.length) return null;
+  const runtimeItem = shopItems[itemIndex];
+  if (
+    !runtimeItem?.key ||
+    HIDDEN_SHOP_ITEM_KEYS.includes(runtimeItem.key) ||
+    isAvatarItem(runtimeItem) ||
+    isEmoteCatalogItem(runtimeItem)
+  ) {
+    return null;
+  }
+
+  const dbItem = await models.ShopItem.findOne({
+    key: runtimeItem.key,
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  }).lean();
+
+  return dbItem
+    ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "shopItem" }
+    : null;
+}
+
+async function resolvePurchaseRequest(key, itemIndex) {
+  if (isAvatarItem({ key })) {
+    return resolveAvatarPurchaseItem(key);
+  }
+  if (isEmoteGroupItem({ key })) {
+    return resolveEmoteGroupPurchaseItem(key);
+  }
+  return resolveShopPurchaseItem(key, itemIndex);
 }
 
 function invalidateShopItemsCache() {
@@ -281,7 +459,22 @@ function isEmoteCatalogItem(item = {}) {
 }
 
 function isDollarBalanceItem(item = {}) {
-  return isAvatarItem(item);
+  return normalizeShopCurrency(item.currency, item) === "dollar";
+}
+
+function getPurchaseDetails(item = {}) {
+  const currency = normalizeShopCurrency(item.currency, item);
+  const price =
+    currency === "dollar"
+      ? roundDollarAmount(Number(item.price || 0))
+      : Number(item.price || 0);
+
+  return {
+    currency,
+    price,
+    balanceField: currency === "dollar" ? "balanceDollar" : "coins",
+    balanceLabel: currency === "dollar" ? "dollar balance" : "coins",
+  };
 }
 
 function roundDollarAmount(amount) {
@@ -289,11 +482,7 @@ function roundDollarAmount(amount) {
 }
 
 async function getItemDollarPrice(item) {
-  const settings = await defaultSettings.getSettings(models);
-  const coinsPerDollar = Number(settings.coinsPerDollar || 100);
-  const divisor = coinsPerDollar > 0 ? coinsPerDollar : 100;
-
-  return roundDollarAmount(Number(item.price || 0) / divisor);
+  return roundDollarAmount(Number(item.price || 0));
 }
 
 router.get("/info", async function (req, res) {
@@ -304,7 +493,9 @@ router.get("/info", async function (req, res) {
       "coins balanceDollar itemsOwned settings"
     );
     
-    const shopItems = await getShopItems();
+    await ensureCatalogCollections();
+    const [shopItems, avatarCatalogItems, emoteGroupCatalogItems] =
+      await Promise.all([getShopItems(), getAvatarItems(), getEmoteGroupItems()]);
     const shopItemsWithPricing = await Promise.all(
       shopItems.map(async (item, index) => ({
         ...item,
@@ -314,16 +505,24 @@ router.get("/info", async function (req, res) {
           : null,
       }))
     );
-    const avatarItems = shopItemsWithPricing
-      .filter((item) => isAvatarItem(item))
+    const avatarItems = await Promise.all(
+      avatarCatalogItems
+        .map(async (item) => ({
+          ...item,
+          priceDollar: isDollarBalanceItem(item)
+            ? await getItemDollarPrice(item)
+            : null,
+        }))
+    );
+    const avatarItemsResponse = avatarItems
       .map((item) => {
         const key = String(item.key || "");
         const absolutePath = `${process.env.UPLOAD_PATH}/store/avatars/${key}.webp`;
         return {
           key,
           name: item.name,
-          shopIndex: item.shopIndex,
           price: Number(item.price || 0),
+          currency: item.currency,
           priceDollar: item.priceDollar,
           description: item.desc || "",
           owned: Number(user?.itemsOwned?.[key] || 0) > 0,
@@ -331,16 +530,25 @@ router.get("/info", async function (req, res) {
           imageUrl: buildAvatarImageUrl(key),
         };
       });
-    const emoteGroups = shopItemsWithPricing
-      .filter((item) => isEmoteGroupItem(item))
+    const emoteGroups = await Promise.all(
+      emoteGroupCatalogItems
+        .map(async (item) => ({
+          ...item,
+          priceDollar: isDollarBalanceItem(item)
+            ? await getItemDollarPrice(item)
+            : null,
+        }))
+    );
+    const emoteGroupsResponse = emoteGroups
       .map((item) => {
         const key = String(item.key || "");
         const emotes = buildEmoteGroupAssets(key);
         return {
           key,
           name: item.name,
-          shopIndex: item.shopIndex,
           price: Number(item.price || 0),
+          currency: item.currency,
+          priceDollar: item.priceDollar,
           description: item.desc || "",
           owned: Number(user?.itemsOwned?.[key] || 0) > 0,
           available: fs.existsSync(getEmoteGroupIconPath(key)) && emotes.length > 0,
@@ -350,12 +558,10 @@ router.get("/info", async function (req, res) {
       });
 
     res.send({
-      shopItems: shopItemsWithPricing.filter(
-        (item) => !isAvatarItem(item) && !isEmoteCatalogItem(item)
-      ),
-      avatarItems,
-      emoteGroups,
-      emoteItems: emoteGroups,
+      shopItems: shopItemsWithPricing,
+      avatarItems: avatarItemsResponse,
+      emoteGroups: emoteGroupsResponse,
+      emoteItems: emoteGroupsResponse,
       equippedAvatarKey: String(user?.settings?.equippedAvatarKey || ""),
       balance: Number(user?.coins || 0),
       balanceDollar: Number(user?.balanceDollar || 0),
@@ -373,39 +579,40 @@ router.post(
     try {
       var userId = await routeUtils.verifyLoggedIn(req);
       var itemIndex = Number(req.body.item);
+      const requestedKey = String(req.body.key || "").trim();
       
-      const shopItems = await getShopItems();
-      
-      if (itemIndex < 0 || itemIndex >= shopItems.length) {
+      const resolvedPurchase = await resolvePurchaseRequest(
+        requestedKey,
+        itemIndex
+      );
+      var item = resolvedPurchase?.item;
+      const purchaseKind = resolvedPurchase?.purchaseKind;
+
+      if (!item) {
         res.status(500);
         res.send("Invalid item purchased.");
         return;
       }
-      var item = shopItems[itemIndex];
+      const purchase = getPurchaseDetails(item);
+
+      if (!Number.isFinite(purchase.price) || purchase.price < 0) {
+        res.status(500);
+        res.send("Invalid item price.");
+        return;
+      }
 
       var user = await models.User.findOne({ id: userId }).select(
         "coins balanceDollar itemsOwned"
       );
-      const usesDollarBalance = isDollarBalanceItem(item);
-      const dollarPrice = usesDollarBalance
-        ? await getItemDollarPrice(item)
-        : 0;
+      const currentBalance = Number(user?.[purchase.balanceField] || 0);
 
-      if (
-        usesDollarBalance
-          ? Number(user.balanceDollar || 0) < dollarPrice
-          : user.coins < item.price
-      ) {
+      if (currentBalance < purchase.price) {
         res.status(500);
-        res.send(
-          usesDollarBalance
-            ? "You do not have enough dollar balance to purchase this."
-            : "You do not have enough coins to purchase this."
-        );
+        res.send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
         return;
       }
 
-      if (item.limit != null && user.itemsOwned[item.key] >= item.limit) {
+      if (item.limit != null && Number(user.itemsOwned?.[item.key] || 0) >= item.limit) {
         res.status(500);
         res.send("You already own this.");
         return;
@@ -425,20 +632,25 @@ router.post(
       let userChanges = {
         [`itemsOwned.${item.key}`]: 1,
       };
-      userChanges[usesDollarBalance ? "balanceDollar" : "coins"] =
-        -1 * (usesDollarBalance ? dollarPrice : item.price);
+      userChanges[purchase.balanceField] = -1 * purchase.price;
 
       for (let k in item.propagateItemUpdates) {
         let change = item.propagateItemUpdates[k];
         userChanges[`itemsOwned.${k}`] = change;
       }
 
-      await models.User.updateOne(
-        { id: userId },
+      const updateResult = await models.User.updateOne(
+        { id: userId, [purchase.balanceField]: { $gte: purchase.price } },
         {
           $inc: userChanges,
         }
       ).exec();
+
+      if (!updateResult.modifiedCount) {
+        res.status(500);
+        res.send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+        return;
+      }
 
       await item.onBuy(userId, context);
       if (context) {
@@ -447,109 +659,114 @@ router.post(
       }
 
       await redis.cacheUserInfo(userId, true);
+      const updatedUser = await models.User.findOne({ id: userId })
+        .select("coins balanceDollar")
+        .lean();
 
       res.send({
         ...(context || {}),
-        balanceType: usesDollarBalance ? "balanceDollar" : "coins",
-        balance: Number(user.coins || 0) - (usesDollarBalance ? 0 : item.price),
-        balanceDollar:
-          Number(user.balanceDollar || 0) - (usesDollarBalance ? dollarPrice : 0),
+        purchaseKind,
+        currency: purchase.currency,
+        price: purchase.price,
+        balanceType: purchase.balanceField,
+        balance: Number(updatedUser?.coins || 0),
+        balanceDollar: Number(updatedUser?.balanceDollar || 0),
       });
     } catch (e) {
       logger.error(e);
       res.status(500);
-      res.send("Error spending coins.");
+      res.send("Error completing purchase.");
     }
-  },
+  }
+);
 
-  router.post("/transferCoins", async function (req, res) {
+router.post("/transferCoins", async function (req, res) {
+  try {
+    const senderId = await routeUtils.verifyLoggedIn(req);
+    const { recipientUsername, amount } = req.body;
+
+    const transferAmount = Number(amount);
+    if (
+      !recipientUsername ||
+      !Number.isFinite(transferAmount) ||
+      transferAmount <= 0
+    ) {
+      return res.status(400).send("Invalid transfer data.");
+    }
+
+    const [recipient, sender] = await Promise.all([
+      models.User.findOne({
+        name: recipientUsername,
+        deleted: false,
+      })
+        .select("id")
+        .lean()
+        .exec(),
+      models.User.findOne({ id: senderId }).select("name").lean().exec(),
+    ]);
+
+    if (!recipient) {
+      return res.status(404).send("Recipient not found.");
+    }
+    if (!sender) {
+      return res.status(404).send("Sender not found.");
+    }
+    if (recipient.id === senderId) {
+      return res.status(400).send("Cannot transfer coins to yourself.");
+    }
+
+    // Atomically subtract coins only if balance is sufficient
+    const debitResult = await models.User.updateOne(
+      { id: senderId, coins: { $gte: transferAmount } },
+      { $inc: { coins: -transferAmount } }
+    ).exec();
+
+    const modified =
+      debitResult.modifiedCount ??
+      debitResult.nModified ??
+      debitResult.matchedCount ??
+      0;
+    if (!modified) {
+      return res.status(400).send("Insufficient balance.");
+    }
+
+    const coinText = transferAmount === 1 ? "coin" : "coins";
+
     try {
-      const senderId = await routeUtils.verifyLoggedIn(req);
-      const { recipientUsername, amount } = req.body;
-
-      const transferAmount = Number(amount);
-      if (
-        !recipientUsername ||
-        !Number.isFinite(transferAmount) ||
-        transferAmount <= 0
-      ) {
-        return res.status(400).send("Invalid transfer data.");
-      }
-
-      const [recipient, sender] = await Promise.all([
-        models.User.findOne({
-          name: recipientUsername,
-          deleted: false,
-        })
-          .select("id")
-          .lean()
-          .exec(),
-        models.User.findOne({ id: senderId }).select("name").lean().exec(),
+      await Promise.all([
+        models.User.updateOne(
+          { id: recipient.id },
+          { $inc: { coins: transferAmount } }
+        ).exec(),
+        models.Notification.create({
+          id: shortid.generate(),
+          user: recipient.id,
+          isChat: false,
+          content: `${sender.name} has sent you ${transferAmount} ${coinText}!`,
+          date: Date.now(),
+          read: false,
+        }),
       ]);
 
-      if (!recipient) {
-        return res.status(404).send("Recipient not found.");
-      }
-      if (!sender) {
-        return res.status(404).send("Sender not found.");
-      }
-      if (recipient.id === senderId) {
-        return res.status(400).send("Cannot transfer coins to yourself.");
-      }
+      await Promise.all([
+        redis.cacheUserInfo(senderId, true),
+        redis.cacheUserInfo(recipient.id, true),
+      ]);
 
-      // Atomically subtract coins only if balance is sufficient
-      const debitResult = await models.User.updateOne(
-        { id: senderId, coins: { $gte: transferAmount } },
-        { $inc: { coins: -transferAmount } }
-      ).exec();
-
-      const modified =
-        debitResult.modifiedCount ??
-        debitResult.nModified ??
-        debitResult.matchedCount ??
-        0;
-      if (!modified) {
-        return res.status(400).send("Insufficient balance.");
-      }
-
-      const coinText = transferAmount === 1 ? "coin" : "coins";
-
-      try {
-        await Promise.all([
-          models.User.updateOne(
-            { id: recipient.id },
-            { $inc: { coins: transferAmount } }
-          ).exec(),
-          models.Notification.create({
-            id: shortid.generate(),
-            user: recipient.id,
-            isChat: false,
-            content: `${sender.name} has sent you ${transferAmount} ${coinText}!`,
-            date: Date.now(),
-            read: false,
-          }),
-        ]);
-
-        await Promise.all([
-          redis.cacheUserInfo(senderId, true),
-          redis.cacheUserInfo(recipient.id, true),
-        ]);
-
-        return res.sendStatus(200);
-      } catch (e) {
-        // If adding to recipient fails, refund the sender
-        await models.User.updateOne(
-          { id: senderId },
-          { $inc: { coins: transferAmount } }
-        ).exec();
-        throw e;
-      }
+      return res.sendStatus(200);
     } catch (e) {
-      logger.error(e);
-      return res.status(500).send("Error transferring coins.");
+      // If adding to recipient fails, refund the sender
+      await models.User.updateOne(
+        { id: senderId },
+        { $inc: { coins: transferAmount } }
+      ).exec();
+      throw e;
     }
-  })
-);
+  } catch (e) {
+    logger.error(e);
+    return res.status(500).send("Error transferring coins.");
+  }
+});
 
 router.get("/stampSuggestions", async function (req, res) {
   res.setHeader("Content-Type", "application/json");

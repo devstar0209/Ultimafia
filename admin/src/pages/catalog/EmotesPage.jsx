@@ -10,6 +10,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -57,6 +58,7 @@ export default function EmotesPage({ search = "" }) {
   const [formData, setFormData] = useState({
     name: "",
     price: 0,
+    currency: "dollar",
   });
 
   async function loadEmotes(nextPage = page, nextRowsPerPage = rowsPerPage) {
@@ -118,6 +120,7 @@ export default function EmotesPage({ search = "" }) {
     setFormData({
       name: "",
       price: 0,
+      currency: "dollar",
     });
     setDialogOpen(true);
   }
@@ -130,6 +133,7 @@ export default function EmotesPage({ search = "" }) {
     setFormData({
       name: emote.name || "",
       price: Number(emote.price || 0),
+      currency: emote.currency || "dollar",
     });
     setDialogOpen(true);
   }
@@ -173,6 +177,7 @@ export default function EmotesPage({ search = "" }) {
         const updateResponse = await updateAdminEmote(editingKey, {
           name: formData.name,
           price: Number(formData.price || 0),
+          currency: formData.currency,
         });
         const activeKey = updateResponse?.item?.key || editingKey;
         if (removeImage) {
@@ -192,6 +197,7 @@ export default function EmotesPage({ search = "" }) {
           name: formData.name,
           description: "",
           price: Number(formData.price || 0),
+          currency: formData.currency,
           limit: 1,
         });
         const activeKey = createResponse?.item?.key;
@@ -387,7 +393,11 @@ export default function EmotesPage({ search = "" }) {
                             ) : null}
                           </Stack>
                         </TableCell>
-                        <TableCell align="right">{emote.price}</TableCell>
+                        <TableCell align="right">
+                          {emote.currency === "coins"
+                            ? `${emote.price} coins`
+                            : `$${Number(emote.price || 0).toFixed(2)}`}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             size="small"
@@ -530,6 +540,17 @@ export default function EmotesPage({ search = "" }) {
               onChange={(event) => setFormData((prev) => ({ ...prev, price: event.target.value }))}
               inputProps={{ min: 0 }}
             />
+            <TextField
+              label="Currency"
+              select
+              value={formData.currency}
+              onChange={(event) =>
+                setFormData((prev) => ({ ...prev, currency: event.target.value }))
+              }
+            >
+              <MenuItem value="dollar">Dollar</MenuItem>
+              <MenuItem value="coins">Coins</MenuItem>
+            </TextField>
             {editingKey ? (
               <Typography variant="caption" color="text.secondary">
                 Editing: {editingEmote?.name || editingKey}
