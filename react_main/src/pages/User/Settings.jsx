@@ -1240,7 +1240,9 @@ export default function Settings() {
             name: { $set: name },
             itemsOwned: {
               nameChange: {
-                $set: deps.user.itemsOwned.nameChange - 1,
+                $set:
+                  res.data.nameChange ??
+                  Math.max(Number(deps.user.itemsOwned.nameChange || 0) - 1, 0),
               },
             },
           })

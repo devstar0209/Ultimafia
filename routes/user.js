@@ -114,6 +114,47 @@ async function buildPointCatalogBalances(pointsByGameCatalog) {
     );
 }
 
+function formatShopItemFallbackName(key) {
+  return String(key || "")
+    .replace(/^avatar-/, "Avatar ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
+async function buildPurchasedItems(itemsOwned) {
+  const ownedEntries = Object.entries(itemsOwned || {})
+    .map(([key, count]) => ({ key, count: Number(count || 0) }))
+    .filter((item) => item.count > 0);
+
+  if (ownedEntries.length === 0) return [];
+
+  const itemMap = new Map(
+    (
+      await models.ShopItem.find({
+        key: { $in: ownedEntries.map((item) => item.key) },
+      })
+        .select("key name sortOrder hidden -_id")
+        .lean()
+    ).map((item) => [item.key, item])
+  );
+
+  return ownedEntries
+    .map((item) => {
+      const shopItem = itemMap.get(item.key);
+      return {
+        key: item.key,
+        name: shopItem?.name || formatShopItemFallbackName(item.key),
+        count: item.count,
+        sortOrder: Number(shopItem?.sortOrder ?? 9999),
+      };
+    })
+    .sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
+    );
+}
+
 const mongo = require("mongodb");
 const ObjectID = mongo.ObjectID;
 
@@ -392,7 +433,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -427,6 +468,8 @@ router.get("/:id/profile", async function (req, res) {
     user.pointsByGameCatalog = await buildPointCatalogBalances(
       user.pointsByGameCatalog
     );
+    user.purchasedItems = await buildPurchasedItems(user.itemsOwned);
+    delete user.itemsOwned;
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;
@@ -2469,16 +2512,6 @@ router.post("/name", async function (req, res) {
       return;
     }
 
-    var ownedItems = await redis.getUserItemsOwned(userId);
-
-    if (ownedItems.nameChange < 1) {
-      res.status(500);
-      res.send(
-        "You must purchase additional name changes with coins from the Shop."
-      );
-      return;
-    }
-
     var existingUser = await models.User.findOne({
       name: new RegExp(`^${name}$`, "i"),
     }).select("_id");
@@ -2511,11 +2544,27 @@ router.post("/name", async function (req, res) {
       };
     }
 
-    await models.User.updateOne({ id: userId }, updateQuery).exec();
+    const updatedUser = await models.User.findOneAndUpdate(
+      { id: userId, "itemsOwned.nameChange": { $gte: 1 } },
+      updateQuery,
+      { new: true }
+    )
+      .select("itemsOwned.nameChange")
+      .lean();
+
+    if (!updatedUser) {
+      res.status(500);
+      res.send(
+        "You must purchase additional name changes with coins from the Shop."
+      );
+      return;
+    }
 
     await redis.cacheUserInfo(userId, true);
 
-    res.sendStatus(200);
+    res.send({
+      nameChange: Number(updatedUser.itemsOwned?.nameChange || 0),
+    });
   } catch (e) {
     logger.error(e);
     res.status(500);
