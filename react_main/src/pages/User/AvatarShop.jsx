@@ -86,7 +86,7 @@ export default function AvatarShop(props) {
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/spendCoins", { item: shopInfo.shopItems.findIndex((item) => item.key === avatarKey) })
+      .post("/api/shop/purchase", { item: avatar.shopIndex })
       .then((res) => {
         siteInfo.showAlert("Avatar purchased.", "success");
 

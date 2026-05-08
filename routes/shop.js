@@ -137,8 +137,9 @@ router.get("/info", async function (req, res) {
     
     const shopItems = await getShopItems();
     const shopItemsWithPricing = await Promise.all(
-      shopItems.map(async (item) => ({
+      shopItems.map(async (item, index) => ({
         ...item,
+        shopIndex: index,
         priceDollar: isDollarBalanceItem(item)
           ? await getItemDollarPrice(item)
           : null,
@@ -152,6 +153,7 @@ router.get("/info", async function (req, res) {
         return {
           key,
           name: item.name,
+          shopIndex: item.shopIndex,
           price: Number(item.price || 0),
           priceDollar: item.priceDollar,
           description: item.desc || "",
@@ -162,7 +164,9 @@ router.get("/info", async function (req, res) {
       });
 
     res.send({
-      shopItems: shopItemsWithPricing,
+      shopItems: shopItemsWithPricing.filter(
+        (item) => !isDollarBalanceItem(item)
+      ),
       avatarItems,
       equippedAvatarKey: String(user?.settings?.equippedAvatarKey || ""),
       balance: Number(user?.coins || 0),
@@ -176,7 +180,7 @@ router.get("/info", async function (req, res) {
 });
 
 router.post(
-  "/spendCoins",
+  "/purchase",
   async function (req, res) {
     try {
       var userId = await routeUtils.verifyLoggedIn(req);

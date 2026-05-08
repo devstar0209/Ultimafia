@@ -153,7 +153,7 @@ export default function Shop(props) {
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/spendCoins", { item: index })
+      .post("/api/shop/purchase", { item: item.shopIndex ?? index })
       .then((res) => {
         siteInfo.showAlert("Item purchased.", "success");
 
@@ -588,8 +588,8 @@ export default function Shop(props) {
                     `You will receive a stamp for ${eligibility.data.role}. Purchase for ${stampItem.price} coins?`
                   );
                   if (!shouldBuy) return;
-                  return axios.post("/api/shop/spendCoins", {
-                    item: stampIndex,
+                  return axios.post("/api/shop/purchase", {
+                    item: stampItem.shopIndex ?? stampIndex,
                     gameId: eligibility.data.gameId,
                   });
                 })
