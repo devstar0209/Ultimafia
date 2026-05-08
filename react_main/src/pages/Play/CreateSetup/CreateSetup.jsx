@@ -170,6 +170,7 @@ export default function CreateSetup(props) {
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const navigate = useNavigate();
   const gameHelp = GAME_SETUP_HELP[gameType] || DEFAULT_GAME_SETUP_HELP;
+  const floatingButtonZIndex = theme.zIndex.drawer - 1;
 
   useEffect(() => {
     const gameParam = new URLSearchParams(location.search).get("game");
@@ -244,7 +245,7 @@ export default function CreateSetup(props) {
           position: "fixed",
           top: "50%",
           left: 30,
-          zIndex: 1201,
+          zIndex: floatingButtonZIndex,
           visibility: drawerOpen ? "hidden" : "visible",
           backgroundColor: theme.palette.secondary.main,
           width: 46,
@@ -266,7 +267,8 @@ export default function CreateSetup(props) {
             position: "fixed",
             top: "calc(50% + 55px)",
             left: 20,
-            zIndex: 1201,
+            zIndex: floatingButtonZIndex,
+            visibility: drawerOpen ? "hidden" : "visible",
             backgroundColor: theme.palette.secondary.main,
             padding: "8px",
             borderRadius: "50%",
@@ -285,7 +287,8 @@ export default function CreateSetup(props) {
           height: "100%",
           width: "10px",
           backgroundColor: "transparent",
-          zIndex: 1200,
+          zIndex: floatingButtonZIndex,
+          display: drawerOpen ? "none" : "block",
           cursor: "pointer",
         }}
       />
