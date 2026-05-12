@@ -64,7 +64,7 @@ export default function EmoteShop() {
   useEffect(() => {
     if (user.loaded && user.loggedIn) {
       axios
-        .get("/api/shop/info")
+        .get("/api/shop/emotes")
         .then((res) => {
           setShopInfo(res.data);
           setLoaded(true);
@@ -73,7 +73,7 @@ export default function EmoteShop() {
     }
   }, [user.loaded]);
 
-  const emoteGroups = shopInfo.emoteGroups || shopInfo.emoteItems || [];
+  const emoteGroups = shopInfo.emoteItems;
 
   function onBuyItem(groupKey) {
     const group = emoteGroups.find((item) => item.key === groupKey);

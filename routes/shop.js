@@ -16,21 +16,6 @@ const HIDDEN_SHOP_ITEM_KEYS = [
   "customEmotesExtra",
 ];
 
-function normalizeShopCurrency(value, item = {}) {
-  const currency = String(value || "").trim().toLowerCase();
-  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
-    return "dollar";
-  }
-  if (["coin", "coins"].includes(currency)) return "coins";
-  if (
-    String(item.key || "").startsWith("avatar-") ||
-    String(item.key || "").startsWith("emote-group-")
-  ) {
-    return "dollar";
-  }
-  return "coins";
-}
-
 async function checkStampEligibility(userId, gameId) {
   const game = await models.Game.findOne({ id: gameId }).select(
     "type endTime broken winners playerIdMap playerRoleMap history"
@@ -216,7 +201,7 @@ function buildRuntimeShopItem(item) {
     key: item.key || "",
     hidden: item.hidden,
     price: Number(item.price || 0),
-    currency: normalizeShopCurrency(item.currency, item),
+    currency: item.currency,
     limit: item.limit || null,
     disabled: false,
     propagateItemUpdates: {},
@@ -227,73 +212,6 @@ function buildRuntimeShopItem(item) {
       ? (userId, context) => grantPurchasedEmoteGroup(userId, item, context)
       : async function (userId) {},
   };
-}
-
-async function migrateLegacyCatalogItems(
-  model,
-  keyPattern,
-  defaultLimit,
-  defaultCurrency = "dollar"
-) {
-  const legacyItems = await models.ShopItem.find({ key: keyPattern })
-    .sort("sortOrder")
-    .lean();
-
-  for (const item of legacyItems) {
-    const legacyUpdatedAt = Number(item.updatedAt || 0);
-    const existing = await model
-      .findOne({ key: item.key })
-      .select("currency updatedAt")
-      .lean();
-
-    if (
-      existing &&
-      defaultCurrency === "dollar" &&
-      normalizeShopCurrency(existing.currency, item) === "coins" &&
-      Number(existing.updatedAt || 0) === legacyUpdatedAt
-    ) {
-      await model
-        .updateOne(
-          { key: item.key },
-          {
-            $set: {
-              currency: "dollar",
-              updatedAt: Date.now(),
-            },
-          }
-        )
-        .exec();
-      continue;
-    }
-
-    await model
-      .updateOne(
-        { key: item.key },
-        {
-          $setOnInsert: {
-            key: item.key,
-            name: item.name || item.key,
-            desc: item.desc || "",
-            price: Number(item.price || 0),
-            currency: normalizeShopCurrency(defaultCurrency, item),
-            limit: item.limit == null ? defaultLimit : Number(item.limit),
-            hidden: Boolean(item.hidden),
-            sortOrder: Number(item.sortOrder || 0),
-            createdAt: item.createdAt || Date.now(),
-            updatedAt: item.updatedAt || Date.now(),
-          },
-        },
-        { upsert: true }
-      )
-      .exec();
-  }
-}
-
-async function ensureCatalogCollections() {
-  await Promise.all([
-    migrateLegacyCatalogItems(models.AvatarItem, /^avatar-/i, 1, "dollar"),
-    migrateLegacyCatalogItems(models.EmoteGroup, /^emote-group-/i, 1, "dollar"),
-  ]);
 }
 
 async function getShopItems() {
@@ -351,7 +269,7 @@ async function getEmoteGroupItems() {
 
 async function resolveAvatarPurchaseItem(key) {
   if (!isAvatarItem({ key })) return null;
-  await ensureCatalogCollections();
+  
 
   const dbItem = await models.AvatarItem.findOne({
     key,
@@ -365,7 +283,7 @@ async function resolveAvatarPurchaseItem(key) {
 
 async function resolveEmoteGroupPurchaseItem(key) {
   if (!isEmoteGroupItem({ key })) return null;
-  await ensureCatalogCollections();
+  
 
   const dbItem = await models.EmoteGroup.findOne({
     key,
@@ -434,10 +352,6 @@ function invalidateShopItemsCache() {
   shopItemsCacheTime = 0;
 }
 
-function buildAvatarImageUrl(avatarKey) {
-  return `/uploads/store/avatars/${avatarKey}.webp`;
-}
-
 function buildEmoteImageUrl(emoteKey) {
   return `/uploads/store/emotes/${emoteKey}.webp`;
 }
@@ -459,11 +373,11 @@ function isEmoteCatalogItem(item = {}) {
 }
 
 function isDollarBalanceItem(item = {}) {
-  return normalizeShopCurrency(item.currency, item) === "dollar";
+  return item.currency === "dollar";
 }
 
 function getPurchaseDetails(item = {}) {
-  const currency = normalizeShopCurrency(item.currency, item);
+  const currency = item.currency;
   const price =
     currency === "dollar"
       ? roundDollarAmount(Number(item.price || 0))
@@ -488,83 +402,45 @@ async function getItemDollarPrice(item) {
 router.get("/info", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
-    var userId = await routeUtils.verifyLoggedIn(req);
-    var user = await models.User.findOne({ id: userId }).select(
-      "coins balanceDollar itemsOwned settings"
-    );
-    
-    await ensureCatalogCollections();
-    const [shopItems, avatarCatalogItems, emoteGroupCatalogItems] =
-      await Promise.all([getShopItems(), getAvatarItems(), getEmoteGroupItems()]);
-    const shopItemsWithPricing = await Promise.all(
-      shopItems.map(async (item, index) => ({
-        ...item,
-        shopIndex: index,
-        priceDollar: isDollarBalanceItem(item)
-          ? await getItemDollarPrice(item)
-          : null,
-      }))
-    );
-    const avatarItems = await Promise.all(
-      avatarCatalogItems
-        .map(async (item) => ({
-          ...item,
-          priceDollar: isDollarBalanceItem(item)
-            ? await getItemDollarPrice(item)
-            : null,
-        }))
-    );
-    const avatarItemsResponse = avatarItems
-      .map((item) => {
-        const key = String(item.key || "");
-        const absolutePath = `${process.env.UPLOAD_PATH}/store/avatars/${key}.webp`;
-        return {
-          key,
-          name: item.name,
-          price: Number(item.price || 0),
-          currency: item.currency,
-          priceDollar: item.priceDollar,
-          description: item.desc || "",
-          owned: Number(user?.itemsOwned?.[key] || 0) > 0,
-          available: fs.existsSync(absolutePath),
-          imageUrl: buildAvatarImageUrl(key),
-        };
-      });
-    const emoteGroups = await Promise.all(
-      emoteGroupCatalogItems
-        .map(async (item) => ({
-          ...item,
-          priceDollar: isDollarBalanceItem(item)
-            ? await getItemDollarPrice(item)
-            : null,
-        }))
-    );
-    const emoteGroupsResponse = emoteGroups
-      .map((item) => {
-        const key = String(item.key || "");
-        const emotes = buildEmoteGroupAssets(key);
-        return {
-          key,
-          name: item.name,
-          price: Number(item.price || 0),
-          currency: item.currency,
-          priceDollar: item.priceDollar,
-          description: item.desc || "",
-          owned: Number(user?.itemsOwned?.[key] || 0) > 0,
-          available: fs.existsSync(getEmoteGroupIconPath(key)) && emotes.length > 0,
-          iconUrl: buildEmoteGroupIconUrl(key),
-          emotes,
-        };
-      });
+ 
+    const shopItems = await getShopItems();
 
     res.send({
-      shopItems: shopItemsWithPricing,
-      avatarItems: avatarItemsResponse,
-      emoteGroups: emoteGroupsResponse,
-      emoteItems: emoteGroupsResponse,
-      equippedAvatarKey: String(user?.settings?.equippedAvatarKey || ""),
-      balance: Number(user?.coins || 0),
-      balanceDollar: Number(user?.balanceDollar || 0),
+      shopItems
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error loading shop data.");
+  }
+});
+
+router.get("/avatars", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+
+    const [avatarItems] =
+      await Promise.all([getAvatarItems()]);
+
+    res.send({
+      avatarItems: avatarItems
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error loading shop data.");
+  }
+});
+
+router.get("/emotes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+
+    const [emoteItems] =
+      await Promise.all([getEmoteItems()]);
+
+    res.send({
+      emoteItems: emoteItems
     });
   } catch (e) {
     logger.error(e);

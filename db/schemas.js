@@ -1101,6 +1101,7 @@ var schemas = {
     name: { type: String },
     desc: { type: String, default: "" },
     price: { type: Number, default: 0 },
+    imageUrl: String,
     currency: { type: String, enum: ["coins", "dollar"], default: "coins" },
     limit: { type: Number, default: null }, // null = unlimited, 1 = one-time purchase, >1 = purchasable N times
     hidden: { type: Boolean, default: false, index: true },
@@ -1111,7 +1112,7 @@ var schemas = {
   AvatarItem: new mongoose.Schema({
     key: { type: String, index: true, unique: true },
     name: { type: String },
-    desc: { type: String, default: "" },
+    imageUrl: String,
     price: { type: Number, default: 0 },
     currency: { type: String, enum: ["coins", "dollar"], default: "dollar" },
     limit: { type: Number, default: 1 },
@@ -1123,7 +1124,7 @@ var schemas = {
   EmoteGroup: new mongoose.Schema({
     key: { type: String, index: true, unique: true },
     name: { type: String },
-    desc: { type: String, default: "" },
+    imageUrl: String,
     price: { type: Number, default: 0 },
     currency: { type: String, enum: ["coins", "dollar"], default: "dollar" },
     limit: { type: Number, default: 1 },

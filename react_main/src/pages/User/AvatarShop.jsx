@@ -47,11 +47,8 @@ function formatItemPrice(item = {}) {
 
 export default function AvatarShop(props) {
   const [shopInfo, setShopInfo] = useState({
-    shopItems: [],
     avatarItems: [],
     equippedAvatarKey: "",
-    balance: 0,
-    balanceDollar: 0,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -68,7 +65,7 @@ export default function AvatarShop(props) {
   useEffect(() => {
     if (user.loaded && user.loggedIn) {
       axios
-        .get("/api/shop/info")
+        .get("/api/shop/avatars")
         .then((res) => {
           setShopInfo(res.data);
           setLoaded(true);
@@ -138,60 +135,9 @@ export default function AvatarShop(props) {
 
   return (
     <Stack direction="column" spacing={2}>
-      <Paper sx={{ p: 2 }}>
-        <Stack direction="column" spacing={2} style={{"display": "block"}}>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Typography variant="h2">Profile Avatars</Typography>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Typography variant="h4" className="balance">
-                {formatUsdAmount(shopInfo.balanceDollar)}
-              </Typography>
-              <Box
-                component="i"
-                className="fas fa-wallet"
-                aria-label="Dollar balance"
-                sx={{ fontSize: 24, color: "success.main" }}
-              />
-              <Typography variant="h4" className="balance">
-                {shopInfo.balance}
-              </Typography>
-              <Box
-                component="i"
-                className="fas fa-coins"
-                aria-label="Coins"
-                sx={{ fontSize: 24, color: "#f5c542" }}
-              />
-            </Stack>
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            Buy and equip profile avatars to customize your appearance.
-          </Typography>
-          <Button
-            variant="outlined"
-            onClick={() => navigate("/user/shop")}
-          >
-            Back to Shop
-          </Button>
-        </Stack>
-      </Paper>
-
       <Grid2 container spacing={2}>
         {shopInfo.avatarItems.map((avatar) => {
-          const isEquipped = shopInfo.equippedAvatarKey === avatar.key;
+          const isEquipped = user.settings.equippedAvatarKey === avatar.key;
           return (
             <Grid2
               key={avatar.key}
@@ -225,9 +171,7 @@ export default function AvatarShop(props) {
                         height: 60,
                         borderRadius: "8px",
                         backgroundColor: "rgba(255,255,255,0.06)",
-                        backgroundImage: avatar.available
-                          ? `url(${avatar.imageUrl}?t=${siteInfo.cacheVal})`
-                          : "none",
+                        backgroundImage: url(avatar.imageUrl),
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         border: "1px solid rgba(255,255,255,0.08)",
@@ -270,14 +214,14 @@ export default function AvatarShop(props) {
                   </Stack>
 
                   <Stack direction="column" spacing={1} sx={{ mt: 2 }}>
-                    {avatar.owned ? (
+                    {isEquipped ? (
                       <Button
                         variant={isEquipped ? "contained" : "outlined"}
                         disabled={isEquipped}
                         onClick={() => onEquipAvatar(avatar.key)}
                         fullWidth
                       >
-                        {isEquipped ? "Equipped" : "Equip"}
+                        Equipped
                       </Button>
                     ) : (
                       <Button

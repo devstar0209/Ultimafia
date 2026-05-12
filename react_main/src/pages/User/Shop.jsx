@@ -48,33 +48,18 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
-function getItemCurrency(item = {}) {
-  const currency = String(item.currency || "").trim().toLowerCase();
-  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
-    return "dollar";
-  }
-  if (["coin", "coins"].includes(currency)) return "coins";
-  const key = String(item.key || "");
-  return key.startsWith("avatar-") || key.startsWith("emote-group-")
-    ? "dollar"
-    : "coins";
-}
 
-const isDollarBalanceItem = (item = {}) => getItemCurrency(item) === "dollar";
+const isDollarBalanceItem = (item = {}) => item.currency === "dollar";
 
 function formatItemPrice(item = {}) {
   return isDollarBalanceItem(item)
-    ? formatUsdAmount(item.priceDollar ?? item.price)
+    ? formatUsdAmount(item.price)
     : `${item.price} coins`;
 }
 
 export default function Shop(props) {
   const [shopInfo, setShopInfo] = useState({
-    shopItems: [],
-    avatarItems: [],
-    equippedAvatarKey: "",
-    balance: 0,
-    balanceDollar: 0,
+    shopItems: []
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -172,9 +157,7 @@ export default function Shop(props) {
         siteInfo.showAlert("Item purchased.", "success");
 
         setShopInfo((prev) => ({
-          ...prev,
-          balance: res.data.balance,
-          balanceDollar: res.data.balanceDollar,
+          ...prev
         }));
 
         let itemsOwnedChanges = {
@@ -189,44 +172,12 @@ export default function Shop(props) {
             $set: Number(user.itemsOwned?.[k] || 0) + change,
           };
         }
-
-        const nextOwnedCount = (user.itemsOwned[item.key] || 0) + 1;
         const userUpdate = {
           itemsOwned: itemsOwnedChanges,
           coins: { $set: res.data.balance },
           balanceDollar: { $set: res.data.balanceDollar },
         };
         user.set(update(user.state, userUpdate));
-
-        if (item.key.startsWith("avatar-") && nextOwnedCount > 0) {
-          return axios.post("/api/user/avatar/equip", { avatarKey: item.key });
-        }
-      })
-      .then((equipRes) => {
-        if (!equipRes) return;
-        setShopInfo((prev) => ({
-          ...prev,
-          equippedAvatarKey: equipRes.data.avatarKey || prev.equippedAvatarKey,
-          avatarItems: prev.avatarItems.map((avatar) =>
-            avatar.key === equipRes.data.avatarKey
-              ? { ...avatar, owned: true }
-              : avatar
-          ),
-        }));
-        siteInfo.showAlert("Avatar equipped.", "success");
-      })
-      .catch(errorAlert);
-  }
-
-  function onEquipAvatar(avatarKey) {
-    axios
-      .post("/api/user/avatar/equip", { avatarKey })
-      .then((res) => {
-        setShopInfo((prev) => ({
-          ...prev,
-          equippedAvatarKey: res.data.avatarKey || avatarKey,
-        }));
-        siteInfo.showAlert("Avatar equipped.", "success");
       })
       .catch(errorAlert);
   }
@@ -357,55 +308,10 @@ export default function Shop(props) {
 
   return (
     <Stack direction="column" spacing={1}>
-      <Paper sx={{ p: 2 }}>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            justifyContent: "center",
-          }}
-        >
-          <Typography variant="h3" className="balance">
-            You have: {shopInfo.balance}
-          </Typography>
-          <Box
-            component="i"
-            className="fas fa-coins"
-            aria-label="Coins"
-            sx={{ fontSize: 20, color: "#f5c542" }}
-          />
-        </Stack>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            justifyContent: "center",
-            mt: 1,
-          }}
-        >
-          <Typography variant="h3" className="balance">
-            Dollar balance: {formatUsdAmount(shopInfo.balanceDollar)}
-          </Typography>
-          <Box
-            component="i"
-            className="fas fa-wallet"
-            aria-label="Dollar balance"
-            sx={{ fontSize: 20, color: "success.main" }}
-          />
-        </Stack>
-      </Paper>
-
       <Grid2 container spacing={1}>
-        <Grid2
-          size={{
-            xs: 12,
-            sm: 6,
-          }}
-        >
-          <Card
+         <Card
             variant="outlined"
             sx={{
-              height: "100%",
               cursor: "pointer",
               transition: "all 0.3s ease",
               "&:hover": {
@@ -428,17 +334,9 @@ export default function Shop(props) {
               </CardContent>
             </CardActionArea>
           </Card>
-        </Grid2>
-        <Grid2
-          size={{
-            xs: 12,
-            sm: 6,
-          }}
-        >
           <Card
             variant="outlined"
             sx={{
-              height: "100%",
               cursor: "pointer",
               transition: "all 0.3s ease",
               "&:hover": {
@@ -461,12 +359,6 @@ export default function Shop(props) {
               </CardContent>
             </CardActionArea>
           </Card>
-        </Grid2>
-      </Grid2>
-
-
-
-      <Grid2 container spacing={1}>
         {shopItems}
       </Grid2>
       <Dialog
