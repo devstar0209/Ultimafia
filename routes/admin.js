@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const sharp = require("sharp");
 const formidable = require("formidable");
 const shortid = require("shortid");
 
@@ -147,23 +148,10 @@ function buildAdminSettingsSummary(
   };
 }
 
-function removeUploadFile(relativePath) {
-  if (!relativePath) return;
-
-  const absolutePath = utils.resolveUploadPath(relativePath);
-  if (fs.existsSync(absolutePath)) {
-    fs.unlinkSync(absolutePath);
-  }
-}
-
 function normalizeAvatarKey(rawKey = "") {
   const trimmed = String(rawKey || "").trim().toLowerCase();
   if (!trimmed) return "";
   return trimmed.startsWith("avatar-") ? trimmed : `avatar-${trimmed}`;
-}
-
-function getAvatarAssetRelativePath(avatarKey) {
-  return `store/avatars/${avatarKey}.webp`;
 }
 
 function normalizeEmoteKey(rawKey = "") {
@@ -172,14 +160,6 @@ function normalizeEmoteKey(rawKey = "") {
   return trimmed.startsWith("emote-group-")
     ? trimmed
     : `emote-group-${trimmed.replace(/^emote-/, "")}`;
-}
-
-function getEmoteGroupIconRelativePath(groupKey) {
-  return `store/emote-groups/${groupKey}.webp`;
-}
-
-function getEmoteAssetRelativePath(assetId) {
-  return `store/emotes/${assetId}.webp`;
 }
 
 function toAssetSlug(value = "") {
@@ -230,7 +210,7 @@ function listEmoteGroupAssets(groupKey) {
 
 function removeEmoteGroupAssets(groupKey) {
   for (const asset of listEmoteGroupAssets(groupKey)) {
-    removeUploadFile(getEmoteAssetRelativePath(asset.id));
+    utils.removeUploadFile(asset.imageUrl);
   }
 }
 
@@ -1114,7 +1094,7 @@ router.post("/avatars/:key/image", async function (req, res) {
       return;
     }
 
-    await utils.uploadImage(file.path, "store/avatars", key, {
+    const imageUrl = await utils.uploadImage(file.path, utils.AVATAR_UPLOAD_PATH, key, {
       resize: {
         width: 256,
         height: 256,
@@ -1125,11 +1105,14 @@ router.post("/avatars/:key/image", async function (req, res) {
       quality: 92,
     });
 
-    await models.AvatarItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.AvatarItem.updateOne(
+      { key },
+      { $set: { imageUrl: imageUrl, updatedAt: Date.now() } }
+    ).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
-    res.send({ ok: true, key, imageUrl: utils.toPublicUrl(relativePath) });
+    res.send({ ok: true, key, imageUrl: imageUrl });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
       res.status(400).send("Image is too large, must be less than 5 MB.");
@@ -1154,8 +1137,8 @@ router.delete("/avatars/:key/image", async function (req, res) {
       return;
     }
 
-    removeUploadFile(getAvatarAssetRelativePath(key));
-    await models.AvatarItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    utils.removeUploadFile(item.imageUrl);
+    await models.AvatarItem.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Removed Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1180,7 +1163,7 @@ router.delete("/avatars/:key", async function (req, res) {
       return;
     }
 
-    removeUploadFile(getAvatarAssetRelativePath(key));
+    utils.removeUploadFile(existing.imageUrl);
     await models.AvatarItem.deleteOne({ key }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Avatar Item", [key]);
     shopModule.invalidateShopItemsCache();
@@ -1490,11 +1473,7 @@ router.post("/emotes/:key/image", async function (req, res) {
       return;
     }
 
-    const relativePath = getEmoteGroupIconRelativePath(key);
-    const absolutePath = utils.resolveUploadPath(relativePath);
-    utils.ensureDirectory(path.dirname(absolutePath));
-
-    await utils.uploadImage(file.path, "stores/emotes", key, {
+    const imageUrl = await utils.uploadImage(file.path, utils.EMOTES_UPLOAD_PATH, key, {
       animated: true,
       resize: {
         width: 64,
@@ -1506,11 +1485,11 @@ router.post("/emotes/:key/image", async function (req, res) {
       quality: 92,
     });
 
-    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: imageUrl, updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group Icon", [key]);
     shopModule.invalidateShopItemsCache();
 
-    res.send({ ok: true, key, imageUrl: utils.toPublicUrl(relativePath) });
+    res.send({ ok: true, key, imageUrl: imageUrl });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
       res.status(400).send("Image is too large, must be less than 2 MB.");
@@ -1568,7 +1547,7 @@ router.post("/emotes/:key/items", async function (req, res) {
       const file = uploadedFiles[index];
       const assetId = buildEmoteAssetId(key, file, index);
 
-      await utils.uploadImage(file.path, "store/emotes", assetId, {
+      const imageUrl = await utils.uploadImage(file.path, utils.EMOTES_UPLOAD_PATH, assetId, {
         animated: true,
         resize: {
           width: 64,
@@ -1583,7 +1562,7 @@ router.post("/emotes/:key/items", async function (req, res) {
       saved.push({
         id: assetId,
         name: assetId.replace(`${key}-`, ""),
-        imageUrl: utils.toPublicUrl(relativePath),
+        imageUrl: imageUrl,
       });
     }
 
@@ -1592,7 +1571,7 @@ router.post("/emotes/:key/items", async function (req, res) {
       key,
       `${saved.length}`,
     ]);
-    await grantEmoteAssetsToGroupOwners(key, saved);
+
     shopModule.invalidateShopItemsCache();
 
     res.send({ ok: true, key, emotes: listEmoteGroupAssets(key), saved });
@@ -1620,8 +1599,8 @@ router.delete("/emotes/:key/image", async function (req, res) {
       return;
     }
 
-    removeUploadFile(getEmoteGroupIconRelativePath(key));
-    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    utils.removeUploadFile(item.imageUrl);
+    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Removed Emote Group Icon", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1651,12 +1630,12 @@ router.delete("/emotes/:key/items/:itemId", async function (req, res) {
       return;
     }
 
-    removeUploadFile(getEmoteAssetRelativePath(itemId));
+    utils.removeUploadFile(item.imageUrl);
     await models.CustomEmote.updateMany(
       { id: itemId },
       { $set: { deleted: true } }
     ).exec();
-    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group Item", [
       key,
       itemId,
@@ -1685,7 +1664,7 @@ router.delete("/emotes/:key", async function (req, res) {
     }
 
     const groupAssets = listEmoteGroupAssets(key);
-    removeUploadFile(getEmoteGroupIconRelativePath(key));
+    utils.removeUploadFile(existing.imageUrl);
     removeEmoteGroupAssets(key);
     await models.CustomEmote.updateMany(
       { id: { $in: groupAssets.map((asset) => asset.id) } },
@@ -1952,7 +1931,7 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
       return;
     }
 
-    await utils.uploadImage(file.path, "game-catalog", gameCatalogUtils.slugifyGameTitle(gameKey), {
+    const imageUrl = await utils.uploadImage(file.path, utils.GAME_CATALOG_UPLOAD_PATH, gameCatalogUtils.slugifyGameTitle(gameKey), {
       resize: {
         width: 512,
         height: 512,
@@ -1968,7 +1947,7 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
       { key },
       {
         $set: {
-          logoPath: relativePath,
+          logoPath: imageUrl,
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },
@@ -1978,6 +1957,7 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
 
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Managed Game Logo", [
       key,
+      imageUrl,
     ]);
 
     res.send({
@@ -2013,7 +1993,7 @@ router.delete("/settings/gamecatalogs/:key/logo", async function (req, res) {
       return;
     }
 
-    removeUploadFile(existingGame.logoPath);
+    utils.removeUploadFile(existingGame.logoPath);
 
     const updatedGame = await models.GameCatalog.findOneAndUpdate(
       { key },
@@ -2057,7 +2037,7 @@ router.delete("/settings/gamecatalogs/:key", async function (req, res) {
       return;
     }
 
-    removeUploadFile(existingGame.logoPath);
+    utils.removeUploadFile(existingGame.logoPath);
     await models.GameCatalog.deleteOne({ key });
 
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Game Catalog", [
@@ -2191,9 +2171,7 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
       return;
     }
 
-    const relativePath = "branding/platform-logo";
-
-    await utils.uploadImage(file.path, relativePath, {
+    const logoUrl = await utils.uploadImage(file.path, utils.BRANDING_LOGO_UPLOAD_PATH, "logo", {
       resize: {
         width: 800,
         height: 240,
@@ -2208,7 +2186,7 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
       {},
       {
         $set: {
-          platformLogoPath: relativePath,
+          platformLogoPath: logoUrl,
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },
@@ -2217,7 +2195,7 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
     ).lean();
 
     await createBrandingModAction(sessionInfo.user.id, "Updated Platform Logo", [
-      relativePath,
+      logoUrl,
     ]);
 
     res.send({
@@ -2242,7 +2220,7 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
     if (!sessionInfo) return;
 
     const brandingDoc = await getPlatformBrandingDocument();
-    removeUploadFile(brandingDoc?.platformLogoPath);
+    utils.removeUploadFile(brandingDoc.platformLogoPath);
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
       {},
@@ -2264,7 +2242,8 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
     });
   } catch (e) {
     logger.error(e);
-    res.status(500).send("Error removing platform logo.");
+    res.status(500).send(e);
+    // res.status(500).send("Error removing platform logo.");
   }
 });
 
@@ -2288,7 +2267,7 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
       return;
     }
 
-    const bannerUrl = await utils.uploadImage(file.path, "branding/banners", bannerKey, {
+    const bannerUrl = await utils.uploadImage(file.path, utils.BRANDING_BANNER_UPLOAD_PATH, bannerKey, {
       resize: {
         width: 1600,
         height: 900,
@@ -2340,7 +2319,7 @@ router.delete("/settings/branding/banners/:key", async function (req, res) {
     const bannerKey = String(req.params.key || "").trim();
 
     const brandingDoc = await getPlatformBrandingDocument();
-    removeUploadFile(brandingDoc?.banners?.[bannerKey]);
+    utils.removeUploadFile(brandingDoc.banners[bannerKey]);
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
       {},
@@ -2390,7 +2369,7 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
 
     const bannerId = shortid.generate();
 
-    await utils.uploadImage(file.path, "branding/carousel", bannerId, {
+    const imageUrl = await utils.uploadImage(file.path, utils.BRANDING_CARSOUEL_UPLOAD_PATH, bannerId, {
       resize: {
         width: 1600,
         height: 900,
@@ -2407,7 +2386,7 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
         $push: {
           carouselBanners: {
             _id: bannerId,
-            path: relativePath,
+            path: imageUrl,
           },
         },
         $set: {
@@ -2420,7 +2399,7 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
 
     await createBrandingModAction(sessionInfo.user.id, "Added Carousel Banner", [
       bannerId,
-      relativePath,
+      imageUrl,
     ]);
 
     res.send({
@@ -2456,7 +2435,7 @@ router.delete("/settings/branding/banners/carousel/:bannerId", async function (r
     );
 
     if (bannerToRemove) {
-      removeUploadFile(bannerToRemove.path);
+      utils.removeUploadFile(bannerToRemove.path);
     }
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(

@@ -177,7 +177,6 @@ async function cacheUserInfo(userId, reset) {
     aggregation.forEach((match) => (gamesPlayed = match.count));
 
     user = user.toJSON();
-    utils.remapCustomEmotes(user, userId);
 
     // Fetch vanity URL
     const vanityUrl = await models.VanityUrl.findOne({

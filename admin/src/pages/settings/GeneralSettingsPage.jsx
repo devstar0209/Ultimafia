@@ -51,7 +51,7 @@ export default function GeneralSettingsPage() {
   useEffect(() => {
     if (data?.branding) {
       setBranding(data.branding);
-      setCarouselBanners(data.branding?.banners?.carousel || []);
+      setCarouselBanners(data.branding?.carousel || []);
     }
     if (data?.defaultSettings) {
       setRegisterCoinsReward(data.defaultSettings.registerCoinsReward || 0);
@@ -92,7 +92,7 @@ export default function GeneralSettingsPage() {
       const result = await action();
       setBranding(result.branding);
       if (actionKey === "carousel-banners") {
-        setCarouselBanners(result.branding?.banners?.carousel || []);
+        setCarouselBanners(result.branding?.carousel || []);
       }
       setFeedback({
         severity: "success",
@@ -156,7 +156,7 @@ export default function GeneralSettingsPage() {
                 <ImageUploadField
                   title="Platform Logo"
                   description="Primary site logo shown in the main shell when a custom upload is available."
-                  imageUrl={branding?.platformLogoUrl}
+                  imageUrl={branding?.platformLogo}
                   alt="Platform logo preview"
                   pending={pendingKey === "platform-logo"}
                   uploadLabel="Upload Logo"

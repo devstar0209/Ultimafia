@@ -1586,7 +1586,6 @@ router.get("/settings/data", async function (req, res) {
       user.settings.username = user.name;
       user.settings.pronouns = user.pronouns;
       user.birthday = Date.parse(user.birthday);
-      utils.remapCustomEmotes(user, userId);
 
       // Fetch vanity URL
       const vanityUrl = await models.VanityUrl.findOne({
