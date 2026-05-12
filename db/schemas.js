@@ -865,7 +865,9 @@ var schemas = {
     id: { type: String, index: true, unique: true },
     name: { type: String, required: true, maxlength: 20 },
     avatar: { type: Boolean, default: false },
+    avatarUrl: { type: String, default: "" },
     background: { type: Boolean, default: false },
+    backgroundUrl: { type: String, default: "" },
     backgroundRepeatMode: {
       type: String,
       default: "checker",

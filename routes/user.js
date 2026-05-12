@@ -905,14 +905,14 @@ router.get("/:id/profile", async function (req, res) {
       user: userMongoId,
     }).populate({
       path: "family",
-      select: "id name avatar -_id",
+      select: "id name avatar avatarUrl -_id",
     });
 
     if (inFamily && inFamily.family) {
       user.family = {
         id: inFamily.family.id,
         name: inFamily.family.name,
-        avatar: inFamily.family.avatar,
+        avatar: inFamily.family.avatarUrl || inFamily.family.avatar,
       };
     } else {
       user.family = null;

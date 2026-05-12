@@ -10,8 +10,14 @@ const formidable = bluebird.promisifyAll(require("formidable"), {
   multiArgs: true,
 });
 const sharp = require("sharp");
-const fs = require("fs");
-
+const fs = require("fs");const path = require("path");
+const {
+  uploadImageAndReturnUrl,
+  getUploadAbsolutePath,
+  findUploadedFilePath,
+  removeUploadedFile,
+  getUploadUrlFromRelativePath,
+} = require("../lib/Utils");
 router.get("/user/family", async function (req, res) {
   try {
     var userId = await routeUtils.verifyLoggedIn(req, true);
@@ -41,7 +47,9 @@ router.get("/user/family", async function (req, res) {
 
     // Query family directly and populate leader properly
     const family = await models.Family.findById(familyId)
-      .select("id name avatar leader members background backgroundRepeatMode")
+      .select(
+        "id name avatar avatarUrl leader members background backgroundUrl backgroundRepeatMode"
+      )
       .populate("leader", "_id");
 
     if (!family) {
@@ -59,8 +67,8 @@ router.get("/user/family", async function (req, res) {
       family: {
         id: family.id,
         name: family.name,
-        avatar: family.avatar,
-        background: family.background || false,
+        avatar: family.avatarUrl || family.avatar,
+        background: family.backgroundUrl || family.background || false,
         backgroundRepeatMode: family.backgroundRepeatMode || "checker",
         isLeader: isLeader,
         memberCount: memberCount,
@@ -112,14 +120,16 @@ router.post("/create", async function (req, res) {
     const familyId = shortid.generate();
 
     // Check if user has a pending avatar upload
-    const pendingAvatarPath = `${process.env.UPLOAD_PATH}/pending_${userId}_family_avatar.webp`;
+    const pendingAvatarPath = findUploadedFilePath(`pending_${userId}_family_avatar`);
     let hasAvatar = false;
+    let avatarUrl = "";
 
-    if (fs.existsSync(pendingAvatarPath)) {
-      // Move the pending avatar to the family ID
-      const familyAvatarPath = `${process.env.UPLOAD_PATH}/${familyId}_family_avatar.webp`;
+    if (pendingAvatarPath) {
+      const ext = path.extname(pendingAvatarPath);
+      const familyAvatarPath = getUploadAbsolutePath(`${familyId}_family_avatar`, ext);
       fs.renameSync(pendingAvatarPath, familyAvatarPath);
       hasAvatar = true;
+      avatarUrl = getUploadUrlFromRelativePath(`${familyId}_family_avatar${ext}`);
     }
 
     const family = new models.Family({
@@ -129,6 +139,7 @@ router.post("/create", async function (req, res) {
       leader: user._id,
       members: [user._id],
       avatar: hasAvatar,
+      avatarUrl,
       createdAt: Date.now(),
     });
 
@@ -190,27 +201,30 @@ router.post("/avatar", async function (req, res) {
 
     var [fields, files] = await form.parseAsync(req);
 
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    await sharp(files.image.path)
-      .webp({ quality: 100 })
-      .resize(100, 100, {
-        kernel: sharp.kernel.lanczos3,
-        fit: "cover",
-        position: "center",
-      })
-      .toFile(`${process.env.UPLOAD_PATH}/${familyId}_family_avatar.webp`);
+    const uploadResult = await uploadImageAndReturnUrl(
+      files.image,
+      `${familyId}_family_avatar`,
+      {
+        resize: {
+          width: 100,
+          height: 100,
+          kernel: sharp.kernel.lanczos3,
+          fit: sharp.fit.cover,
+          position: sharp.strategy.center,
+        },
+        quality: 100,
+      }
+    );
 
     // If it's an existing family, update the database
     if (isExistingFamily) {
       await models.Family.updateOne(
         { id: familyId },
-        { $set: { avatar: true } }
+        { $set: { avatar: true, avatarUrl: uploadResult.url } }
       );
     }
 
-    res.sendStatus(200);
+    res.send({ url: uploadResult.url });
   } catch (e) {
     res.status(500);
 
@@ -317,8 +331,8 @@ router.get("/:familyId/profile", async function (req, res) {
     res.send({
       id: family.id,
       name: family.name,
-      avatar: family.avatar,
-      background: family.background || false,
+      avatar: family.avatarUrl || family.avatar,
+      background: family.backgroundUrl || family.background || false,
       backgroundRepeatMode: family.backgroundRepeatMode || "checker",
       bio: family.bio,
       founder: {
@@ -540,10 +554,7 @@ router.delete("/:familyId", async function (req, res) {
     await models.FamilyJoinRequest.deleteMany({ family: family._id });
 
     // Delete the family avatar if it exists
-    const avatarPath = `${process.env.UPLOAD_PATH}/${familyId}_family_avatar.webp`;
-    if (fs.existsSync(avatarPath)) {
-      fs.unlinkSync(avatarPath);
-    }
+    removeUploadedFile(`${familyId}_family_avatar`);
 
     // Delete the family
     await models.Family.deleteOne({ id: familyId });
@@ -825,7 +836,7 @@ router.get("/:familyId/pendingInvite", async function (req, res) {
       familyId: familyId,
       requesterId: userId,
     })
-      .populate("family", "id name avatar")
+      .populate("family", "id name avatar avatarUrl")
       .populate("requester", "id name avatar");
 
     if (!joinRequest) {
@@ -838,7 +849,7 @@ router.get("/:familyId/pendingInvite", async function (req, res) {
       family: {
         id: joinRequest.family.id,
         name: joinRequest.family.name,
-        avatar: joinRequest.family.avatar,
+        avatar: joinRequest.family.avatarUrl || joinRequest.family.avatar,
       },
     });
   } catch (e) {
@@ -875,19 +886,20 @@ router.post("/:familyId/background", async function (req, res) {
 
     var [fields, files] = await form.parseAsync(req);
 
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    await sharp(files.image.path)
-      .webp({ quality: 100 })
-      .toFile(`${process.env.UPLOAD_PATH}/${familyId}_familyBackground.webp`);
+    const uploadResult = await uploadImageAndReturnUrl(
+      files.image,
+      `${familyId}_familyBackground`,
+      {
+        quality: 100,
+      }
+    );
 
     await models.Family.updateOne(
       { id: familyId },
-      { $set: { background: true } }
+      { $set: { background: true, backgroundUrl: uploadResult.url } }
     );
 
-    res.sendStatus(200);
+    res.send({ url: uploadResult.url });
   } catch (e) {
     logger.error(e);
     res.status(500);
@@ -919,15 +931,11 @@ router.delete("/:familyId/background", async function (req, res) {
       return;
     }
 
-    // Delete the background file
-    const backgroundPath = `${process.env.UPLOAD_PATH}/${familyId}_familyBackground.webp`;
-    if (fs.existsSync(backgroundPath)) {
-      fs.unlinkSync(backgroundPath);
-    }
+    removeUploadedFile(`${familyId}_familyBackground`);
 
     await models.Family.updateOne(
       { id: familyId },
-      { $set: { background: false } }
+      { $set: { background: false, backgroundUrl: "" } }
     );
 
     res.sendStatus(200);

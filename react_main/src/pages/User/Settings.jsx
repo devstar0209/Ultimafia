@@ -968,7 +968,9 @@ export default function Settings() {
                         width: "40px",
                         height: "40px",
                         borderRadius: "50%",
-                        backgroundImage: `url(/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                        backgroundImage: `url(${typeof userFamily.avatar === "string"
+                          ? userFamily.avatar
+                          : `/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         flexShrink: 0,
@@ -1148,7 +1150,9 @@ export default function Settings() {
                         width: "40px",
                         height: "40px",
                         borderRadius: "50%",
-                        backgroundImage: `url(/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                        backgroundImage: `url(${typeof userFamily.avatar === "string"
+                          ? userFamily.avatar
+                          : `/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         flexShrink: 0,

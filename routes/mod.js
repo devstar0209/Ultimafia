@@ -10,6 +10,10 @@ const crypto = require("crypto");
 const fs = require("fs");
 const models = require("../db/models");
 const routeUtils = require("./utils");
+const {
+  findUploadedFilePath,
+  removeUploadedFile,
+} = require("../lib/Utils");
 const redis = require("../modules/redis");
 const roleIconCreditUtils = require("../modules/roleIconCreditUtils");
 const { getBasicUserInfo } = require("../modules/redis");
@@ -1438,18 +1442,12 @@ router.post("/clearFamilyContent", async (req, res) => {
     var defaultName = `${leaderName}'s Family`;
 
     // Delete avatar file if it exists
-    const avatarPath = `${process.env.UPLOAD_PATH}/${familyId}_family_avatar.webp`;
-    if (fs.existsSync(avatarPath)) {
-      fs.unlinkSync(avatarPath);
-    }
+    removeUploadedFile(`${familyId}_family_avatar`);
 
     // Delete background file if it exists
-    const backgroundPath = `${process.env.UPLOAD_PATH}/${familyId}_familyBackground.webp`;
-    if (fs.existsSync(backgroundPath)) {
-      fs.unlinkSync(backgroundPath);
-    }
+    removeUploadedFile(`${familyId}_familyBackground`);
 
-    // Update family: clear name, bio, and avatar
+    // Update family: clear name, bio, and avatar/background metadata
     await models.Family.updateOne(
       { id: familyId },
       {
@@ -1457,7 +1455,9 @@ router.post("/clearFamilyContent", async (req, res) => {
           name: defaultName,
           bio: "",
           avatar: false,
+          avatarUrl: "",
           background: false,
+          backgroundUrl: "",
         },
       }
     );

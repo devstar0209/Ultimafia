@@ -79,13 +79,19 @@ export default function UserNavSection({
   const profilePath = user.vanityUrl ? `/user/${user.vanityUrl}` : "/user";
 
   // Create family avatar icon if family exists and has avatar
+  const familyAvatarUrl = typeof userFamily?.avatar === "string"
+    ? userFamily.avatar
+    : userFamily?.id
+      ? `/uploads/${userFamily.id}_family_avatar.webp?t=${cacheVal}`
+      : null;
+
   const familyIcon = userFamily?.avatar ? (
     <div
       style={{
         width: "20px",
         height: "20px",
         borderRadius: "50%",
-        backgroundImage: `url(/uploads/${userFamily.id}_family_avatar.webp?t=${cacheVal})`,
+        backgroundImage: familyAvatarUrl ? `url(${familyAvatarUrl})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
         flexShrink: 0,

@@ -1519,7 +1519,9 @@ export default function Profile() {
                     width: isPhoneDevice ? "40px" : "60px",
                     height: isPhoneDevice ? "40px" : "60px",
                     borderRadius: "50%",
-                    backgroundImage: `url(/uploads/${profileFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                    backgroundImage: `url(${typeof profileFamily.avatar === "string"
+                      ? profileFamily.avatar
+                      : `/uploads/${profileFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                     flexShrink: 0,
