@@ -1,20 +1,33 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const formidable = require("formidable");
 const sharp = require("sharp");
+const formidable = require("formidable");
 const shortid = require("shortid");
 
 const models = require("../db/models");
 const redis = require("../modules/redis");
 const gameCatalogUtils = require("../lib/gameCatalog");
 const brandingUtils = require("../lib/platformBranding");
+const utils = require("../lib/Utils");
 const routeUtils = require("./utils");
 const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
 const shopModule = require("./shop");
 
 const router = express.Router();
+const EMOTE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const EMOTE_GROUP_MAX_UPLOADS = 100;
+const EMOTE_GROUP_BATCH_MAX_BYTES =
+  EMOTE_IMAGE_MAX_BYTES * EMOTE_GROUP_MAX_UPLOADS;
+
+function isAvatarItem(item = {}) {
+  return String(item.key || "").startsWith("avatar-");
+}
+
+function isEmoteCatalogItem(item = {}) {
+  return String(item.key || "").startsWith("emote-");
+}
 
 function hasAdminAccess(permissionInfo) {
   return Boolean(permissionInfo?.admin);
@@ -52,12 +65,8 @@ function getRiskBand(trust) {
 
 async function getPlatformBrandingDocument() {
   return models.PlatformBranding.findOneAndUpdate(
-    { key: brandingUtils.BRANDING_KEY },
-    {
-      $setOnInsert: {
-        key: brandingUtils.BRANDING_KEY,
-      },
-    },
+    {},
+    {},
     {
       new: true,
       upsert: true,
@@ -139,23 +148,118 @@ function buildAdminSettingsSummary(
   };
 }
 
-function removeUploadFile(relativePath) {
-  if (!relativePath) return;
-
-  const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-  if (fs.existsSync(absolutePath)) {
-    fs.unlinkSync(absolutePath);
-  }
-}
-
 function normalizeAvatarKey(rawKey = "") {
   const trimmed = String(rawKey || "").trim().toLowerCase();
   if (!trimmed) return "";
   return trimmed.startsWith("avatar-") ? trimmed : `avatar-${trimmed}`;
 }
 
-function getAvatarAssetRelativePath(avatarKey) {
-  return `store/avatars/${avatarKey}.webp`;
+function normalizeEmoteKey(rawKey = "") {
+  const trimmed = String(rawKey || "").trim().toLowerCase();
+  if (!trimmed) return "";
+  return trimmed.startsWith("emote-group-")
+    ? trimmed
+    : `emote-group-${trimmed.replace(/^emote-/, "")}`;
+}
+
+function toAssetSlug(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getUploadedFiles(files, fieldName) {
+  const value = files?.[fieldName];
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function getAllUploadedFiles(files = {}) {
+  return Object.values(files).flatMap((value) =>
+    Array.isArray(value) ? value : [value]
+  );
+}
+
+function buildEmoteAssetId(groupKey, file, index = 0) {
+  const filename = file?.originalFilename || file?.name || `emote-${Date.now()}-${index}`;
+  const slug = toAssetSlug(filename) || `emote-${Date.now()}-${index}`;
+  if (slug.startsWith(`${groupKey}-`)) return slug;
+  return `${groupKey}-${slug}`;
+}
+
+function listEmoteGroupAssets(groupKey) {
+  const emoteDir = utils.resolveUploadPath("store/emotes");
+  if (!fs.existsSync(emoteDir)) return [];
+
+  return fs
+    .readdirSync(emoteDir)
+    .filter((filename) => filename.startsWith(`${groupKey}-`) && filename.endsWith(".webp"))
+    .map((filename) => {
+      const id = filename.replace(/\.webp$/i, "");
+      return {
+        id,
+        name: id.replace(`${groupKey}-`, ""),
+        imageUrl: utils.toPublicUrl(getEmoteAssetRelativePath(id)),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function removeEmoteGroupAssets(groupKey) {
+  for (const asset of listEmoteGroupAssets(groupKey)) {
+    utils.removeUploadFile(asset.imageUrl);
+  }
+}
+
+async function grantEmoteAssetsToGroupOwners(groupKey, assets = []) {
+  if (!assets.length) return;
+
+  const owners = await models.User.find({
+    [`itemsOwned.${groupKey}`]: { $gt: 0 },
+    deleted: false,
+  })
+    .select("id _id")
+    .lean();
+
+  for (const owner of owners) {
+    const customEmoteIds = [];
+    for (const asset of assets) {
+      const existingSameName = await models.CustomEmote.findOne({
+        creator: owner._id,
+        name: asset.name,
+        deleted: false,
+      })
+        .select("id")
+        .lean();
+      if (existingSameName && existingSameName.id !== asset.id) continue;
+
+      const customEmote = await models.CustomEmote.findOneAndUpdate(
+        { creator: owner._id, id: asset.id },
+        {
+          $set: {
+            id: asset.id,
+            name: asset.name,
+            extension: "webp",
+            creator: owner._id,
+            deleted: false,
+          },
+        },
+        { new: true, upsert: true }
+      );
+      customEmoteIds.push(customEmote._id);
+    }
+
+    if (customEmoteIds.length) {
+      await models.User.updateOne(
+        { _id: owner._id },
+        { $addToSet: { customEmotes: { $each: customEmoteIds } } }
+      ).exec();
+      await redis.cacheUserInfo(owner.id, true);
+    }
+  }
 }
 
 async function createBrandingModAction(userId, name, args = []) {
@@ -702,6 +806,7 @@ router.get("/avatars", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     if (!(await verifyAdminAccess(req, res))) return;
+    
 
     const page = Math.max(1, Number(req.query?.page || 1));
     const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 10)));
@@ -717,14 +822,14 @@ router.get("/avatars", async function (req, res) {
     }
 
     const [total, avatarShopItems, allAvatarItems] = await Promise.all([
-      models.ShopItem.countDocuments(query),
-      models.ShopItem.find(query)
+      models.AvatarItem.countDocuments(query),
+      models.AvatarItem.find(query)
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .select("_id key name desc price limit hidden sortOrder updatedAt -_id")
+        .select("_id key name imageUrl price currency limit hidden sortOrder updatedAt -_id")
         .lean(),
-      models.ShopItem.find({ key: /^avatar-/i })
+      models.AvatarItem.find({ key: /^avatar-/i })
         .select("hidden -_id")
         .lean(),
     ]);
@@ -735,10 +840,11 @@ router.get("/avatars", async function (req, res) {
       name: item.name || item.key,
       description: item.desc || "",
       price: Number(item.price || 0),
+      currency: item.currency,
       limit: item.limit == null ? null : Number(item.limit),
       hidden: Boolean(item.hidden),
       sortOrder: Number(item.sortOrder || 0),
-      imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(item.key)),
+      imageUrl: utils.toPublicUrl(item.imageUrl),
       collection: "Profile Avatars",
       artist: "Store Asset",
       rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
@@ -784,6 +890,7 @@ router.post("/avatars", async function (req, res) {
     const name = String(req.body?.name || "").trim();
     const description = String(req.body?.description || "").trim();
     const price = Number(req.body?.price || 0);
+    const currency = req.body?.currency;
     const limit =
       req.body?.limit == null || req.body?.limit === ""
         ? null
@@ -807,22 +914,23 @@ router.post("/avatars", async function (req, res) {
       return;
     }
 
-    const exists = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    const exists = await models.AvatarItem.findOne({ key }).select("key -_id").lean();
     if (exists) {
       res.status(400).send("Avatar key already exists.");
       return;
     }
 
-    const lastItem = await models.ShopItem.findOne({})
+    const lastItem = await models.AvatarItem.findOne({})
       .sort("-sortOrder")
       .select("sortOrder")
       .lean();
 
-    const created = await models.ShopItem.create({
+    const created = await models.AvatarItem.create({
       key,
       name,
       desc: description,
       price,
+      currency,
       limit,
       hidden,
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
@@ -842,10 +950,11 @@ router.post("/avatars", async function (req, res) {
         name: created.name,
         description: created.desc || "",
         price: Number(created.price || 0),
+        currency: created.currency,
         limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0),
-        imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(created.key)),
+        imageUrl: utils.toPublicUrl(getAvatarAssetRelativePath(created.key)),
       },
     });
   } catch (e) {
@@ -871,6 +980,8 @@ router.patch("/avatars/:key", async function (req, res) {
     if (req.body?.description !== undefined)
       updates.desc = String(req.body.description || "").trim();
     if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
+    if (req.body?.currency !== undefined)
+      updates.currency = req.body.currency;
     if (req.body?.limit !== undefined)
       updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
     if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
@@ -893,8 +1004,9 @@ router.patch("/avatars/:key", async function (req, res) {
       return;
     }
 
-    const updated = await models.ShopItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
-      .select("key name desc price limit hidden sortOrder")
+    
+    const updated = await models.AvatarItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
+      .select("key name desc price currency limit hidden sortOrder")
       .lean();
     if (!updated) {
       res.status(404).send("Avatar item not found.");
@@ -911,10 +1023,11 @@ router.patch("/avatars/:key", async function (req, res) {
         name: updated.name,
         description: updated.desc || "",
         price: Number(updated.price || 0),
+        currency: updated.currency,
         limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
-        imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(updated.key)),
+        imageUrl: utils.toPublicUrl(getAvatarAssetRelativePath(updated.key)),
       },
     });
   } catch (e) {
@@ -931,7 +1044,8 @@ router.patch("/avatars/:key/hidden", async function (req, res) {
 
     const key = normalizeAvatarKey(req.params.key);
     const hidden = Boolean(req.body?.hidden);
-    const updated = await models.ShopItem.findOneAndUpdate(
+    
+    const updated = await models.AvatarItem.findOneAndUpdate(
       { key },
       { $set: { hidden, updatedAt: Date.now() } },
       { new: true }
@@ -963,7 +1077,8 @@ router.post("/avatars/:key/image", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeAvatarKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    
+    const item = await models.AvatarItem.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Avatar item not found.");
       return;
@@ -979,27 +1094,25 @@ router.post("/avatars/:key/image", async function (req, res) {
       return;
     }
 
-    const relativePath = getAvatarAssetRelativePath(key);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    const imageUrl = await utils.uploadImage(file.path, utils.AVATAR_UPLOAD_PATH, key, {
+      resize: {
         width: 256,
         height: 256,
         fit: sharp.fit.cover,
         position: sharp.strategy.attention,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await models.AvatarItem.updateOne(
+      { key },
+      { $set: { imageUrl: imageUrl, updatedAt: Date.now() } }
+    ).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
-    res.send({ ok: true, key, imageUrl: brandingUtils.toPublicUrl(relativePath) });
+    res.send({ ok: true, key, imageUrl: imageUrl });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
       res.status(400).send("Image is too large, must be less than 5 MB.");
@@ -1017,14 +1130,15 @@ router.delete("/avatars/:key/image", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeAvatarKey(req.params.key);
-    const item = await models.ShopItem.findOne({ key }).select("key -_id").lean();
+    
+    const item = await models.AvatarItem.findOne({ key }).select("key -_id").lean();
     if (!item) {
       res.status(404).send("Avatar item not found.");
       return;
     }
 
-    removeUploadFile(getAvatarAssetRelativePath(key));
-    await models.ShopItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    utils.removeUploadFile(item.imageUrl);
+    await models.AvatarItem.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Removed Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1042,14 +1156,15 @@ router.delete("/avatars/:key", async function (req, res) {
     if (!sessionInfo) return;
 
     const key = normalizeAvatarKey(req.params.key);
-    const existing = await models.ShopItem.findOne({ key }).select("key name -_id").lean();
+    
+    const existing = await models.AvatarItem.findOne({ key }).select("key name -_id").lean();
     if (!existing) {
       res.status(404).send("Avatar item not found.");
       return;
     }
 
-    removeUploadFile(getAvatarAssetRelativePath(key));
-    await models.ShopItem.deleteOne({ key }).exec();
+    utils.removeUploadFile(existing.imageUrl);
+    await models.AvatarItem.deleteOne({ key }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Avatar Item", [key]);
     shopModule.invalidateShopItemsCache();
 
@@ -1057,6 +1172,512 @@ router.delete("/avatars/:key", async function (req, res) {
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error deleting avatar item.");
+  }
+});
+
+router.get("/emotes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+    
+
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(req.query?.pageSize || 10)));
+    const search = String(req.query?.search || "").trim();
+
+    const query = { key: /^emote-group-/i };
+    if (search) {
+      query.$or = [
+        { key: new RegExp(search, "i") },
+        { name: new RegExp(search, "i") },
+        { desc: new RegExp(search, "i") },
+      ];
+    }
+
+    const [total, emoteShopItems, allEmoteItems] = await Promise.all([
+      models.EmoteGroup.countDocuments(query),
+      models.EmoteGroup.find(query)
+        .sort("sortOrder")
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .select("_id key name desc price currency limit hidden sortOrder updatedAt -_id")
+        .lean(),
+      models.EmoteGroup.find({ key: /^emote-group-/i })
+        .select("hidden -_id")
+        .lean(),
+    ]);
+
+    const entries = emoteShopItems.map((item) => ({
+      id: item.key,
+      key: item.key,
+      name: item.name || item.key,
+      description: item.desc || "",
+      price: Number(item.price || 0),
+      currency: item.currency,
+      limit: item.limit == null ? null : Number(item.limit),
+      hidden: Boolean(item.hidden),
+      sortOrder: Number(item.sortOrder || 0),
+      imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      emotes: listEmoteGroupAssets(item.key),
+      collection: "Chat Emote Groups",
+      artist: "Store Asset",
+      rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
+      status: item.hidden ? "Hidden" : "Published",
+      updated: formatRelativeTime(item.updatedAt || Date.now()),
+    }));
+
+    const publishedCount = allEmoteItems.filter((item) => !item.hidden).length;
+    const hiddenCount = allEmoteItems.length - publishedCount;
+
+    const collections = [
+      {
+        name: "Chat Emote Groups",
+        count: `${allEmoteItems.length} assets`,
+        theme: "Store-managed chat emote groups users can unlock.",
+        releaseWindow: `${publishedCount} published / ${hiddenCount} hidden`,
+      },
+    ];
+
+    res.send({
+      entries,
+      collections,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading emote assets.");
+  }
+});
+
+router.post("/emotes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.body?.key);
+    const name = String(req.body?.name || "").trim();
+    const description = String(req.body?.description || "").trim();
+    const price = Number(req.body?.price || 0);
+    const currency = req.body?.currency;
+    const limit =
+      req.body?.limit == null || req.body?.limit === ""
+        ? 1
+        : Number(req.body?.limit);
+    const hidden = Boolean(req.body?.hidden);
+
+    if (!key || !/^emote-group-[a-z0-9-]+$/.test(key)) {
+      res.status(400).send("Emote group key must start with emote-group- and use letters, numbers, or hyphens.");
+      return;
+    }
+    if (!name) {
+      res.status(400).send("Emote group name is required.");
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      res.status(400).send("Emote group price must be a positive number.");
+      return;
+    }
+    if (limit != null && (!Number.isFinite(limit) || limit < 1)) {
+      res.status(400).send("Emote group limit must be null or a number greater than 0.");
+      return;
+    }
+
+    
+    const exists = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
+    if (exists) {
+      res.status(400).send("Emote group key already exists.");
+      return;
+    }
+
+    const lastItem = await models.EmoteGroup.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder")
+      .lean();
+
+    const created = await models.EmoteGroup.create({
+      key,
+      name,
+      desc: description,
+      price,
+      currency,
+      limit,
+      hidden,
+      sortOrder: Number(lastItem?.sortOrder || 0) + 1,
+      updatedAt: Date.now(),
+    });
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Emote Group", [
+      key,
+      name,
+    ]);
+
+    res.send({
+      ok: true,
+      item: {
+        key: created.key,
+        name: created.name,
+        description: created.desc || "",
+        price: Number(created.price || 0),
+        currency: created.currency,
+        limit: created.limit == null ? null : Number(created.limit),
+        hidden: Boolean(created.hidden),
+        sortOrder: Number(created.sortOrder || 0),
+        imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
+        iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
+        emotes: [],
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating emote group.");
+  }
+});
+
+router.patch("/emotes/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    if (!key) {
+      res.status(400).send("Invalid emote group key.");
+      return;
+    }
+
+    const updates = {};
+    if (req.body?.name !== undefined) updates.name = String(req.body.name || "").trim();
+    if (req.body?.description !== undefined)
+      updates.desc = String(req.body.description || "").trim();
+    if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
+    if (req.body?.currency !== undefined)
+      updates.currency = req.body.currency;
+    if (req.body?.limit !== undefined)
+      updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
+    if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
+    updates.updatedAt = Date.now();
+
+    if (updates.name !== undefined && !updates.name) {
+      res.status(400).send("Emote group name is required.");
+      return;
+    }
+    if (updates.price !== undefined && (!Number.isFinite(updates.price) || updates.price < 0)) {
+      res.status(400).send("Emote group price must be a positive number.");
+      return;
+    }
+    if (
+      updates.limit !== undefined &&
+      updates.limit != null &&
+      (!Number.isFinite(updates.limit) || updates.limit < 1)
+    ) {
+      res.status(400).send("Emote group limit must be null or a number greater than 0.");
+      return;
+    }
+
+    
+    const updated = await models.EmoteGroup.findOneAndUpdate({ key }, { $set: updates }, { new: true })
+      .select("key name desc price currency limit hidden sortOrder")
+      .lean();
+    if (!updated) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({
+      ok: true,
+      item: {
+        key: updated.key,
+        name: updated.name,
+        description: updated.desc || "",
+        price: Number(updated.price || 0),
+        currency: updated.currency,
+        limit: updated.limit == null ? null : Number(updated.limit),
+        hidden: Boolean(updated.hidden),
+        sortOrder: Number(updated.sortOrder || 0),
+        imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        emotes: listEmoteGroupAssets(updated.key),
+      },
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating emote group.");
+  }
+});
+
+router.patch("/emotes/:key/hidden", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const hidden = Boolean(req.body?.hidden);
+    
+    const updated = await models.EmoteGroup.findOneAndUpdate(
+      { key },
+      { $set: { hidden, updatedAt: Date.now() } },
+      { new: true }
+    )
+      .select("key hidden -_id")
+      .lean();
+    if (!updated) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      hidden ? "Hid Emote Group" : "Unhid Emote Group",
+      [key]
+    );
+    shopModule.invalidateShopItemsCache();
+    res.send({ ok: true, key, hidden: updated.hidden });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating emote group visibility.");
+  }
+});
+
+router.post("/emotes/:key/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    const form = new formidable();
+    form.maxFileSize = EMOTE_IMAGE_MAX_BYTES;
+    form.maxFields = 1;
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+    if (!file?.path) {
+      res.status(400).send("Image file is required.");
+      return;
+    }
+
+    const imageUrl = await utils.uploadImage(file.path, utils.EMOTES_UPLOAD_PATH, key, {
+      animated: true,
+      resize: {
+        width: 64,
+        height: 64,
+        fit: "inside",
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3,
+      },
+      quality: 92,
+    });
+
+    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: imageUrl, updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group Icon", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, imageUrl: imageUrl });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Image is too large, must be less than 2 MB.");
+      return;
+    }
+    logger.error(e);
+    res.status(500).send("Error uploading emote group icon.");
+  }
+});
+
+router.post("/emotes/:key/items", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    const form = new formidable({
+      multiples: true,
+      maxFileSize: EMOTE_GROUP_BATCH_MAX_BYTES,
+      maxFields: 10,
+    });
+    const [, files] = await parseUploadForm(form, req);
+    const fieldFiles = [
+      ...getUploadedFiles(files, "emotes"),
+      ...getUploadedFiles(files, "emotes[]"),
+      ...getUploadedFiles(files, "images"),
+      ...getUploadedFiles(files, "image"),
+    ];
+    const uploadedFiles = (fieldFiles.length ? fieldFiles : getAllUploadedFiles(files))
+      .filter((file) => file?.path);
+
+    if (!uploadedFiles.length) {
+      res.status(400).send("No emote image files were received.");
+      return;
+    }
+    if (uploadedFiles.length > EMOTE_GROUP_MAX_UPLOADS) {
+      res.status(400).send(`Upload up to ${EMOTE_GROUP_MAX_UPLOADS} emotes at once.`);
+      return;
+    }
+    if (uploadedFiles.some((file) => Number(file.size || 0) > EMOTE_IMAGE_MAX_BYTES)) {
+      res.status(400).send("Each image must be less than 2 MB.");
+      return;
+    }
+
+    const saved = [];
+    for (let index = 0; index < uploadedFiles.length; index++) {
+      const file = uploadedFiles[index];
+      const assetId = buildEmoteAssetId(key, file, index);
+
+      const imageUrl = await utils.uploadImage(file.path, utils.EMOTES_UPLOAD_PATH, assetId, {
+        animated: true,
+        resize: {
+          width: 64,
+          height: 64,
+          fit: "inside",
+          withoutEnlargement: true,
+          kernel: sharp.kernel.lanczos3,
+        },
+        quality: 92,
+      });
+
+      saved.push({
+        id: assetId,
+        name: assetId.replace(`${key}-`, ""),
+        imageUrl: imageUrl,
+      });
+    }
+
+    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Uploaded Emote Group Items", [
+      key,
+      `${saved.length}`,
+    ]);
+
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, emotes: listEmoteGroupAssets(key), saved });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      res.status(400).send("Upload batch is too large. Upload fewer images at once.");
+      return;
+    }
+    logger.error(e);
+    res.status(500).send("Error uploading emote group items.");
+  }
+});
+
+router.delete("/emotes/:key/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    utils.removeUploadFile(item.imageUrl);
+    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Removed Emote Group Icon", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing emote group icon.");
+  }
+});
+
+router.delete("/emotes/:key/items/:itemId", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    const itemId = String(req.params.itemId || "").trim().toLowerCase();
+    
+    const item = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
+    if (!item) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+    if (!itemId.startsWith(`${key}-`)) {
+      res.status(400).send("Invalid emote item.");
+      return;
+    }
+
+    utils.removeUploadFile(item.imageUrl);
+    await models.CustomEmote.updateMany(
+      { id: itemId },
+      { $set: { deleted: true } }
+    ).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group Item", [
+      key,
+      itemId,
+    ]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, emotes: listEmoteGroupAssets(key) });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting emote group item.");
+  }
+});
+
+router.delete("/emotes/:key", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const key = normalizeEmoteKey(req.params.key);
+    
+    const existing = await models.EmoteGroup.findOne({ key }).select("key name -_id").lean();
+    if (!existing) {
+      res.status(404).send("Emote group not found.");
+      return;
+    }
+
+    const groupAssets = listEmoteGroupAssets(key);
+    utils.removeUploadFile(existing.imageUrl);
+    removeEmoteGroupAssets(key);
+    await models.CustomEmote.updateMany(
+      { id: { $in: groupAssets.map((asset) => asset.id) } },
+      { $set: { deleted: true } }
+    ).exec();
+    await models.EmoteGroup.deleteOne({ key }).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group", [key]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, key, name: existing.name });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting emote group.");
   }
 });
 
@@ -1310,28 +1931,23 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
       return;
     }
 
-    const relativePath = gameCatalogUtils.getGameLogoRelativePath(key);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    const imageUrl = await utils.uploadImage(file.path, utils.GAME_CATALOG_UPLOAD_PATH, key, {
+      resize: {
         width: 512,
         height: 512,
         fit: sharp.fit.contain,
         background: { r: 0, g: 0, b: 0, alpha: 0 },
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
     const updatedGame = await models.GameCatalog.findOneAndUpdate(
       { key },
       {
         $set: {
-          logoPath: relativePath,
+          logoPath: imageUrl,
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },
@@ -1341,6 +1957,7 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
 
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Managed Game Logo", [
       key,
+      imageUrl,
     ]);
 
     res.send({
@@ -1376,7 +1993,7 @@ router.delete("/settings/gamecatalogs/:key/logo", async function (req, res) {
       return;
     }
 
-    removeUploadFile(existingGame.logoPath);
+    utils.removeUploadFile(existingGame.logoPath);
 
     const updatedGame = await models.GameCatalog.findOneAndUpdate(
       { key },
@@ -1420,7 +2037,7 @@ router.delete("/settings/gamecatalogs/:key", async function (req, res) {
       return;
     }
 
-    removeUploadFile(existingGame.logoPath);
+    utils.removeUploadFile(existingGame.logoPath);
     await models.GameCatalog.deleteOne({ key });
 
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Game Catalog", [
@@ -1554,27 +2171,22 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
       return;
     }
 
-    const relativePath = brandingUtils.getPlatformLogoRelativePath();
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    const logoUrl = await utils.uploadImage(file.path, utils.BRANDING_LOGO_UPLOAD_PATH, "logo", {
+      resize: {
         width: 800,
         height: 240,
         fit: sharp.fit.inside,
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
     const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $set: {
-          platformLogoPath: relativePath,
+          platformLogoPath: logoUrl,
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },
@@ -1583,7 +2195,7 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
     ).lean();
 
     await createBrandingModAction(sessionInfo.user.id, "Updated Platform Logo", [
-      relativePath,
+      logoUrl,
     ]);
 
     res.send({
@@ -1608,10 +2220,10 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
     if (!sessionInfo) return;
 
     const brandingDoc = await getPlatformBrandingDocument();
-    removeUploadFile(brandingDoc?.platformLogoPath);
+    utils.removeUploadFile(brandingDoc.platformLogoPath);
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $set: {
           platformLogoPath: "",
@@ -1630,7 +2242,8 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
     });
   } catch (e) {
     logger.error(e);
-    res.status(500).send("Error removing platform logo.");
+    res.status(500).send(e);
+    // res.status(500).send("Error removing platform logo.");
   }
 });
 
@@ -1641,10 +2254,6 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
     if (!sessionInfo) return;
 
     const bannerKey = String(req.params.key || "").trim();
-    if (!brandingUtils.BANNER_KEYS.includes(bannerKey)) {
-      res.status(400).send("Unsupported banner key.");
-      return;
-    }
 
     const form = new formidable();
     form.maxFileSize = 5 * 1024 * 1024;
@@ -1658,27 +2267,22 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
       return;
     }
 
-    const relativePath = brandingUtils.getBannerRelativePath(bannerKey);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    const bannerUrl = await utils.uploadImage(file.path, utils.BRANDING_BANNER_UPLOAD_PATH, bannerKey, {
+      resize: {
         width: 1600,
         height: 900,
         fit: sharp.fit.cover,
         position: sharp.strategy.attention,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 90 })
-      .toFile(absolutePath);
+      },
+      quality: 90,
+    });
 
     const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $set: {
-          [`banners.${bannerKey}`]: relativePath,
+          [`banners.${bannerKey}`]: bannerUrl,
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },
@@ -1688,7 +2292,7 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
 
     await createBrandingModAction(sessionInfo.user.id, "Updated Platform Banner", [
       bannerKey,
-      relativePath,
+      bannerUrl,
     ]);
 
     res.send({
@@ -1713,16 +2317,12 @@ router.delete("/settings/branding/banners/:key", async function (req, res) {
     if (!sessionInfo) return;
 
     const bannerKey = String(req.params.key || "").trim();
-    if (!brandingUtils.BANNER_KEYS.includes(bannerKey)) {
-      res.status(400).send("Unsupported banner key.");
-      return;
-    }
 
     const brandingDoc = await getPlatformBrandingDocument();
-    removeUploadFile(brandingDoc?.banners?.[bannerKey]);
+    utils.removeUploadFile(brandingDoc.banners[bannerKey]);
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $unset: {
           [`banners.${bannerKey}`]: 1,
@@ -1768,29 +2368,25 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
     }
 
     const bannerId = shortid.generate();
-    const relativePath = brandingUtils.getCarouselBannerRelativePath(bannerId);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
 
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    const imageUrl = await utils.uploadImage(file.path, utils.BRANDING_CARSOUEL_UPLOAD_PATH, bannerId, {
+      resize: {
         width: 1600,
         height: 900,
         fit: sharp.fit.cover,
         position: sharp.strategy.attention,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 90 })
-      .toFile(absolutePath);
+      },
+      quality: 90,
+    });
 
     const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      { },
       {
         $push: {
           carouselBanners: {
             _id: bannerId,
-            path: relativePath,
+            path: imageUrl,
           },
         },
         $set: {
@@ -1803,7 +2399,7 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
 
     await createBrandingModAction(sessionInfo.user.id, "Added Carousel Banner", [
       bannerId,
-      relativePath,
+      imageUrl,
     ]);
 
     res.send({
@@ -1839,11 +2435,11 @@ router.delete("/settings/branding/banners/carousel/:bannerId", async function (r
     );
 
     if (bannerToRemove) {
-      removeUploadFile(bannerToRemove.path);
+      utils.removeUploadFile(bannerToRemove.path);
     }
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $pull: {
           carouselBanners: { _id: bannerId },
@@ -1867,122 +2463,6 @@ router.delete("/settings/branding/banners/carousel/:bannerId", async function (r
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error removing carousel banner image.");
-  }
-});
-
-router.post("/settings/branding/game-logos/:gameType", async function (req, res) {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const sessionInfo = await verifyAdminAccess(req, res);
-    if (!sessionInfo) return;
-
-    const gameType = decodeURIComponent(String(req.params.gameType || "").trim());
-    if (!brandingUtils.GAME_TYPES.includes(gameType)) {
-      res.status(400).send("Unsupported game type.");
-      return;
-    }
-
-    const form = new formidable();
-    form.maxFileSize = 5 * 1024 * 1024;
-    form.maxFields = 1;
-
-    const [, files] = await parseUploadForm(form, req);
-    const file = files.image;
-
-    if (!file?.path) {
-      res.status(400).send("Image file is required.");
-      return;
-    }
-
-    const relativePath = brandingUtils.getGameLogoRelativePath(gameType);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
-        width: 512,
-        height: 512,
-        fit: sharp.fit.contain,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-        withoutEnlargement: true,
-        kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
-
-    const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
-      {
-        $set: {
-          [`gameLogos.${gameType}`]: relativePath,
-          updatedAt: Date.now(),
-          updatedBy: sessionInfo.user.id,
-        },
-      },
-      { new: true, upsert: true }
-    ).lean();
-
-    await createBrandingModAction(sessionInfo.user.id, "Updated Game Logo", [
-      gameType,
-      relativePath,
-    ]);
-
-    res.send({
-      ok: true,
-      branding: brandingUtils.buildBrandingPayload(brandingDoc),
-    });
-  } catch (e) {
-    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
-      res.status(400).send("Image is too large, must be less than 5 MB.");
-      return;
-    }
-
-    logger.error(e);
-    res.status(500).send("Error uploading game logo.");
-  }
-});
-
-router.delete("/settings/branding/game-logos/:gameType", async function (req, res) {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const sessionInfo = await verifyAdminAccess(req, res);
-    if (!sessionInfo) return;
-
-    const gameType = decodeURIComponent(String(req.params.gameType || "").trim());
-    if (!brandingUtils.GAME_TYPES.includes(gameType)) {
-      res.status(400).send("Unsupported game type.");
-      return;
-    }
-
-    const brandingDoc = await getPlatformBrandingDocument();
-    removeUploadFile(brandingDoc?.gameLogos?.[gameType]);
-
-    const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
-      {
-        $unset: {
-          [`gameLogos.${gameType}`]: 1,
-        },
-        $set: {
-          updatedAt: Date.now(),
-          updatedBy: sessionInfo.user.id,
-        },
-      },
-      { new: true, upsert: true }
-    ).lean();
-
-    await createBrandingModAction(sessionInfo.user.id, "Removed Game Logo", [
-      gameType,
-    ]);
-
-    res.send({
-      ok: true,
-      branding: brandingUtils.buildBrandingPayload(updatedDoc),
-    });
-  } catch (e) {
-    logger.error(e);
-    res.status(500).send("Error removing game logo.");
   }
 });
 
@@ -2175,9 +2655,11 @@ router.get("/shop/items", async function (req, res) {
   try {
     if (!(await verifyAdminAccess(req, res))) return;
 
-    const shopItems = await models.ShopItem.find({})
+    const shopItems = await models.ShopItem.find({
+      key: { $not: /^(avatar-|emote-)/i },
+    })
       .sort("sortOrder")
-      .select("_id key name desc price limit hidden sortOrder")
+      .select("_id key name desc price currency limit hidden sortOrder")
       .lean();
 
     res.send({
@@ -2187,6 +2669,7 @@ router.get("/shop/items", async function (req, res) {
         name: item.name,
         description: item.desc || "",
         price: Number(item.price || 0),
+        currency: item.currency,
         limit: item.limit,
         hidden: Boolean(item.hidden || false),
         sortOrder: item.sortOrder || 0,
@@ -2204,10 +2687,14 @@ router.post("/shop/items", async function (req, res) {
     const sessionInfo = await verifyAdminAccess(req, res);
     if (!sessionInfo) return;
 
-    const { key, name, description, price, limit, hidden } = req.body;
+    const { key, name, description, price, currency, limit, hidden } = req.body;
+    const itemKey = String(key || "").trim().toLowerCase();
 
-    if (!key || !name) {
+    if (!itemKey || !name) {
       return res.status(400).send("Key and name are required.");
+    }
+    if (isAvatarItem({ key: itemKey }) || isEmoteCatalogItem({ key: itemKey })) {
+      return res.status(400).send("Use the avatar or emote group catalog for this item type.");
     }
 
     const lastItem = await models.ShopItem.findOne({})
@@ -2216,10 +2703,11 @@ router.post("/shop/items", async function (req, res) {
       .lean();
 
     const item = await models.ShopItem.create({
-      key: String(key).trim().toLowerCase(),
+      key: itemKey,
       name: String(name).trim(),
       desc: String(description || "").trim(),
       price: Number(price || 0),
+      currency: currency,
       limit: limit == null ? null : Number(limit),
       hidden: Boolean(hidden || false),
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
@@ -2241,6 +2729,7 @@ router.post("/shop/items", async function (req, res) {
         name: item.name,
         description: item.desc,
         price: item.price,
+        currency: item.currency,
         limit: item.limit,
         hidden: item.hidden,
         sortOrder: item.sortOrder,
@@ -2259,7 +2748,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
     if (!sessionInfo) return;
 
     const { itemId } = req.params;
-    const { name, description, price, limit, hidden } = req.body;
+    const { name, description, price, currency, limit, hidden } = req.body;
 
     const item = await models.ShopItem.findById(itemId);
     if (!item) {
@@ -2270,6 +2759,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
     if (name !== undefined) updates.name = String(name).trim();
     if (description !== undefined) updates.desc = String(description || "").trim();
     if (price !== undefined) updates.price = Number(price || 0);
+    if (currency !== undefined) updates.currency = currency;
     if (limit !== undefined) updates.limit = limit == null ? null : Number(limit);
     if (hidden !== undefined) updates.hidden = Boolean(hidden);
 
@@ -2293,6 +2783,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
         name: updated.name,
         description: updated.desc,
         price: updated.price,
+        currency: updated.currency,
         limit: updated.limit,
         hidden: updated.hidden,
         sortOrder: updated.sortOrder,

@@ -55,7 +55,7 @@ export default function CarouselBannersUploadField({
             </Typography>
             <Grid container spacing={1}>
               {banners.map((banner) => (
-                <Grid item xs={6} sm={4} md={3} key={banner._id || banner.id}>
+                <Grid item xs={6} sm={4} md={3} key={banner._id}>
                   <Paper
                     sx={{
                       position: "relative",
@@ -67,7 +67,7 @@ export default function CarouselBannersUploadField({
                   >
                     <Box
                       component="img"
-                      src={banner.url}
+                      src={banner.path}
                       alt="Carousel banner"
                       sx={{
                         width: "100%",
@@ -77,7 +77,7 @@ export default function CarouselBannersUploadField({
                     />
                     <IconButton
                       size="small"
-                      onClick={() => onRemove(banner._id || banner.id)}
+                      onClick={() => onRemove(banner._id)}
                       disabled={pending}
                       sx={{
                         position: "absolute",

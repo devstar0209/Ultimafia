@@ -113,9 +113,7 @@ router.get("/violations", function (req, res) {
 router.get("/branding", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
-    const doc = await models.PlatformBranding.findOne({
-      key: brandingUtils.BRANDING_KEY,
-    }).lean();
+    const doc = await models.PlatformBranding.findOne({}).lean();
 
     res.send(brandingUtils.buildBrandingPayload(doc));
   } catch (e) {

@@ -48,16 +48,18 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
-const isDollarBalanceItem = (item = {}) =>
-  String(item.key || "").startsWith("avatar-");
+
+const isDollarBalanceItem = (item = {}) => item.currency === "dollar";
+
+function formatItemPrice(item = {}) {
+  return isDollarBalanceItem(item)
+    ? formatUsdAmount(item.price)
+    : `${item.price} coins`;
+}
 
 export default function Shop(props) {
   const [shopInfo, setShopInfo] = useState({
-    shopItems: [],
-    avatarItems: [],
-    equippedAvatarKey: "",
-    balance: 0,
-    balanceDollar: 0,
+    shopItems: []
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -142,10 +144,7 @@ export default function Shop(props) {
 
   function onBuyItem(index) {
     const item = shopInfo.shopItems[index];
-    const usesDollarBalance = isDollarBalanceItem(item);
-    const itemPrice = usesDollarBalance
-      ? formatUsdAmount(item.priceDollar)
-      : `${item.price} coins`;
+    const itemPrice = formatItemPrice(item);
     const shouldBuy = window.confirm(
       `Are you sure you wish to buy ${item.name} for ${itemPrice}?`
     );
@@ -153,69 +152,32 @@ export default function Shop(props) {
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/spendCoins", { item: index })
+      .post("/api/shop/purchase", { key: item.key, item: item.shopIndex ?? index })
       .then((res) => {
         siteInfo.showAlert("Item purchased.", "success");
 
         setShopInfo((prev) => ({
-          ...prev,
-          balance: res.data.balance,
-          balanceDollar: res.data.balanceDollar,
+          ...prev
         }));
 
         let itemsOwnedChanges = {
           [item.key]: {
-            $set: user.itemsOwned[item.key] + 1,
+            $set: Number(user.itemsOwned?.[item.key] || 0) + 1,
           },
         };
 
-        for (let k in item.propagateItemUpdates) {
+        for (let k in item.propagateItemUpdates || {}) {
           let change = item.propagateItemUpdates[k];
           itemsOwnedChanges[k] = {
-            $set: user.itemsOwned[k] + change,
+            $set: Number(user.itemsOwned?.[k] || 0) + change,
           };
         }
-
-        const nextOwnedCount = (user.itemsOwned[item.key] || 0) + 1;
         const userUpdate = {
           itemsOwned: itemsOwnedChanges,
+          coins: { $set: res.data.balance },
+          balanceDollar: { $set: res.data.balanceDollar },
         };
-        if (usesDollarBalance) {
-          userUpdate.balanceDollar = { $set: res.data.balanceDollar };
-        } else {
-          userUpdate.coins = { $set: res.data.balance };
-        }
         user.set(update(user.state, userUpdate));
-
-        if (item.key.startsWith("avatar-") && nextOwnedCount > 0) {
-          return axios.post("/api/user/avatar/equip", { avatarKey: item.key });
-        }
-      })
-      .then((equipRes) => {
-        if (!equipRes) return;
-        setShopInfo((prev) => ({
-          ...prev,
-          equippedAvatarKey: equipRes.data.avatarKey || prev.equippedAvatarKey,
-          avatarItems: prev.avatarItems.map((avatar) =>
-            avatar.key === equipRes.data.avatarKey
-              ? { ...avatar, owned: true }
-              : avatar
-          ),
-        }));
-        siteInfo.showAlert("Avatar equipped.", "success");
-      })
-      .catch(errorAlert);
-  }
-
-  function onEquipAvatar(avatarKey) {
-    axios
-      .post("/api/user/avatar/equip", { avatarKey })
-      .then((res) => {
-        setShopInfo((prev) => ({
-          ...prev,
-          equippedAvatarKey: res.data.avatarKey || avatarKey,
-        }));
-        siteInfo.showAlert("Avatar equipped.", "success");
       })
       .catch(errorAlert);
   }
@@ -235,7 +197,7 @@ export default function Shop(props) {
       >
         <Typography>
           {isDollarBalanceItem(item)
-            ? formatUsdAmount(item.priceDollar)
+            ? formatUsdAmount(item.priceDollar ?? item.price)
             : item.price}
         </Typography>
         <Box
@@ -346,55 +308,10 @@ export default function Shop(props) {
 
   return (
     <Stack direction="column" spacing={1}>
-      <Paper sx={{ p: 2 }}>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            justifyContent: "center",
-          }}
-        >
-          <Typography variant="h3" className="balance">
-            You have: {shopInfo.balance}
-          </Typography>
-          <Box
-            component="i"
-            className="fas fa-coins"
-            aria-label="Coins"
-            sx={{ fontSize: 20, color: "#f5c542" }}
-          />
-        </Stack>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            justifyContent: "center",
-            mt: 1,
-          }}
-        >
-          <Typography variant="h3" className="balance">
-            Dollar balance: {formatUsdAmount(shopInfo.balanceDollar)}
-          </Typography>
-          <Box
-            component="i"
-            className="fas fa-wallet"
-            aria-label="Dollar balance"
-            sx={{ fontSize: 20, color: "success.main" }}
-          />
-        </Stack>
-      </Paper>
-
       <Grid2 container spacing={1}>
-        <Grid2
-          size={{
-            xs: 12,
-            sm: 6,
-          }}
-        >
-          <Card
+         <Card
             variant="outlined"
             sx={{
-              height: "100%",
               cursor: "pointer",
               transition: "all 0.3s ease",
               "&:hover": {
@@ -417,17 +334,9 @@ export default function Shop(props) {
               </CardContent>
             </CardActionArea>
           </Card>
-        </Grid2>
-        <Grid2
-          size={{
-            xs: 12,
-            sm: 6,
-          }}
-        >
           <Card
             variant="outlined"
             sx={{
-              height: "100%",
               cursor: "pointer",
               transition: "all 0.3s ease",
               "&:hover": {
@@ -437,7 +346,7 @@ export default function Shop(props) {
             }}
           >
             <CardActionArea
-              onClick={() => navigate("/user/shop")}
+              onClick={() => navigate("/user/shop/emotes")}
               sx={{ height: "100%" }}
             >
               <CardContent>
@@ -450,12 +359,6 @@ export default function Shop(props) {
               </CardContent>
             </CardActionArea>
           </Card>
-        </Grid2>
-      </Grid2>
-
-
-
-      <Grid2 container spacing={1}>
         {shopItems}
       </Grid2>
       <Dialog
@@ -585,11 +488,12 @@ export default function Shop(props) {
                 .post("/api/shop/checkStampEligibility", { gameId })
                 .then((eligibility) => {
                   const shouldBuy = window.confirm(
-                    `You will receive a stamp for ${eligibility.data.role}. Purchase for ${stampItem.price} coins?`
+                    `You will receive a stamp for ${eligibility.data.role}. Purchase for ${formatItemPrice(stampItem)}?`
                   );
                   if (!shouldBuy) return;
-                  return axios.post("/api/shop/spendCoins", {
-                    item: stampIndex,
+                  return axios.post("/api/shop/purchase", {
+                    key: stampItem.key,
+                    item: stampItem.shopIndex ?? stampIndex,
                     gameId: eligibility.data.gameId,
                   });
                 })
@@ -606,10 +510,12 @@ export default function Shop(props) {
                   setShopInfo((prev) => ({
                     ...prev,
                     balance: res.data.balance,
+                    balanceDollar: res.data.balanceDollar,
                   }));
                   user.set((prev) => ({
                     ...prev,
                     coins: res.data.balance,
+                    balanceDollar: res.data.balanceDollar,
                   }));
                 })
                 .catch(errorAlert);

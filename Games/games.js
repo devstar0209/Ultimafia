@@ -128,7 +128,6 @@ var deprecated = false;
             user = user.toObject();
             user.socket = socket;
             user.settings = user.settings || {};
-            utils.remapCustomEmotes(user, userId);
 
             // Load vanity URL
             const vanityUrl = await models.VanityUrl.findOne({

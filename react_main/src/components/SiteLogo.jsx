@@ -1,17 +1,7 @@
 import React, { useContext } from "react";
 
-import logovalentines from "images/logos/logo-valentines.png";
-import logopride from "images/logos/logo-pride.png";
-import logohalloween from "images/logos/logo-halloween.png";
-import logowinter from "images/logos/logo-winter.png";
-import logodefault from "images/logos/logo-default.png";
 import { Link } from "react-router-dom";
-import {
-  isHalloweenThemeActive,
-  isPrideThemeActive,
-  isValentinesThemeActive,
-  isWinterThemeActive,
-} from "../utils/holidayThemes";
+
 import { SiteInfoContext } from "../Contexts";
 
 export default function SiteLogo({
@@ -22,16 +12,7 @@ export default function SiteLogo({
   const siteInfo = useContext(SiteInfoContext);
 
   const getLogoSrc = () => {
-    if (siteInfo?.branding?.platformLogoUrl) {
-      return siteInfo.branding.platformLogoUrl;
-    }
-
-    if (isValentinesThemeActive()) return logovalentines; // February: Valentine's
-    if (isPrideThemeActive()) return logopride; // June: Pride
-    if (isHalloweenThemeActive()) return logohalloween; // October: Halloween
-    if (isWinterThemeActive()) return logowinter; // December: Winter
-
-    return logodefault; // Default
+    return siteInfo.branding.platformLogo;
   };
 
   let width = 100;

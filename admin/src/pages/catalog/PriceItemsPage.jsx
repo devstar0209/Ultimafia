@@ -22,6 +22,7 @@ import {
   Typography,
   CircularProgress,
   FormControlLabel,
+  MenuItem,
   Switch,
 } from "@mui/material";
 import { Icon } from "@iconify/react";
@@ -64,6 +65,13 @@ function getStatusLabel(limit) {
   return `Limited (${limit})`;
 }
 
+function formatPrice(item) {
+  if (item.currency === "dollar") {
+    return `$${Number(item.price || 0).toFixed(2)}`;
+  }
+  return `${Number(item.price || 0)} coins`;
+}
+
 export default function PriceItemsPage() {
   const { data, loading, error, refetch } = useAdminQuery(getAdminShopItems);
   const [items, setItems] = useState([]);
@@ -75,6 +83,7 @@ export default function PriceItemsPage() {
     name: "",
     description: "",
     price: 0,
+    currency: "coins",
     limit: null,
     hidden: false,
   });
@@ -108,7 +117,15 @@ export default function PriceItemsPage() {
 
   function openCreateDialog() {
     setEditingItem(null);
-    setFormData({ key: "", name: "", description: "", price: 0, limit: null, hidden: false });
+    setFormData({
+      key: "",
+      name: "",
+      description: "",
+      price: 0,
+      currency: "coins",
+      limit: null,
+      hidden: false,
+    });
     setDialogOpen(true);
   }
 
@@ -119,6 +136,7 @@ export default function PriceItemsPage() {
       name: item.name,
       description: item.description || "",
       price: item.price,
+      currency: item.currency || "coins",
       limit: item.limit,
       hidden: item.hidden || false,
     });
@@ -128,7 +146,15 @@ export default function PriceItemsPage() {
   function closeDialog() {
     setDialogOpen(false);
     setEditingItem(null);
-    setFormData({ key: "", name: "", description: "", price: 0, limit: null, hidden: false });
+    setFormData({
+      key: "",
+      name: "",
+      description: "",
+      price: 0,
+      currency: "coins",
+      limit: null,
+      hidden: false,
+    });
   }
 
   async function handleSaveItem() {
@@ -152,6 +178,7 @@ export default function PriceItemsPage() {
           name: formData.name,
           description: formData.description,
           price: Number(formData.price || 0),
+          currency: formData.currency,
           limit: formData.limit == null ? null : Number(formData.limit),
           hidden: Boolean(formData.hidden),
         });
@@ -169,6 +196,7 @@ export default function PriceItemsPage() {
                   name: response.item.name,
                   description: response.item.description,
                   price: response.item.price,
+                  currency: response.item.currency,
                   limit: response.item.limit,
                   hidden: response.item.hidden,
                 }
@@ -182,6 +210,7 @@ export default function PriceItemsPage() {
           name: formData.name,
           description: formData.description,
           price: Number(formData.price || 0),
+          currency: formData.currency,
           limit: formData.limit == null ? null : Number(formData.limit),
           hidden: Boolean(formData.hidden),
         });
@@ -231,7 +260,12 @@ export default function PriceItemsPage() {
     }
   }
 
-  const totalCoinValue = items.reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const totalCoinValue = items
+    .filter((item) => item.currency !== "dollar")
+    .reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const totalDollarValue = items
+    .filter((item) => item.currency === "dollar")
+    .reduce((sum, item) => sum + Number(item.price || 0), 0);
   const unlimitedCount = items.filter((item) => item.limit == null).length;
 
   return (
@@ -255,6 +289,12 @@ export default function PriceItemsPage() {
                 <Chip
                   label={`${totalCoinValue} coins`}
                   color="info"
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={`$${totalDollarValue.toFixed(2)}`}
+                  color="success"
                   size="small"
                   variant="outlined"
                 />
@@ -317,9 +357,9 @@ export default function PriceItemsPage() {
                         <TableCell>{getShopItemType(item.key)}</TableCell>
                         <TableCell align="right">
                           <Chip
-                            label={`${item.price}`}
+                            label={formatPrice(item)}
                             size="small"
-                            color="info"
+                            color={item.currency === "dollar" ? "success" : "info"}
                             variant="outlined"
                           />
                         </TableCell>
@@ -415,7 +455,7 @@ export default function PriceItemsPage() {
               placeholder="Item description"
             />
             <TextField
-              label="Price (Coins)"
+              label="Price"
               type="number"
               value={formData.price}
               onChange={(e) =>
@@ -424,6 +464,18 @@ export default function PriceItemsPage() {
               fullWidth
               inputProps={{ min: 0 }}
             />
+            <TextField
+              label="Currency"
+              select
+              value={formData.currency}
+              onChange={(e) =>
+                setFormData({ ...formData, currency: e.target.value })
+              }
+              fullWidth
+            >
+              <MenuItem value="coins">Coins</MenuItem>
+              <MenuItem value="dollar">Dollar</MenuItem>
+            </TextField>
             <TextField
               label="Purchase Limit"
               type="number"

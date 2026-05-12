@@ -157,9 +157,6 @@ async function cacheUserInfo(userId, reset) {
   var exists = await userCached(userId);
 
   if (!exists || reset) {
-    const maxOwnedCustomEmotes =
-      constants.maxOwnedCustomEmotes + constants.maxOwnedCustomEmotesExtra;
-
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
         "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points dailyChallengesCompleted dailyChallenges admin"
@@ -167,7 +164,6 @@ async function cacheUserInfo(userId, reset) {
       .populate({
         path: "customEmotes",
         select: "id extension name -_id",
-        options: { limit: maxOwnedCustomEmotes },
       });
 
     if (!user) return false;
@@ -181,7 +177,6 @@ async function cacheUserInfo(userId, reset) {
     aggregation.forEach((match) => (gamesPlayed = match.count));
 
     user = user.toJSON();
-    utils.remapCustomEmotes(user, userId);
 
     // Fetch vanity URL
     const vanityUrl = await models.VanityUrl.findOne({

@@ -1,6 +1,7 @@
 import OverviewPage from "./OverviewPage";
 import PriceItemsPage from "./catalog/PriceItemsPage";
 import AvatarsPage from "./catalog/AvatarsPage";
+import EmotesPage from "./catalog/EmotesPage";
 import GameIncidentsPage from "./games/GameIncidentsPage";
 import LiveGamesPage from "./games/LiveGamesPage";
 import QueueHealthPage from "./games/QueueHealthPage";
@@ -29,6 +30,7 @@ const pageRegistry = {
   "games-ranked-terms": RankedTermsPage,
   "catalog-prices": PriceItemsPage,
   "catalog-avatars": AvatarsPage,
+  "catalog-emotes": EmotesPage,
   "settings-general": GeneralSettingsPage,
   "settings-gamecatalogs": GameSettingsPage,
   "settings-payment-methods": PaymentMethodsSettingsPage,

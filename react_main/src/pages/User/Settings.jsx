@@ -13,6 +13,7 @@ import {
   MenuItem,
   Select,
   TextField,
+  IconButton,
   LinearProgress,
   Paper,
   ButtonGroup,
@@ -223,15 +224,62 @@ export default function Settings() {
   const errorAlert = useErrorAlert();
   const navigate = useNavigate();
 
+  function getReferralUrl(userId) {
+    return `${import.meta.env.REACT_APP_URL}/auth/login?ref=${userId}`;
+  }
+
+  async function writeClipboardText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+  }
+
+  async function copyReferralUrl(referralUrl) {
+    try {
+      await writeClipboardText(referralUrl);
+      siteInfo.showAlert("Referral URL copied", "success");
+    } catch (e) {
+      errorAlert("Could not copy referral URL.");
+    }
+  }
+
   const [siteFields, updateSiteFields] = useForm([
     {
       label: "Referral URL",
       ref: "referralURL",
-      type: "text",
-      value: (deps) =>
-        `${import.meta.env.REACT_APP_URL}/auth/login?ref=${deps.user.id}`,
-      fixed: true,
-      highlight: true,
+      type: "custom",
+      render: (deps) => {
+        const referralUrl = getReferralUrl(deps.user.id);
+        return (
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <TextField value={referralUrl} disabled fullWidth />
+            <IconButton
+              aria-label="copy referral URL"
+              onClick={() => copyReferralUrl(referralUrl)}
+              sx={{
+                border: "1px solid",
+                borderColor: "divider",
+                alignSelf: "stretch",
+                borderRadius: 1,
+                px: 1.5,
+              }}
+            >
+              <i className="fas fa-copy" />
+            </IconButton>
+          </Stack>
+        );
+      },
     },
     {
       label: "DMs from Friends Only",
@@ -652,16 +700,6 @@ export default function Settings() {
       saveBtnOnClick: onCustomDeathMessageSave,
       disabled: (deps) => !deps.user.itemsOwned.deathMessageEnabled,
     },
-    {
-      label: "Upload Custom Emote",
-      ref: "customEmotes",
-      type: "emoteUpload",
-      onCustomEmoteUpload: onCustomEmoteUpload,
-      onCustomEmoteDelete: onCustomEmoteDelete,
-      disabled: (deps) =>
-        deps.user.itemsOwned.customEmotes !== undefined &&
-        deps.user.itemsOwned.customEmotes.length > 0,
-    },
   ]);
 
   useEffect(() => {
@@ -930,7 +968,9 @@ export default function Settings() {
                         width: "40px",
                         height: "40px",
                         borderRadius: "50%",
-                        backgroundImage: `url(/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                        backgroundImage: `url(${typeof userFamily.avatar === "string"
+                          ? userFamily.avatar
+                          : `/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         flexShrink: 0,
@@ -1110,7 +1150,9 @@ export default function Settings() {
                         width: "40px",
                         height: "40px",
                         borderRadius: "50%",
-                        backgroundImage: `url(/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                        backgroundImage: `url(${typeof userFamily.avatar === "string"
+                          ? userFamily.avatar
+                          : `/uploads/${userFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         flexShrink: 0,
@@ -1240,7 +1282,9 @@ export default function Settings() {
             name: { $set: name },
             itemsOwned: {
               nameChange: {
-                $set: deps.user.itemsOwned.nameChange - 1,
+                $set:
+                  res.data.nameChange ??
+                  Math.max(Number(deps.user.itemsOwned.nameChange || 0) - 1, 0),
               },
             },
           })
@@ -1335,35 +1379,6 @@ export default function Settings() {
           prop: "value",
           value: "",
         });
-      })
-      .catch(deps.errorAlert);
-  }
-
-  function onCustomEmoteUpload(
-    emoteText,
-    imageFilename,
-    imageMimeType,
-    blob,
-    deps
-  ) {
-    const formData = new FormData();
-    const file = new File([blob], imageFilename);
-    formData.append("file", file);
-    formData.append("emoteText", emoteText);
-
-    axios
-      .post("/api/user/customEmote/create", formData, {})
-      .then((res) => {
-        deps.siteInfo.showAlert("Uploaded custom emote", "success");
-      })
-      .catch(deps.errorAlert);
-  }
-
-  function onCustomEmoteDelete(id, deps) {
-    axios
-      .post("/api/user/customEmote/delete", { id: id }, {})
-      .then((res) => {
-        deps.siteInfo.showAlert("Deleted custom emote", "success");
       })
       .catch(deps.errorAlert);
   }

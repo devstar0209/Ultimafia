@@ -81,9 +81,11 @@ export default function Family() {
     if (!siteWrapper || !family) return;
 
     if (family.background && family.backgroundRepeatMode) {
-      const backgroundUrl = `/uploads/${familyId}_familyBackground.webp?t=${
-        siteInfo?.cacheVal || Date.now()
-      }`;
+      const backgroundUrl = typeof family.background === "string"
+        ? family.background
+        : `/uploads/${familyId}_familyBackground.webp?t=${
+          siteInfo?.cacheVal || Date.now()
+        }`;
       const repeatMode = family.backgroundRepeatMode || "checker";
 
       let backgroundSize, backgroundRepeat, backgroundPosition;
@@ -284,7 +286,9 @@ export default function Family() {
                       width: "100px",
                       height: "100px",
                       borderRadius: "50%",
-                      backgroundImage: `url(/uploads/${family.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                      backgroundImage: `url(${typeof family.avatar === "string"
+                        ? family.avatar
+                        : `/uploads/${family.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                       backgroundSize: "cover",
                       backgroundPosition: "center",
                     }}

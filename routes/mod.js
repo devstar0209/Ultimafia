@@ -10,6 +10,9 @@ const crypto = require("crypto");
 const fs = require("fs");
 const models = require("../db/models");
 const routeUtils = require("./utils");
+const {
+  removeUploadedFile,
+} = require("../lib/Utils");
 const redis = require("../modules/redis");
 const roleIconCreditUtils = require("../modules/roleIconCreditUtils");
 const { getBasicUserInfo } = require("../modules/redis");
@@ -1352,23 +1355,6 @@ router.post("/clearUserContent", async (req, res) => {
         modActionName = "Clear Account Display";
         break;
 
-      case "profileBackground":
-        updateQuery = { $set: { profileBackground: false } };
-        modActionName = "Clear Profile Background";
-        // Delete the profile background file if it exists
-        const profileBackgroundPath = `${process.env.UPLOAD_PATH}/${userIdToClear}_profileBackground.webp`;
-        if (fs.existsSync(profileBackgroundPath)) {
-          additionalOperations.push(
-            new Promise((resolve, reject) => {
-              fs.unlink(profileBackgroundPath, (err) => {
-                if (err) reject(err);
-                else resolve();
-              });
-            })
-          );
-        }
-        break;
-
       case "all":
         updateQuery = {
           $set: {
@@ -1380,18 +1366,6 @@ router.post("/clearUserContent", async (req, res) => {
           },
         };
         modActionName = "Clear All User Content";
-        // Delete the profile background file if it exists when clearing all
-        const profileBackgroundPathAll = `${process.env.UPLOAD_PATH}/${userIdToClear}_profileBackground.webp`;
-        if (fs.existsSync(profileBackgroundPathAll)) {
-          additionalOperations.push(
-            new Promise((resolve, reject) => {
-              fs.unlink(profileBackgroundPathAll, (err) => {
-                if (err) reject(err);
-                else resolve();
-              });
-            })
-          );
-        }
         additionalOperations.push(
           models.CustomEmote.updateMany(
             { creator: user._id },
@@ -1467,18 +1441,12 @@ router.post("/clearFamilyContent", async (req, res) => {
     var defaultName = `${leaderName}'s Family`;
 
     // Delete avatar file if it exists
-    const avatarPath = `${process.env.UPLOAD_PATH}/${familyId}_family_avatar.webp`;
-    if (fs.existsSync(avatarPath)) {
-      fs.unlinkSync(avatarPath);
-    }
+    removeUploadedFile(`${familyId}_family_avatar`);
 
     // Delete background file if it exists
-    const backgroundPath = `${process.env.UPLOAD_PATH}/${familyId}_familyBackground.webp`;
-    if (fs.existsSync(backgroundPath)) {
-      fs.unlinkSync(backgroundPath);
-    }
+    removeUploadedFile(`${familyId}_familyBackground`);
 
-    // Update family: clear name, bio, and avatar
+    // Update family: clear name, bio, and avatar/background metadata
     await models.Family.updateOne(
       { id: familyId },
       {
@@ -1486,7 +1454,9 @@ router.post("/clearFamilyContent", async (req, res) => {
           name: defaultName,
           bio: "",
           avatar: false,
+          avatarUrl: "",
           background: false,
+          backgroundUrl: "",
         },
       }
     );

@@ -28,13 +28,27 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
+function getItemCurrency(item = {}) {
+  const currency = String(item.currency || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  return String(item.key || "").startsWith("avatar-") ? "dollar" : "coins";
+}
+
+const isDollarBalanceItem = (item = {}) => getItemCurrency(item) === "dollar";
+
+function formatItemPrice(item = {}) {
+  return isDollarBalanceItem(item)
+    ? formatUsdAmount(item.priceDollar ?? item.price)
+    : `${item.price} coins`;
+}
+
 export default function AvatarShop(props) {
   const [shopInfo, setShopInfo] = useState({
-    shopItems: [],
     avatarItems: [],
     equippedAvatarKey: "",
-    balance: 0,
-    balanceDollar: 0,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -51,7 +65,7 @@ export default function AvatarShop(props) {
   useEffect(() => {
     if (user.loaded && user.loggedIn) {
       axios
-        .get("/api/shop/info")
+        .get("/api/shop/avatars")
         .then((res) => {
           setShopInfo(res.data);
           setLoaded(true);
@@ -78,20 +92,19 @@ export default function AvatarShop(props) {
     if (!avatar) return;
 
     const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${avatar.name} for ${formatUsdAmount(
-        avatar.priceDollar
-      )}?`
+      `Are you sure you wish to buy ${avatar.name} for ${formatItemPrice(avatar)}?`
     );
 
     if (!shouldBuy) return;
 
     axios
-      .post("/api/shop/spendCoins", { item: shopInfo.shopItems.findIndex((item) => item.key === avatarKey) })
+      .post("/api/shop/purchase", { key: avatar.key })
       .then((res) => {
         siteInfo.showAlert("Avatar purchased.", "success");
 
         setShopInfo((prev) => ({
           ...prev,
+          balance: res.data.balance,
           balanceDollar: res.data.balanceDollar,
           avatarItems: prev.avatarItems.map((item) =>
             item.key === avatarKey ? { ...item, owned: true } : item
@@ -99,6 +112,7 @@ export default function AvatarShop(props) {
         }));
         user.set((prev) => ({
           ...prev,
+          coins: res.data.balance,
           balanceDollar: res.data.balanceDollar,
         }));
 
@@ -121,51 +135,9 @@ export default function AvatarShop(props) {
 
   return (
     <Stack direction="column" spacing={2}>
-      <Paper sx={{ p: 2 }}>
-        <Stack direction="column" spacing={2} style={{"display": "block"}}>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Typography variant="h2">Profile Avatars</Typography>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Typography variant="h4" className="balance">
-                {formatUsdAmount(shopInfo.balanceDollar)}
-              </Typography>
-              <Box
-                component="i"
-                className="fas fa-wallet"
-                aria-label="Dollar balance"
-                sx={{ fontSize: 24, color: "success.main" }}
-              />
-            </Stack>
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            Buy and equip profile avatars to customize your appearance.
-          </Typography>
-          <Button
-            variant="outlined"
-            onClick={() => navigate("/user/shop")}
-          >
-            Back to Shop
-          </Button>
-        </Stack>
-      </Paper>
-
       <Grid2 container spacing={2}>
         {shopInfo.avatarItems.map((avatar) => {
-          const isEquipped = shopInfo.equippedAvatarKey === avatar.key;
+          const isEquipped = user.settings.equippedAvatarKey === avatar.key;
           return (
             <Grid2
               key={avatar.key}
@@ -199,9 +171,7 @@ export default function AvatarShop(props) {
                         height: 60,
                         borderRadius: "8px",
                         backgroundColor: "rgba(255,255,255,0.06)",
-                        backgroundImage: avatar.available
-                          ? `url(${avatar.imageUrl}?t=${siteInfo.cacheVal})`
-                          : "none",
+                        backgroundImage: url(avatar.imageUrl),
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         border: "1px solid rgba(255,255,255,0.08)",
@@ -216,27 +186,42 @@ export default function AvatarShop(props) {
                         }}
                       >
                         <Typography variant="h6">
-                          {formatUsdAmount(avatar.priceDollar)}
+                          {isDollarBalanceItem(avatar)
+                            ? formatUsdAmount(avatar.priceDollar ?? avatar.price)
+                            : avatar.price}
                         </Typography>
                         <Box
                           component="i"
-                          className="fas fa-wallet"
-                          aria-label="Dollar balance"
-                          sx={{ fontSize: 16, color: "success.main" }}
+                          className={
+                            isDollarBalanceItem(avatar)
+                              ? "fas fa-wallet"
+                              : "fas fa-coins"
+                          }
+                          aria-label={
+                            isDollarBalanceItem(avatar)
+                              ? "Dollar balance"
+                              : "Coins"
+                          }
+                          sx={{
+                            fontSize: 16,
+                            color: isDollarBalanceItem(avatar)
+                              ? "success.main"
+                              : "#f5c542",
+                          }}
                         />
                       </Stack>
                     </Stack>
                   </Stack>
 
                   <Stack direction="column" spacing={1} sx={{ mt: 2 }}>
-                    {avatar.owned ? (
+                    {isEquipped ? (
                       <Button
                         variant={isEquipped ? "contained" : "outlined"}
                         disabled={isEquipped}
                         onClick={() => onEquipAvatar(avatar.key)}
                         fullWidth
                       >
-                        {isEquipped ? "Equipped" : "Equip"}
+                        Equipped
                       </Button>
                     ) : (
                       <Button

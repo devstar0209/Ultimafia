@@ -80,6 +80,23 @@ const formatUsdAmount = (amount) =>
     maximumFractionDigits: 2,
   });
 
+function getShopItemCurrency(item = {}) {
+  const currency = String(item.currency || "").trim().toLowerCase();
+  if (["dollar", "dollars", "usd", "usdollar", "$"].includes(currency)) {
+    return "dollar";
+  }
+  if (["coin", "coins"].includes(currency)) return "coins";
+  const key = String(item.key || "");
+  return key.startsWith("avatar-") || key.startsWith("emote-group-")
+    ? "dollar"
+    : "coins";
+}
+
+const formatShopPrice = (item = {}) =>
+  getShopItemCurrency(item) === "dollar"
+    ? formatUsdAmount(item.priceDollar ?? item.price)
+    : `${item.price} coins`;
+
 function FavoritedRolesPanel({
   favoriteRoles = [],
   panelStyle = {},
@@ -170,6 +187,7 @@ export default function Profile() {
   const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
   const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
   const [showPointsHistoryModal, setShowPointsHistoryModal] = useState(false);
+  const [purchasedItems, setPurchasedItems] = useState([]);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [favoriteRoles, setFavoriteRoles] = useState([]);
@@ -350,6 +368,9 @@ export default function Profile() {
               : []
           );
           setPointsHistoryPage(0);
+          setPurchasedItems(
+            Array.isArray(res.data.purchasedItems) ? res.data.purchasedItems : []
+          );
           setKarmaInfo(res.data.karmaInfo);
           setGroups(res.data.groups);
           setStatus(res.data.status || "offline");
@@ -1498,7 +1519,9 @@ export default function Profile() {
                     width: isPhoneDevice ? "40px" : "60px",
                     height: isPhoneDevice ? "40px" : "60px",
                     borderRadius: "50%",
-                    backgroundImage: `url(/uploads/${profileFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal})`,
+                    backgroundImage: `url(${typeof profileFamily.avatar === "string"
+                      ? profileFamily.avatar
+                      : `/uploads/${profileFamily.id}_family_avatar.webp?t=${siteInfo.cacheVal}`})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                     flexShrink: 0,
@@ -1608,7 +1631,7 @@ export default function Profile() {
                               <Box>
                                 <Typography>{avatar.name}</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {formatUsdAmount(avatar.priceDollar)}
+                                  {formatShopPrice(avatar)}
                                 </Typography>
                               </Box>
                             </Box>
@@ -1825,6 +1848,55 @@ export default function Profile() {
                 ) : (
                   <Typography color="text.secondary">
                     No game catalog points yet.
+                  </Typography>
+                )}
+              </div>
+            </div>
+            <div className="box-panel" style={panelStyle}>
+              <Typography variant="h3" style={headingStyle}>
+                Purchased Items
+              </Typography>
+              <div className="content">
+                {purchasedItems.length > 0 ? (
+                  <Grid container spacing={1}>
+                    {purchasedItems.map((item) => (
+                      <Grid item xs={12} sm={6} md={4} key={item.key}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            p: 1,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 1,
+                            minHeight: 44,
+                          }}
+                        >
+                          <Typography variant="body2" noWrap>
+                            {item.name}
+                          </Typography>
+                          {item.count > 1 && (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                px: 0.75,
+                                py: 0.25,
+                                borderRadius: 999,
+                                bgcolor: "action.selected",
+                                flexShrink: 0,
+                              }}
+                            >
+                              x{item.count}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography color="text.secondary">
+                    No purchased items yet.
                   </Typography>
                 )}
               </div>

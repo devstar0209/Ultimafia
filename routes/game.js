@@ -493,14 +493,6 @@ router.get("/:id/review/data", async function (req, res) {
         })
       );
 
-      for (let user of game.users) {
-        utils.remapCustomEmotes(user, user.id);
-      }
-
-      for (let spectator of game.spectatorsUsers) {
-        utils.remapCustomEmotes(spectator, spectator.id);
-      }
-
       function userIsInGame() {
         for (let user of game.users) {
           if (user.id == userId) {

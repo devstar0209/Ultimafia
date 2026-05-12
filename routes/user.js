@@ -114,6 +114,47 @@ async function buildPointCatalogBalances(pointsByGameCatalog) {
     );
 }
 
+function formatShopItemFallbackName(key) {
+  return String(key || "")
+    .replace(/^avatar-/, "Avatar ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
+async function buildPurchasedItems(itemsOwned) {
+  const ownedEntries = Object.entries(itemsOwned || {})
+    .map(([key, count]) => ({ key, count: Number(count || 0) }))
+    .filter((item) => item.count > 0);
+
+  if (ownedEntries.length === 0) return [];
+
+  const itemMap = new Map(
+    (
+      await models.ShopItem.find({
+        key: { $in: ownedEntries.map((item) => item.key) },
+      })
+        .select("key name sortOrder hidden -_id")
+        .lean()
+    ).map((item) => [item.key, item])
+  );
+
+  return ownedEntries
+    .map((item) => {
+      const shopItem = itemMap.get(item.key);
+      return {
+        key: item.key,
+        name: shopItem?.name || formatShopItemFallbackName(item.key),
+        count: item.count,
+        sortOrder: Number(shopItem?.sortOrder ?? 9999),
+      };
+    })
+    .sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
+    );
+}
+
 const mongo = require("mongodb");
 const ObjectID = mongo.ObjectID;
 
@@ -392,7 +433,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -427,6 +468,8 @@ router.get("/:id/profile", async function (req, res) {
     user.pointsByGameCatalog = await buildPointCatalogBalances(
       user.pointsByGameCatalog
     );
+    user.purchasedItems = await buildPurchasedItems(user.itemsOwned);
+    delete user.itemsOwned;
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;
@@ -862,14 +905,14 @@ router.get("/:id/profile", async function (req, res) {
       user: userMongoId,
     }).populate({
       path: "family",
-      select: "id name avatar -_id",
+      select: "id name avatar avatarUrl -_id",
     });
 
     if (inFamily && inFamily.family) {
       user.family = {
         id: inFamily.family.id,
         name: inFamily.family.name,
-        avatar: inFamily.family.avatar,
+        avatar: inFamily.family.avatarUrl || inFamily.family.avatar,
       };
     } else {
       user.family = null;
@@ -1525,9 +1568,6 @@ router.get("/:id/nameHistory", async function (req, res) {
 router.get("/settings/data", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
-    const maxOwnedCustomEmotes =
-      constants.maxOwnedCustomEmotes + constants.maxOwnedCustomEmotesExtra;
-
     var userId = await routeUtils.verifyLoggedIn(req, true);
     var user =
       userId &&
@@ -1536,7 +1576,6 @@ router.get("/settings/data", async function (req, res) {
         .populate({
           path: "customEmotes",
           select: "id extension name -_id",
-          options: { limit: maxOwnedCustomEmotes },
         }));
 
     if (user) {
@@ -1547,7 +1586,6 @@ router.get("/settings/data", async function (req, res) {
       user.settings.username = user.name;
       user.settings.pronouns = user.pronouns;
       user.birthday = Date.parse(user.birthday);
-      utils.remapCustomEmotes(user, userId);
 
       // Fetch vanity URL
       const vanityUrl = await models.VanityUrl.findOne({
@@ -1703,134 +1741,10 @@ router.post("/deathMessage", async function (req, res) {
 
 router.post("/customEmote/create", async function (req, res) {
   try {
-    const userId = await routeUtils.verifyLoggedIn(req);
-
-    var user = await models.User.findOne({ id: userId, deleted: false }).select(
-      "itemsOwned customEmotes _id"
-    );
-    user = user.toJSON();
-
-    const ownedCustomEmotes =
-      user.itemsOwned.customEmotes + user.itemsOwned.customEmotesExtra;
-    if (user.customEmotes.length >= ownedCustomEmotes) {
-      res.status(500);
-      res.send("You need to purchase more custom emotes from the shop.");
-      return;
-    }
-
-    const maxOwnedCustomEmotes =
-      constants.maxOwnedCustomEmotes + constants.maxOwnedCustomEmotesExtra;
-    if (user.customEmotes.length >= maxOwnedCustomEmotes) {
-      res.status(500);
-      res.send(
-        `You can only have up to ${maxOwnedCustomEmotes} custom emotes linked to your account.`
-      );
-      return;
-    }
-
-    var form = new formidable();
-    form.maxFileSize = 2 * 1024 * 1024;
-    form.maxFields = 1;
-
-    var [fields, files] = await form.parseAsync(req);
-
-    let customEmote = Object();
-    customEmote.name = String(fields.emoteText || "");
-
-    /* customEmote name checks
-    - must be non-empty
-    - must fit within the constraints for emotify
-    - must not be too long
-    - must be unique per player
-    */
-    if (!customEmote.name || !customEmote.name.length) {
-      res.status(400);
-      res.send("You must give your custom emote a name.");
-      return;
-    }
-
-    if (customEmote.name.match(/( |:)/)) {
-      res.status(400);
-      res.send("Custom emote names may not have spaces or colons in them.");
-      return;
-    }
-
-    if (customEmote.name.length > constants.maxCustomEmoteNameLength) {
-      res.status(400);
-      res.send("Emote name is too long.");
-      return;
-    }
-
-    var existingCustomEmote = await models.CustomEmote.findOne({
-      creator: new ObjectID(user._id),
-      name: customEmote.name,
-      deleted: false,
-    }).select("-_id");
-    if (existingCustomEmote) {
-      res.status(400);
-      res.send(`You already have a custom emote with that name.`);
-      return;
-    }
-
-    customEmote.id = shortid.generate();
-    customEmote.extension = "webp";
-    customEmote.creator = req.session.user._id;
-
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    // Convert the data in the file from an octet stream to its original raw bytes
-    // https://stackoverflow.com/a/20272545
-    const fileContents = fs.readFileSync(files.file.path).toString();
-    const matches = fileContents.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-
-    if (matches.length !== 3) {
-      res.status(400);
-      res.send("Invalid octet stream.");
-      return;
-    }
-
-    const buffer = Buffer.from(matches[2], "base64");
-
-    const image = sharp(buffer, { animated: true });
-    image
-      .metadata()
-      .then(function (metadata) {
-        if (metadata.width <= 30 && metadata.height <= 30) {
-          // No resizing necessary, construct image.
-          return sharp(buffer, { animated: true }).webp();
-        } else {
-          // Resizing necessary.
-          return sharp(buffer, { animated: true }).webp().resize({
-            width: 30,
-            height: 30,
-            fit: "inside",
-            withoutEnlargement: true,
-          });
-        }
-      })
-      .then(function (webp) {
-        // Save to disk
-        webp.toFile(
-          utils.getCustomEmoteFilepath(
-            userId,
-            customEmote.id,
-            customEmote.extension
-          )
-        );
-      });
-
-    customEmote = new models.CustomEmote(customEmote);
-    await customEmote.save();
-    await models.User.updateOne(
-      { id: userId },
-      { $push: { customEmotes: customEmote._id } }
-    ).exec();
-
-    // Allow the new custom emote to be cached
-    redis.invalidateCachedUser(userId);
-
-    res.send(customEmote);
+    await routeUtils.verifyLoggedIn(req);
+    res.status(410);
+    res.send("Custom emote uploads are disabled. Buy emotes from the Shop.");
+    return;
   } catch (e) {
     logger.error(e);
     res.status(500);
@@ -1859,6 +1773,12 @@ router.post("/customEmote/delete", async function (req, res) {
     if (!customEmote || customEmote.creator.id != userId) {
       res.status(500);
       res.send("You can only delete custom emotes you have created.");
+      return;
+    }
+
+    if (String(customEmote.id || "").startsWith("emote-")) {
+      res.status(400);
+      res.send("Purchased emotes cannot be deleted.");
       return;
     }
 
@@ -2125,105 +2045,6 @@ router.post("/pronouns", async function (req, res) {
   }
 });
 
-router.post("/banner", async function (req, res) {
-  try {
-    var userId = await routeUtils.verifyLoggedIn(req);
-    var itemsOwned = await redis.getUserItemsOwned(userId);
-
-    if (!itemsOwned.customProfile) {
-      res.status(500);
-      res.send(
-        "You must purcahse profile customization with coins from the Shop."
-      );
-      return;
-    }
-
-    var form = new formidable();
-    form.maxFileSize = 2 * 1024 * 1024;
-    form.maxFields = 1;
-
-    var [fields, files] = await form.parseAsync(req);
-
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    await sharp(files.image.path)
-      .webp({ quality: 100 })
-      .resize({
-        width: 900,
-        height: 300,
-        withoutEnlargement: true,
-        kernel: sharp.kernel.lanczos3,
-      })
-      .toFile(`${process.env.UPLOAD_PATH}/${userId}_banner.webp`);
-    await models.User.updateOne({ id: userId }, { $set: { banner: true } });
-
-    res.sendStatus(200);
-  } catch (e) {
-    res.status(500);
-
-    if (e.message.indexOf("maxFileSize exceeded") == 0)
-      res.send("Image is too large, banner must be less than 1 MB");
-    else {
-      logger.error(e);
-      res.send("Error uploading avatar image");
-    }
-  }
-});
-
-router.post("/banner/clear", async function (req, res) {
-  try {
-    var userId = await routeUtils.verifyLoggedIn(req);
-
-    var bannerPath = `${process.env.UPLOAD_PATH}/${userId}_banner.webp`;
-    if (fs.existsSync(bannerPath)) fs.unlinkSync(bannerPath);
-
-    await models.User.updateOne({ id: userId }, { $set: { banner: false } });
-
-    res.sendStatus(200);
-  } catch (e) {
-    logger.error(e);
-    res.status(500);
-    res.send("Error clearing banner");
-  }
-});
-
-router.post("/avatar", async function (req, res) {
-  try {
-    var userId = await routeUtils.verifyLoggedIn(req);
-    var form = new formidable();
-    form.maxFileSize = 1024 * 1024;
-    form.maxFields = 1;
-
-    var [fields, files] = await form.parseAsync(req);
-
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    await sharp(files.image.path)
-      .webp({ quality: 100 })
-      .resize(100, 100, {
-        kernel: sharp.kernel.lanczos3,
-        fit: "cover",
-        position: "center",
-      })
-      .toFile(`${process.env.UPLOAD_PATH}/${userId}_avatar.webp`);
-    await models.User.updateOne({ id: userId }, { $set: { avatar: true } });
-    await redis.cacheUserInfo(userId, true);
-
-    res.sendStatus(200);
-  } catch (e) {
-    res.status(500);
-
-    if (e.message.indexOf("maxFileSize exceeded") == 0)
-      res.send("Image is too large, avatar must be less than 1 MB.");
-    else {
-      logger.error(e);
-      res.send("Error uploading avatar image.");
-    }
-  }
-});
-
 router.post("/avatar/equip", async function (req, res) {
   try {
     const userId = await routeUtils.verifyLoggedIn(req);
@@ -2244,23 +2065,8 @@ router.post("/avatar/equip", async function (req, res) {
       return;
     }
 
-    if (Number(user.itemsOwned?.[avatarKey] || 0) < 1) {
-      res.status(403);
-      res.send("You must purchase this avatar first.");
-      return;
-    }
-
-    const avatarSourcePath = `${process.env.UPLOAD_PATH}/store/avatars/${avatarKey}.webp`;
-    if (!fs.existsSync(avatarSourcePath)) {
-      res.status(404);
-      res.send("Avatar asset is unavailable.");
-      return;
-    }
-
     if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
       fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    fs.copyFileSync(avatarSourcePath, `${process.env.UPLOAD_PATH}/${userId}_avatar.webp`);
 
     await models.User.updateOne(
       { id: userId },
@@ -2278,87 +2084,6 @@ router.post("/avatar/equip", async function (req, res) {
     logger.error(e);
     res.status(500);
     res.send("Error equipping avatar.");
-  }
-});
-
-router.post("/profileBackground", async function (req, res) {
-  try {
-    var userId = await routeUtils.verifyLoggedIn(req);
-    var itemsOwned = await redis.getUserItemsOwned(userId);
-
-    if (!itemsOwned.profileBackground) {
-      res.status(500);
-      res.send(
-        "You must purchase Profile Background with coins from the Shop."
-      );
-      return;
-    }
-
-    var form = new formidable();
-    form.maxFileSize = 5 * 1024 * 1024; // 5MB max for background images
-    form.maxFields = 1;
-
-    var [fields, files] = await form.parseAsync(req);
-
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
-
-    // Convert and optimize the background image
-    // No specific resize - allow user to upload their preferred size
-    await sharp(files.image.path)
-      .webp({ quality: 85 })
-      .toFile(`${process.env.UPLOAD_PATH}/${userId}_profileBackground.webp`);
-
-    await models.User.updateOne(
-      { id: userId },
-      { $set: { profileBackground: true } }
-    );
-    await redis.cacheUserInfo(userId, true);
-
-    res.sendStatus(200);
-  } catch (e) {
-    res.status(500);
-
-    if (e.message.indexOf("maxFileSize exceeded") == 0)
-      res.send("Image is too large, background must be less than 5 MB.");
-    else {
-      logger.error(e);
-      res.send("Error uploading profile background image.");
-    }
-  }
-});
-
-router.delete("/profileBackground", async function (req, res) {
-  try {
-    var userId = await routeUtils.verifyLoggedIn(req);
-    var itemsOwned = await redis.getUserItemsOwned(userId);
-
-    if (!itemsOwned.profileBackground) {
-      res.status(500);
-      res.send(
-        "You must purchase Profile Background with coins from the Shop."
-      );
-      return;
-    }
-
-    // Delete the profile background file if it exists
-    const filePath = `${process.env.UPLOAD_PATH}/${userId}_profileBackground.webp`;
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    // Update database to mark profileBackground as false
-    await models.User.updateOne(
-      { id: userId },
-      { $set: { profileBackground: false } }
-    );
-    await redis.cacheUserInfo(userId, true);
-
-    res.sendStatus(200);
-  } catch (e) {
-    logger.error(e);
-    res.status(500);
-    res.send("Error removing profile background image.");
   }
 });
 
@@ -2469,16 +2194,6 @@ router.post("/name", async function (req, res) {
       return;
     }
 
-    var ownedItems = await redis.getUserItemsOwned(userId);
-
-    if (ownedItems.nameChange < 1) {
-      res.status(500);
-      res.send(
-        "You must purchase additional name changes with coins from the Shop."
-      );
-      return;
-    }
-
     var existingUser = await models.User.findOne({
       name: new RegExp(`^${name}$`, "i"),
     }).select("_id");
@@ -2511,11 +2226,27 @@ router.post("/name", async function (req, res) {
       };
     }
 
-    await models.User.updateOne({ id: userId }, updateQuery).exec();
+    const updatedUser = await models.User.findOneAndUpdate(
+      { id: userId, "itemsOwned.nameChange": { $gte: 1 } },
+      updateQuery,
+      { new: true }
+    )
+      .select("itemsOwned.nameChange")
+      .lean();
+
+    if (!updatedUser) {
+      res.status(500);
+      res.send(
+        "You must purchase additional name changes with coins from the Shop."
+      );
+      return;
+    }
 
     await redis.cacheUserInfo(userId, true);
 
-    res.sendStatus(200);
+    res.send({
+      nameChange: Number(updatedUser.itemsOwned?.nameChange || 0),
+    });
   } catch (e) {
     logger.error(e);
     res.status(500);
