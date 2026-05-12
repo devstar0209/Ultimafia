@@ -1931,7 +1931,7 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
       return;
     }
 
-    const imageUrl = await utils.uploadImage(file.path, utils.GAME_CATALOG_UPLOAD_PATH, gameCatalogUtils.slugifyGameTitle(gameKey), {
+    const imageUrl = await utils.uploadImage(file.path, utils.GAME_CATALOG_UPLOAD_PATH, key, {
       resize: {
         width: 512,
         height: 512,
