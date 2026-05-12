@@ -3,7 +3,7 @@ const logger = require("../modules/logging")(".");
 const router = express.Router();
 const models = require("../db/models");
 const gameCatalogUtils = require("../lib/gameCatalog");
-const utils = require("../lib/Utils");
+const brandingUtils = require("../lib/platformBranding");
 const donorData = require("../data/donors");
 const { violationDefinitions } = require("../data/violations");
 
@@ -115,10 +115,10 @@ router.get("/branding", async function (req, res) {
   try {
     const doc = await models.PlatformBranding.findOne({}).lean();
 
-    res.send(utils.buildBrandingPayload(doc));
+    res.send(brandingUtils.buildBrandingPayload(doc));
   } catch (e) {
     logger.error(e);
-    res.send(utils.buildBrandingPayload(null));
+    res.send(brandingUtils.buildBrandingPayload(null));
   }
 });
 

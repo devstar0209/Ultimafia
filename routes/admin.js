@@ -7,6 +7,7 @@ const shortid = require("shortid");
 const models = require("../db/models");
 const redis = require("../modules/redis");
 const gameCatalogUtils = require("../lib/gameCatalog");
+const brandingUtils = require("../lib/platformBranding");
 const utils = require("../lib/Utils");
 const routeUtils = require("./utils");
 const defaultSettings = require("../lib/defaultSettings");
@@ -2104,7 +2105,7 @@ router.get("/settings/general", async function (req, res) {
         openReports,
         activeAutomationCandidates
       ),
-      branding: utils.buildBrandingPayload(brandingDoc),
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
       defaultSettings: {
         registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
         coinsPerDollar: defaultSettings?.coinsPerDollar || 100,
@@ -2221,7 +2222,7 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: utils.buildBrandingPayload(brandingDoc),
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
     });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
@@ -2259,7 +2260,7 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: utils.buildBrandingPayload(updatedDoc),
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
     });
   } catch (e) {
     logger.error(e);
@@ -2317,7 +2318,7 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: utils.buildBrandingPayload(brandingDoc),
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
     });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
@@ -2361,7 +2362,7 @@ router.delete("/settings/branding/banners/:key", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: utils.buildBrandingPayload(updatedDoc),
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
     });
   } catch (e) {
     logger.error(e);
@@ -2424,7 +2425,7 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
 
     res.send({
       ok: true,
-      branding: utils.buildBrandingPayload(brandingDoc),
+      branding: brandingUtils.buildBrandingPayload(brandingDoc),
     });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
@@ -2478,7 +2479,7 @@ router.delete("/settings/branding/banners/carousel/:bannerId", async function (r
 
     res.send({
       ok: true,
-      branding: utils.buildBrandingPayload(updatedDoc),
+      branding: brandingUtils.buildBrandingPayload(updatedDoc),
     });
   } catch (e) {
     logger.error(e);
