@@ -11,7 +11,6 @@ const fs = require("fs");
 const models = require("../db/models");
 const routeUtils = require("./utils");
 const {
-  findUploadedFilePath,
   removeUploadedFile,
 } = require("../lib/Utils");
 const redis = require("../modules/redis");

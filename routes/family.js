@@ -12,11 +12,8 @@ const formidable = bluebird.promisifyAll(require("formidable"), {
 const sharp = require("sharp");
 const fs = require("fs");const path = require("path");
 const {
-  uploadImageAndReturnUrl,
-  getUploadAbsolutePath,
-  findUploadedFilePath,
+  uploadImage,
   removeUploadedFile,
-  getUploadUrlFromRelativePath,
 } = require("../lib/Utils");
 router.get("/user/family", async function (req, res) {
   try {
@@ -119,27 +116,12 @@ router.post("/create", async function (req, res) {
 
     const familyId = shortid.generate();
 
-    // Check if user has a pending avatar upload
-    const pendingAvatarPath = findUploadedFilePath(`pending_${userId}_family_avatar`);
-    let hasAvatar = false;
-    let avatarUrl = "";
-
-    if (pendingAvatarPath) {
-      const ext = path.extname(pendingAvatarPath);
-      const familyAvatarPath = getUploadAbsolutePath(`${familyId}_family_avatar`, ext);
-      fs.renameSync(pendingAvatarPath, familyAvatarPath);
-      hasAvatar = true;
-      avatarUrl = getUploadUrlFromRelativePath(`${familyId}_family_avatar${ext}`);
-    }
-
     const family = new models.Family({
       id: familyId,
       name: trimmedName,
       founder: user._id,
       leader: user._id,
       members: [user._id],
-      avatar: hasAvatar,
-      avatarUrl,
       createdAt: Date.now(),
     });
 
@@ -201,7 +183,7 @@ router.post("/avatar", async function (req, res) {
 
     var [fields, files] = await form.parseAsync(req);
 
-    const uploadResult = await uploadImageAndReturnUrl(
+    const imageUrl = await uploadImage(
       files.image,
       `${familyId}_family_avatar`,
       {
@@ -220,11 +202,11 @@ router.post("/avatar", async function (req, res) {
     if (isExistingFamily) {
       await models.Family.updateOne(
         { id: familyId },
-        { $set: { avatar: true, avatarUrl: uploadResult.url } }
+        { $set: { avatar: true, avatarUrl: imageUrl } }
       );
     }
 
-    res.send({ url: uploadResult.url });
+    res.send({ url: imageUrl });
   } catch (e) {
     res.status(500);
 
@@ -886,7 +868,7 @@ router.post("/:familyId/background", async function (req, res) {
 
     var [fields, files] = await form.parseAsync(req);
 
-    const uploadResult = await uploadImageAndReturnUrl(
+    const imageUrl = await uploadImage(
       files.image,
       `${familyId}_familyBackground`,
       {
@@ -896,10 +878,10 @@ router.post("/:familyId/background", async function (req, res) {
 
     await models.Family.updateOne(
       { id: familyId },
-      { $set: { background: true, backgroundUrl: uploadResult.url } }
+      { $set: { background: true, backgroundUrl: imageUrl } }
     );
 
-    res.send({ url: uploadResult.url });
+    res.send({ url: imageUrl });
   } catch (e) {
     logger.error(e);
     res.status(500);

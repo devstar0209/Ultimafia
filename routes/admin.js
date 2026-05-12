@@ -2,13 +2,12 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const formidable = require("formidable");
-const sharp = require("sharp");
 const shortid = require("shortid");
 
 const models = require("../db/models");
 const redis = require("../modules/redis");
 const gameCatalogUtils = require("../lib/gameCatalog");
-const brandingUtils = require("../lib/platformBranding");
+const utils = require("../lib/Utils");
 const routeUtils = require("./utils");
 const defaultSettings = require("../lib/defaultSettings");
 const logger = require("../modules/logging")(".");
@@ -64,12 +63,8 @@ function getRiskBand(trust) {
 
 async function getPlatformBrandingDocument() {
   return models.PlatformBranding.findOneAndUpdate(
-    { key: brandingUtils.BRANDING_KEY },
-    {
-      $setOnInsert: {
-        key: brandingUtils.BRANDING_KEY,
-      },
-    },
+    {},
+    {},
     {
       new: true,
       upsert: true,
@@ -154,7 +149,7 @@ function buildAdminSettingsSummary(
 function removeUploadFile(relativePath) {
   if (!relativePath) return;
 
-  const absolutePath = brandingUtils.resolveUploadPath(relativePath);
+  const absolutePath = utils.resolveUploadPath(relativePath);
   if (fs.existsSync(absolutePath)) {
     fs.unlinkSync(absolutePath);
   }
@@ -215,7 +210,7 @@ function buildEmoteAssetId(groupKey, file, index = 0) {
 }
 
 function listEmoteGroupAssets(groupKey) {
-  const emoteDir = brandingUtils.resolveUploadPath("store/emotes");
+  const emoteDir = utils.resolveUploadPath("store/emotes");
   if (!fs.existsSync(emoteDir)) return [];
 
   return fs
@@ -226,7 +221,7 @@ function listEmoteGroupAssets(groupKey) {
       return {
         id,
         name: id.replace(`${groupKey}-`, ""),
-        imageUrl: brandingUtils.toPublicUrl(getEmoteAssetRelativePath(id)),
+        imageUrl: utils.toPublicUrl(getEmoteAssetRelativePath(id)),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -868,7 +863,7 @@ router.get("/avatars", async function (req, res) {
       limit: item.limit == null ? null : Number(item.limit),
       hidden: Boolean(item.hidden),
       sortOrder: Number(item.sortOrder || 0),
-      imageUrl: brandingUtils.toPublicUrl(item.imageUrl),
+      imageUrl: utils.toPublicUrl(item.imageUrl),
       collection: "Profile Avatars",
       artist: "Store Asset",
       rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
@@ -978,7 +973,7 @@ router.post("/avatars", async function (req, res) {
         limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0),
-        imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(created.key)),
+        imageUrl: utils.toPublicUrl(getAvatarAssetRelativePath(created.key)),
       },
     });
   } catch (e) {
@@ -1051,7 +1046,7 @@ router.patch("/avatars/:key", async function (req, res) {
         limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
-        imageUrl: brandingUtils.toPublicUrl(getAvatarAssetRelativePath(updated.key)),
+        imageUrl: utils.toPublicUrl(getAvatarAssetRelativePath(updated.key)),
       },
     });
   } catch (e) {
@@ -1118,27 +1113,22 @@ router.post("/avatars/:key/image", async function (req, res) {
       return;
     }
 
-    const relativePath = getAvatarAssetRelativePath(key);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    await utils.uploadImage(file.path, "store/avatars", key, {
+      resize: {
         width: 256,
         height: 256,
         fit: sharp.fit.cover,
         position: sharp.strategy.attention,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
     await models.AvatarItem.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Avatar Item Image", [key]);
     shopModule.invalidateShopItemsCache();
 
-    res.send({ ok: true, key, imageUrl: brandingUtils.toPublicUrl(relativePath) });
+    res.send({ ok: true, key, imageUrl: utils.toPublicUrl(relativePath) });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
       res.status(400).send("Image is too large, must be less than 5 MB.");
@@ -1243,8 +1233,8 @@ router.get("/emotes", async function (req, res) {
       limit: item.limit == null ? null : Number(item.limit),
       hidden: Boolean(item.hidden),
       sortOrder: Number(item.sortOrder || 0),
-      imageUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
-      iconUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
       emotes: listEmoteGroupAssets(item.key),
       collection: "Chat Emote Groups",
       artist: "Store Asset",
@@ -1355,8 +1345,8 @@ router.post("/emotes", async function (req, res) {
         limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0),
-        imageUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
-        iconUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
+        imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
+        iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
         emotes: [],
       },
     });
@@ -1430,8 +1420,8 @@ router.patch("/emotes/:key", async function (req, res) {
         limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
-        imageUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
-        iconUrl: brandingUtils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
         emotes: listEmoteGroupAssets(updated.key),
       },
     });
@@ -1500,26 +1490,26 @@ router.post("/emotes/:key/image", async function (req, res) {
     }
 
     const relativePath = getEmoteGroupIconRelativePath(key);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+    const absolutePath = utils.resolveUploadPath(relativePath);
+    utils.ensureDirectory(path.dirname(absolutePath));
 
-    await sharp(file.path, { animated: true })
-      .rotate()
-      .resize({
+    await utils.uploadImage(file.path, "stores/emotes", key, {
+      animated: true,
+      resize: {
         width: 64,
         height: 64,
         fit: "inside",
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
     await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Updated Emote Group Icon", [key]);
     shopModule.invalidateShopItemsCache();
 
-    res.send({ ok: true, key, imageUrl: brandingUtils.toPublicUrl(relativePath) });
+    res.send({ ok: true, key, imageUrl: utils.toPublicUrl(relativePath) });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
       res.status(400).send("Image is too large, must be less than 2 MB.");
@@ -1576,26 +1566,23 @@ router.post("/emotes/:key/items", async function (req, res) {
     for (let index = 0; index < uploadedFiles.length; index++) {
       const file = uploadedFiles[index];
       const assetId = buildEmoteAssetId(key, file, index);
-      const relativePath = getEmoteAssetRelativePath(assetId);
-      const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-      brandingUtils.ensureDirectory(path.dirname(absolutePath));
 
-      await sharp(file.path, { animated: true })
-        .rotate()
-        .resize({
+      await utils.uploadImage(file.path, "store/emotes", assetId, {
+        animated: true,
+        resize: {
           width: 64,
           height: 64,
           fit: "inside",
           withoutEnlargement: true,
           kernel: sharp.kernel.lanczos3,
-        })
-        .webp({ quality: 92 })
-        .toFile(absolutePath);
+        },
+        quality: 92,
+      });
 
       saved.push({
         id: assetId,
         name: assetId.replace(`${key}-`, ""),
-        imageUrl: brandingUtils.toPublicUrl(relativePath),
+        imageUrl: utils.toPublicUrl(relativePath),
       });
     }
 
@@ -1964,22 +1951,17 @@ router.post("/settings/gamecatalogs/:key/logo", async function (req, res) {
       return;
     }
 
-    const relativePath = gameCatalogUtils.getGameLogoRelativePath(key);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    await utils.uploadImage(file.path, "game-catalog", gameCatalogUtils.slugifyGameTitle(gameKey), {
+      resize: {
         width: 512,
         height: 512,
         fit: sharp.fit.contain,
         background: { r: 0, g: 0, b: 0, alpha: 0 },
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
     const updatedGame = await models.GameCatalog.findOneAndUpdate(
       { key },
@@ -2122,7 +2104,7 @@ router.get("/settings/general", async function (req, res) {
         openReports,
         activeAutomationCandidates
       ),
-      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+      branding: utils.buildBrandingPayload(brandingDoc),
       defaultSettings: {
         registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
         coinsPerDollar: defaultSettings?.coinsPerDollar || 100,
@@ -2208,24 +2190,21 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
       return;
     }
 
-    const relativePath = brandingUtils.getPlatformLogoRelativePath();
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
+    const relativePath = "branding/platform-logo";
 
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    await utils.uploadImage(file.path, relativePath, {
+      resize: {
         width: 800,
         height: 240,
         fit: sharp.fit.inside,
         withoutEnlargement: true,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
+      },
+      quality: 92,
+    });
 
     const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $set: {
           platformLogoPath: relativePath,
@@ -2242,7 +2221,7 @@ router.post("/settings/branding/platform-logo", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+      branding: utils.buildBrandingPayload(brandingDoc),
     });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
@@ -2265,7 +2244,7 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
     removeUploadFile(brandingDoc?.platformLogoPath);
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $set: {
           platformLogoPath: "",
@@ -2280,7 +2259,7 @@ router.delete("/settings/branding/platform-logo", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+      branding: utils.buildBrandingPayload(updatedDoc),
     });
   } catch (e) {
     logger.error(e);
@@ -2308,27 +2287,22 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
       return;
     }
 
-    const relativePath = brandingUtils.getBannerRelativePath(bannerKey);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    const bannerUrl = await utils.uploadImage(file.path, "branding/banners", bannerKey, {
+      resize: {
         width: 1600,
         height: 900,
         fit: sharp.fit.cover,
         position: sharp.strategy.attention,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 90 })
-      .toFile(absolutePath);
+      },
+      quality: 90,
+    });
 
     const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $set: {
-          [`banners.${bannerKey}`]: relativePath,
+          [`banners.${bannerKey}`]: bannerUrl,
           updatedAt: Date.now(),
           updatedBy: sessionInfo.user.id,
         },
@@ -2338,12 +2312,12 @@ router.post("/settings/branding/banners/:key", async function (req, res) {
 
     await createBrandingModAction(sessionInfo.user.id, "Updated Platform Banner", [
       bannerKey,
-      relativePath,
+      bannerUrl,
     ]);
 
     res.send({
       ok: true,
-      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+      branding: utils.buildBrandingPayload(brandingDoc),
     });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
@@ -2363,16 +2337,12 @@ router.delete("/settings/branding/banners/:key", async function (req, res) {
     if (!sessionInfo) return;
 
     const bannerKey = String(req.params.key || "").trim();
-    if (!brandingUtils.BANNER_KEYS.includes(bannerKey)) {
-      res.status(400).send("Unsupported banner key.");
-      return;
-    }
 
     const brandingDoc = await getPlatformBrandingDocument();
     removeUploadFile(brandingDoc?.banners?.[bannerKey]);
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $unset: {
           [`banners.${bannerKey}`]: 1,
@@ -2391,7 +2361,7 @@ router.delete("/settings/branding/banners/:key", async function (req, res) {
 
     res.send({
       ok: true,
-      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+      branding: utils.buildBrandingPayload(updatedDoc),
     });
   } catch (e) {
     logger.error(e);
@@ -2418,24 +2388,20 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
     }
 
     const bannerId = shortid.generate();
-    const relativePath = brandingUtils.getCarouselBannerRelativePath(bannerId);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
 
-    await sharp(file.path)
-      .rotate()
-      .resize({
+    await utils.uploadImage(file.path, "branding/carousel", bannerId, {
+      resize: {
         width: 1600,
         height: 900,
         fit: sharp.fit.cover,
         position: sharp.strategy.attention,
         kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 90 })
-      .toFile(absolutePath);
+      },
+      quality: 90,
+    });
 
     const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      { },
       {
         $push: {
           carouselBanners: {
@@ -2458,7 +2424,7 @@ router.post("/settings/branding/banners/carousel/upload", async function (req, r
 
     res.send({
       ok: true,
-      branding: brandingUtils.buildBrandingPayload(brandingDoc),
+      branding: utils.buildBrandingPayload(brandingDoc),
     });
   } catch (e) {
     if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
@@ -2493,7 +2459,7 @@ router.delete("/settings/branding/banners/carousel/:bannerId", async function (r
     }
 
     const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
+      {},
       {
         $pull: {
           carouselBanners: { _id: bannerId },
@@ -2512,123 +2478,11 @@ router.delete("/settings/branding/banners/carousel/:bannerId", async function (r
 
     res.send({
       ok: true,
-      branding: brandingUtils.buildBrandingPayload(updatedDoc),
+      branding: utils.buildBrandingPayload(updatedDoc),
     });
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error removing carousel banner image.");
-  }
-});
-
-router.post("/settings/branding/game-logos/:gameType", async function (req, res) {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const sessionInfo = await verifyAdminAccess(req, res);
-    if (!sessionInfo) return;
-
-    const gameType = decodeURIComponent(String(req.params.gameType || "").trim());
-
-    const form = new formidable();
-    form.maxFileSize = 5 * 1024 * 1024;
-    form.maxFields = 1;
-
-    const [, files] = await parseUploadForm(form, req);
-    const file = files.image;
-
-    if (!file?.path) {
-      res.status(400).send("Image file is required.");
-      return;
-    }
-
-    const relativePath = brandingUtils.getGameLogoRelativePath(gameType);
-    const absolutePath = brandingUtils.resolveUploadPath(relativePath);
-    brandingUtils.ensureDirectory(path.dirname(absolutePath));
-
-    await sharp(file.path)
-      .rotate()
-      .resize({
-        width: 512,
-        height: 512,
-        fit: sharp.fit.contain,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-        withoutEnlargement: true,
-        kernel: sharp.kernel.lanczos3,
-      })
-      .webp({ quality: 92 })
-      .toFile(absolutePath);
-
-    const brandingDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
-      {
-        $set: {
-          [`gameLogos.${gameType}`]: relativePath,
-          updatedAt: Date.now(),
-          updatedBy: sessionInfo.user.id,
-        },
-      },
-      { new: true, upsert: true }
-    ).lean();
-
-    await createBrandingModAction(sessionInfo.user.id, "Updated Game Logo", [
-      gameType,
-      relativePath,
-    ]);
-
-    res.send({
-      ok: true,
-      branding: brandingUtils.buildBrandingPayload(brandingDoc),
-    });
-  } catch (e) {
-    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
-      res.status(400).send("Image is too large, must be less than 5 MB.");
-      return;
-    }
-
-    logger.error(e);
-    res.status(500).send("Error uploading game logo.");
-  }
-});
-
-router.delete("/settings/branding/game-logos/:gameType", async function (req, res) {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const sessionInfo = await verifyAdminAccess(req, res);
-    if (!sessionInfo) return;
-
-    const gameType = decodeURIComponent(String(req.params.gameType || "").trim());
-    if (!brandingUtils.GAME_TYPES.includes(gameType)) {
-      res.status(400).send("Unsupported game type.");
-      return;
-    }
-
-    const brandingDoc = await getPlatformBrandingDocument();
-    removeUploadFile(brandingDoc?.gameLogos?.[gameType]);
-
-    const updatedDoc = await models.PlatformBranding.findOneAndUpdate(
-      { key: brandingUtils.BRANDING_KEY },
-      {
-        $unset: {
-          [`gameLogos.${gameType}`]: 1,
-        },
-        $set: {
-          updatedAt: Date.now(),
-          updatedBy: sessionInfo.user.id,
-        },
-      },
-      { new: true, upsert: true }
-    ).lean();
-
-    await createBrandingModAction(sessionInfo.user.id, "Removed Game Logo", [
-      gameType,
-    ]);
-
-    res.send({
-      ok: true,
-      branding: brandingUtils.buildBrandingPayload(updatedDoc),
-    });
-  } catch (e) {
-    logger.error(e);
-    res.status(500).send("Error removing game logo.");
   }
 });
 

@@ -265,23 +265,6 @@ export async function removeAdminCarouselBannerImage(bannerId) {
   return response.data;
 }
 
-export async function uploadAdminGameLogo(gameType, file) {
-  const formData = new FormData();
-  formData.append("image", file);
-  const response = await axios.post(
-    `/api/admin/settings/branding/game-logos/${encodeURIComponent(gameType)}`,
-    formData
-  );
-  return response.data;
-}
-
-export async function removeAdminGameLogo(gameType) {
-  const response = await axios.delete(
-    `/api/admin/settings/branding/game-logos/${encodeURIComponent(gameType)}`
-  );
-  return response.data;
-}
-
 export async function getShopInfo() {
   const response = await axios.get("/api/shop/info");
   return response.data;
