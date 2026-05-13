@@ -4896,7 +4896,7 @@ function FirstGameModal(props) {
         <div>
           - Embedded{" "}
           <a
-            href="https://discord.gg/C5WMFpYRHQ"
+            href="https://discord.gg/x8eJSjfSd"
             target="_blank"
             rel="noopener noreferrer nofollow"
           >
