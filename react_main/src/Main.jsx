@@ -540,27 +540,19 @@ function Footer() {
         <Stack direction="row" spacing={2} sx={{
           fontSize: "xx-large",
         }}>
+
           <MuiLink
-            href="https://github.com/PassionMafia/PassionMafia"
+            href="https://t.me/+ZUP0erUElW1hMTAx"
+            target="blank"
             rel="noopener noreferrer nofollow"
             sx={{ display: "flex", }}
           >
-            <i className="fab fa-github" />
+            <Icon
+              icon="simple-icons:telegram"
+              style={{ color: "#5865F2" }}
+            />
           </MuiLink>
-          <MuiLink
-            href="https://www.patreon.com/"
-            rel="noopener noreferrer nofollow"
-            sx={{ display: "flex", }}
-          >
-            <i className="fab fa-patreon" />
-          </MuiLink>
-          <MuiLink
-            href="https://ko-fi.com/PassionMafia"
-            rel="noopener noreferrer nofollow"
-            sx={{ display: "flex", }}
-          >
-            <Icon icon="simple-icons:kofi" />
-          </MuiLink>
+          
           <MuiLink
             href="https://discord.gg/C5WMFpYRHQ"
             target="blank"
@@ -597,25 +589,10 @@ function Footer() {
           </Typography>
           <MuiLink
             variant="body2"
-            href="https://github.com/r3ndd/BeyondMafia-Integration"
+            href="https://www.behance.net/passiongodjob"
             rel="noopener noreferrer nofollow"
           >
-            {"Built on code provided by rend"}
-          </MuiLink>
-          <MuiLink
-            variant="body2"
-            target="_blank"
-            href="https://www.youtube.com/@fredthemontymole"
-            rel="noopener noreferrer nofollow"
-          >
-            <i className="fab fa-youtube"></i> Featuring music by FredTheMole
-          </MuiLink>
-          <MuiLink
-            variant="body2"
-            target="_blank"
-            href="https://PassionMafia.io/user/2oDrE3Ueq"
-          >
-            Additional music by Jumpy
+            {"Supported by GodJob LLC"}
           </MuiLink>
         </Stack>
       </Stack>
