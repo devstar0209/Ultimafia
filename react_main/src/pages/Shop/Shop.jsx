@@ -10,12 +10,10 @@ import {
   Box,
   Button,
   Typography,
-  Card,
   CardContent,
   TextField,
   Stack,
   Paper,
-  Grid2,
   CardActionArea,
   Divider,
   Dialog,
@@ -27,6 +25,8 @@ import {
 } from "@mui/material";
 
 import { Loading } from "../../components/Loading";
+import avatarShopHero from "../../images/shop/avatars-shop.webp";
+import emoteShopHero from "../../images/shop/emotes-shop.webp";
 
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
@@ -57,7 +57,122 @@ function formatItemPrice(item = {}) {
     : `${item.price} coins`;
 }
 
-export default function Shop(props) {
+function ShopItemIcon({ item, cacheVal }) {
+  if (!item.imageUrl) return null;
+
+  const imageSrc =
+    cacheVal == null
+      ? item.imageUrl
+      : `${item.imageUrl}${item.imageUrl.includes("?") ? "&" : "?"}t=${cacheVal}`;
+
+  return (
+    <Box
+      component="img"
+      src={imageSrc}
+      alt=""
+      aria-hidden="true"
+      sx={{
+        width: 100,
+        height: 75,
+        mx: "auto",
+        display: "block",
+      }}
+    />
+  );
+}
+
+function FeaturePanel({ variant, title, description, buttonText, onClick }) {
+  const isAvatars = variant === "avatars";
+  const panelImage = isAvatars ? avatarShopHero : emoteShopHero;
+  return (
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
+      sx={{
+        height: { xs: 238, md: 270 },
+        borderRadius: 2,
+        overflow: "hidden",
+        cursor: "pointer",
+        position: "relative",
+        border: `1px solid ${isAvatars ? "rgba(166,108,255,0.42)" : "rgba(38,231,225,0.38)"}`,
+        background: isAvatars
+          ? "linear-gradient(135deg, #1a0f2d 0%, #130b21 55%, #090d14 100%)"
+          : "linear-gradient(135deg, #061f29 0%, #062b33 50%, #071018 100%)",
+        boxShadow: "0 26px 70px rgba(0,0,0,0.34)",
+        transition: "transform 160ms ease, border-color 160ms ease",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          borderColor: isAvatars ? "#a66cff" : "#26e7e1",
+        },
+      }}
+    >
+      <Box
+        component="img"
+        src={panelImage}
+        alt=""
+        aria-hidden="true"
+        sx={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: isAvatars ? 0 : "auto",
+          right: isAvatars ? "auto" : 0,
+          zIndex: 0,
+          width: { xs: "100%", sm: "58%" },
+          height: "100%",
+        }}
+      />
+      <Stack
+        spacing={2}
+        sx={{
+          position: "absolute",
+          top: "50%",
+          transform: "translateY(-50%)",
+          left: { xs: 0, sm: isAvatars ? "auto" : "30px" },
+          pl: {xs: 5, sm: 0},
+          right: { xs: 0, sm: isAvatars ? "30px" : "auto" },
+          zIndex: 1,
+          width: "auto",
+        }}
+      >
+        <Typography variant="h2" sx={{ fontSize: { xs: 25, md: 28 } }}>
+          {title.toUpperCase()}
+        </Typography>
+        <Typography sx={{ color: "rgba(255,255,255,0.78)", maxWidth: 260 }}>
+          {description}
+        </Typography>
+        <Button
+          component="span"
+          endIcon={<Box component="i" className="fas fa-chevron-right" />}
+          sx={{
+            alignSelf: "flex-start",
+            minWidth: 192,
+            py: 1.2,
+            borderRadius: 0.5,
+            color: "#ffffff",
+            background: isAvatars
+              ? "linear-gradient(135deg, #8d2de2, #4720a4)"
+              : "linear-gradient(135deg, #079b9d, #026f75)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            "&:hover": {
+              background: isAvatars
+                ? "linear-gradient(135deg, #9f46f0, #5630b6)"
+                : "linear-gradient(135deg, #0cb9b9, #087f86)",
+            },
+          }}
+        >
+          {buttonText}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+export default function Shop() {
   const [shopInfo, setShopInfo] = useState({
     shopItems: []
   });
@@ -195,7 +310,7 @@ export default function Shop(props) {
           justifyContent: "center",
         }}
       >
-        <Typography>
+        <Typography sx={{ fontSize: 18, fontWeight: 800 }}>
           {isDollarBalanceItem(item)
             ? formatUsdAmount(item.priceDollar ?? item.price)
             : item.price}
@@ -205,100 +320,115 @@ export default function Shop(props) {
           className={isDollarBalanceItem(item) ? "fas fa-wallet" : "fas fa-coins"}
           aria-label={isDollarBalanceItem(item) ? "Dollar balance" : "Coins"}
           sx={{
-            fontSize: 20,
+            fontSize: 19,
             color: isDollarBalanceItem(item) ? "success.main" : "#f5c542",
+            filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35))",
           }}
         />
       </Stack>
     );
 
     return (
-      <Grid2
-        size={{
-          xs: 12,
-          sm: 6,
-          md: 3,
-        }}
-        key={i}
-      >
-        <Card
-          variant="outlined"
+      <Box key={item.key || i}>
+        <CardActionArea
+          disabled={disabled}
+          onClick={() => {
+            if (item.key === "stamp") {
+              setStampDialogOpen(true);
+              setShowSuggestions(true);
+              axios.get("/api/shop/stampSuggestions")
+                .then((res) => setStampSuggestions(res.data))
+                .catch(() => setStampSuggestions([]));
+            } else {
+              onBuyItem(i);
+            }
+          }}
           sx={{
             height: "100%",
             width: "100%",
-            opacity: disabled ? "50%" : undefined,
-            minHeight: isPhoneDevice ? undefined : "15em",
+            minHeight: 220,
+            borderRadius: 2,
+            opacity: disabled ? 0.48 : 1,
+            border: "1px solid rgba(117, 160, 184, 0.32)",
+            background:
+              "linear-gradient(150deg, rgba(25, 43, 57, 0.88), rgba(12, 27, 34, 0.96))",
+            boxShadow: "0 20px 48px rgba(0,0,0,0.28)",
+            overflow: "hidden",
+            position: "relative",
+            transition:
+              "transform 160ms ease, border-color 160ms ease, background 160ms ease",
+            "&:hover": {
+              transform: disabled ? undefined : "translateY(-2px)",
+              borderColor: disabled ? undefined : "rgba(95,209,199,0.58)",
+              background:
+                "linear-gradient(150deg, rgba(31, 52, 68, 0.96), rgba(12, 31, 39, 0.98))",
+            },
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(circle at 52% 38%, rgba(95,209,199,0.09), transparent 38%)",
+              pointerEvents: "none",
+            },
           }}
         >
-          <CardActionArea
-            disabled={disabled}
-            onClick={() => {
-              if (item.key === "stamp") {
-                setStampDialogOpen(true);
-                setShowSuggestions(true);
-                axios.get("/api/shop/stampSuggestions")
-                  .then((res) => setStampSuggestions(res.data))
-                  .catch(() => setStampSuggestions([]));
-              } else {
-                onBuyItem(i);
-              }
-            }}
+          <CardContent
             sx={{
+              position: "relative",
+              zIndex: 1,
               height: "100%",
               width: "100%",
+              p: 2.1,
             }}
           >
-            <CardContent
+            <Stack
+              direction="column"
+              spacing={1.15}
               sx={{
                 height: "100%",
                 width: "100%",
+                minHeight: 188,
               }}
             >
-              <Stack
-                direction={isPhoneDevice ? "row" : "column"}
-                spacing={1}
+              <Typography
+                variant="h3"
                 sx={{
-                  height: "100%",
-                  width: "100%",
+                  minHeight: 34,
+                  lineHeight: 1.2,
+                  color: "rgba(255,255,255,0.95)",
+                  overflowWrap: "anywhere",
                 }}
               >
-                <Stack
-                  direction="column"
-                  spacing={1}
-                  sx={{
-                    height: "100%",
-                    flex: "1",
-                    marginBottom: isPhoneDevice ? undefined : 1,
-                  }}
-                >
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography
-                      variant="h3"
-                      sx={{ flex: isPhoneDevice ? "1" : undefined }}
-                    >
-                      {item.name}
-                    </Typography>
-                    {isPhoneDevice && price}
-                  </Stack>
-                  <Typography variant="caption">
-                    Owned: {user.itemsOwned[item.key] || 0}
-                    {item.limit != null && ` / ${item.limit}`}
-                  </Typography>
-                  <Paper
-                    sx={{
-                      p: 1,
-                      flex: isPhoneDevice ? undefined : "1",
-                    }}
-                  >
-                    <Typography variant="body2">{item.desc}</Typography>
-                  </Paper>
-                </Stack>
-                {!isPhoneDevice && <Box sx={{ pt: 1 }}>{price}</Box>}
-              </Stack>
-            </CardContent>
-          </CardActionArea>
-        </Card>
-      </Grid2>
+                {item.name}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.76)", fontSize: 13 }}
+              >
+                Owned: {numOwned}
+                {item.limit != null && ` / ${item.limit}`}
+              </Typography>
+              {item.imageUrl && (
+                <Box>
+                  <ShopItemIcon item={item} cacheVal={siteInfo.cacheVal} />
+                </Box>
+              )}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "rgba(255,255,255,0.82)",
+                  lineHeight: 1.35,
+                  flex: 1,
+                }}
+              >
+                {item.desc}
+              </Typography>
+              <Box sx={{ pt: 0.25 }}>{price}</Box>
+            </Stack>
+          </CardContent>
+        </CardActionArea>
+      </Box>
     );
   });
 
@@ -307,60 +437,50 @@ export default function Shop(props) {
   if (!loaded) return <Loading small />;
 
   return (
-    <Stack direction="column" spacing={1}>
-      <Grid2 container spacing={1}>
-         <Card
-            variant="outlined"
-            sx={{
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                bgcolor: "action.hover",
-                borderColor: "primary.main",
-              },
-            }}
-          >
-            <CardActionArea
-              onClick={() => navigate("/user/shop/avatars")}
-              sx={{ height: "100%" }}
-            >
-              <CardContent>
-                <Stack direction="column" spacing={1} alignItems="center">
-                  <Typography variant="h3">Buy Avatars</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Purchase and equip profile avatars
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            variant="outlined"
-            sx={{
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                bgcolor: "action.hover",
-                borderColor: "primary.main",
-              },
-            }}
-          >
-            <CardActionArea
-              onClick={() => navigate("/user/shop/emotes")}
-              sx={{ height: "100%" }}
-            >
-              <CardContent>
-                <Stack direction="column" spacing={1} alignItems="center">
-                  <Typography variant="h3">Buy Emoticons</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Shop for emoticons to use in the chat during games
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </CardActionArea>
-          </Card>
+    <Stack
+      direction="column"
+      spacing={2}
+      sx={{
+        pb: 2,
+      }}
+    >
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+          gap: 2,
+        }}
+      >
+        <FeaturePanel
+          variant="avatars"
+          title="Buy Avatars"
+          description="Purchase and equip profile avatars to stand out."
+          buttonText="Browse Avatars"
+          onClick={() => navigate("/shop/avatars")}
+        />
+        <FeaturePanel
+          variant="emotes"
+          title="Buy Emoticons"
+          description="Shop for emoticons to use in chat during games."
+          buttonText="Browse Emoticons"
+          onClick={() => navigate("/shop/emotes")}
+        />
+      </Box>
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "repeat(2, minmax(0, 1fr))",
+            md: "repeat(4, minmax(0, 1fr))",
+            lg: "repeat(5, minmax(0, 1fr))",
+          },
+          gap: 1.5,
+        }}
+      >
         {shopItems}
-      </Grid2>
+      </Box>
       <Dialog
         open={stampDialogOpen}
         onClose={() => {
@@ -434,7 +554,7 @@ export default function Shop(props) {
                     }}
                   >
                     <Typography variant="body2">
-                      {s.gameId} — {s.role}
+                      {s.gameId} - {s.role}
                     </Typography>
                   </Box>
                 ))}

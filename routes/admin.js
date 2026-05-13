@@ -2659,7 +2659,7 @@ router.get("/shop/items", async function (req, res) {
       key: { $not: /^(avatar-|emote-)/i },
     })
       .sort("sortOrder")
-      .select("_id key name desc price currency limit hidden sortOrder")
+      .select("_id key name desc imageUrl price currency limit hidden sortOrder")
       .lean();
 
     res.send({
@@ -2668,6 +2668,7 @@ router.get("/shop/items", async function (req, res) {
         key: item.key,
         name: item.name,
         description: item.desc || "",
+        imageUrl: item.imageUrl || "",
         price: Number(item.price || 0),
         currency: item.currency,
         limit: item.limit,
@@ -2728,6 +2729,7 @@ router.post("/shop/items", async function (req, res) {
         key: item.key,
         name: item.name,
         description: item.desc,
+        imageUrl: item.imageUrl || "",
         price: item.price,
         currency: item.currency,
         limit: item.limit,
@@ -2782,6 +2784,7 @@ router.patch("/shop/items/:itemId", async function (req, res) {
         key: updated.key,
         name: updated.name,
         description: updated.desc,
+        imageUrl: updated.imageUrl || "",
         price: updated.price,
         currency: updated.currency,
         limit: updated.limit,
@@ -2792,6 +2795,95 @@ router.patch("/shop/items/:itemId", async function (req, res) {
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error updating shop item.");
+  }
+});
+
+router.post("/shop/items/:itemId/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { itemId } = req.params;
+    const item = await models.ShopItem.findById(itemId).select("key name -_id").lean();
+    if (!item) {
+      return res.status(404).send("Shop item not found.");
+    }
+
+    const form = new formidable();
+    form.maxFileSize = 5 * 1024 * 1024;
+    form.maxFields = 1;
+    const [, files] = await parseUploadForm(form, req);
+    const file = files.image;
+    if (!file?.path) {
+      return res.status(400).send("Image file is required.");
+    }
+
+    const imageUrl = await utils.uploadImage(
+      file.path,
+      utils.SHOP_ITEMS_UPLOAD_PATH,
+      item.key,
+      {
+        resize: {
+          width: 384,
+          height: 384,
+          fit: sharp.fit.contain,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+          kernel: sharp.kernel.lanczos3,
+        },
+        quality: 92,
+      }
+    );
+
+    await models.ShopItem.updateOne(
+      { _id: itemId },
+      { $set: { imageUrl, updatedAt: Date.now() } }
+    ).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Shop Item Image", [
+      `Key: ${item.key}`,
+      `Name: ${item.name}`,
+    ]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, itemId, imageUrl });
+  } catch (e) {
+    if (e.message && e.message.indexOf("maxFileSize exceeded") === 0) {
+      return res.status(400).send("Image is too large, must be less than 5 MB.");
+    }
+    logger.error(e);
+    res.status(500).send("Error uploading shop item image.");
+  }
+});
+
+router.delete("/shop/items/:itemId/image", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const { itemId } = req.params;
+    const item = await models.ShopItem.findById(itemId)
+      .select("key name imageUrl")
+      .lean();
+    if (!item) {
+      return res.status(404).send("Shop item not found.");
+    }
+
+    utils.removeUploadFile(item.imageUrl);
+    await models.ShopItem.updateOne(
+      { _id: itemId },
+      { $set: { imageUrl: "", updatedAt: Date.now() } }
+    ).exec();
+    await routeUtils.createModAction(sessionInfo.user.id, "Removed Shop Item Image", [
+      `Key: ${item.key}`,
+      `Name: ${item.name}`,
+    ]);
+    shopModule.invalidateShopItemsCache();
+
+    res.send({ ok: true, itemId });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error removing shop item image.");
   }
 });
 
@@ -2808,6 +2900,7 @@ router.delete("/shop/items/:itemId", async function (req, res) {
       return res.status(404).send("Shop item not found.");
     }
 
+    utils.removeUploadFile(item.imageUrl);
     await models.ShopItem.deleteOne({ _id: itemId });
 
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Shop Item", [
