@@ -133,9 +133,9 @@ function Main(props) {
         justifyContent: "center",
       }}>
         <Stack direction="column" spacing={1} sx={{
-          margin: "30px auto",
+          margin: isWelcomeRoute ? "0 auto 30px" : "30px auto",
           px: isWelcomeRoute ? 0 : isPhoneDevice ? 1 : 20,
-          py: 1,
+          py: isWelcomeRoute ? 0 : 1,
           width: "100%",
           maxWidth: "100%",
         }}>
