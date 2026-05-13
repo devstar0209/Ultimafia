@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -34,6 +34,8 @@ import {
   getAdminShopItems,
   createAdminShopItem,
   updateAdminShopItem,
+  uploadAdminShopItemImage,
+  removeAdminShopItemImage,
   deleteAdminShopItem,
 } from "../../services/adminService";
 
@@ -87,6 +89,8 @@ export default function PriceItemsPage() {
     limit: null,
     hidden: false,
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -96,6 +100,19 @@ export default function PriceItemsPage() {
       setItems(data.items);
     }
   }, [data]);
+
+  const imagePreviewUrl = useMemo(() => {
+    if (imageFile) return URL.createObjectURL(imageFile);
+    if (removeImage) return "";
+    return editingItem?.imageUrl || "";
+  }, [editingItem?.imageUrl, imageFile, removeImage]);
+
+  useEffect(() => {
+    if (!imagePreviewUrl || !imagePreviewUrl.startsWith("blob:")) return;
+    return () => {
+      URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl]);
 
   if (loading) {
     return (
@@ -126,6 +143,8 @@ export default function PriceItemsPage() {
       limit: null,
       hidden: false,
     });
+    setImageFile(null);
+    setRemoveImage(false);
     setDialogOpen(true);
   }
 
@@ -140,6 +159,8 @@ export default function PriceItemsPage() {
       limit: item.limit,
       hidden: item.hidden || false,
     });
+    setImageFile(null);
+    setRemoveImage(false);
     setDialogOpen(true);
   }
 
@@ -155,6 +176,8 @@ export default function PriceItemsPage() {
       limit: null,
       hidden: false,
     });
+    setImageFile(null);
+    setRemoveImage(false);
   }
 
   async function handleSaveItem() {
@@ -182,6 +205,14 @@ export default function PriceItemsPage() {
           limit: formData.limit == null ? null : Number(formData.limit),
           hidden: Boolean(formData.hidden),
         });
+
+        const activeItemId = response.item.id || editingItem.id;
+        if (removeImage && !imageFile) {
+          await removeAdminShopItemImage(activeItemId);
+        }
+        if (imageFile) {
+          await uploadAdminShopItemImage(activeItemId, imageFile);
+        }
 
         setFeedback({
           severity: "success",
@@ -214,6 +245,10 @@ export default function PriceItemsPage() {
           limit: formData.limit == null ? null : Number(formData.limit),
           hidden: Boolean(formData.hidden),
         });
+
+        if (imageFile && response.item.id) {
+          await uploadAdminShopItemImage(response.item.id, imageFile);
+        }
 
         setFeedback({
           severity: "success",
@@ -340,13 +375,29 @@ export default function PriceItemsPage() {
                     items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
-                          <Stack>
-                            <strong>{item.name}</strong>
-                            {item.description && (
-                              <Typography variant="caption" color="text.secondary">
-                                {item.description}
-                              </Typography>
-                            )}
+                          <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Box
+                              sx={{
+                                width: 42,
+                                height: 42,
+                                borderRadius: 1,
+                                border: "1px dashed rgba(255,255,255,0.18)",
+                                backgroundColor: "rgba(255,255,255,0.04)",
+                                backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : "none",
+                                backgroundPosition: "center",
+                                backgroundRepeat: "no-repeat",
+                                backgroundSize: "contain",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Stack>
+                              <strong>{item.name}</strong>
+                              {item.description && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {item.description}
+                                </Typography>
+                              )}
+                            </Stack>
                           </Stack>
                         </TableCell>
                         <TableCell>
@@ -454,6 +505,72 @@ export default function PriceItemsPage() {
               rows={3}
               placeholder="Item description"
             />
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Shop Image</Typography>
+              <Box
+                sx={{
+                  height: 150,
+                  borderRadius: 1,
+                  border: "1px dashed rgba(255,255,255,0.18)",
+                  backgroundColor: "rgba(255,255,255,0.04)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
+              >
+                {imagePreviewUrl ? (
+                  <Box
+                    component="img"
+                    src={imagePreviewUrl}
+                    alt={formData.name || "Shop item"}
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No image selected
+                  </Typography>
+                )}
+              </Box>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" component="label">
+                  {imageFile ? `Selected: ${imageFile.name}` : "Choose Image"}
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setImageFile(file);
+                      if (file) setRemoveImage(false);
+                      event.target.value = "";
+                    }}
+                  />
+                </Button>
+                <Button
+                  variant={removeImage ? "contained" : "outlined"}
+                  color={removeImage ? "error" : "inherit"}
+                  disabled={!imageFile && !editingItem?.imageUrl}
+                  onClick={() => {
+                    setImageFile(null);
+                    if (editingItem?.imageUrl) {
+                      setRemoveImage((prev) => !prev);
+                    } else {
+                      setRemoveImage(false);
+                    }
+                  }}
+                >
+                  {removeImage ? "Will Remove" : "Remove Image"}
+                </Button>
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                Optional image shown on the player shop card.
+              </Typography>
+            </Stack>
             <TextField
               label="Price"
               type="number"

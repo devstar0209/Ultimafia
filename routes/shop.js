@@ -199,6 +199,7 @@ function buildRuntimeShopItem(item) {
     name: item.name || "",
     desc: item.desc || "",
     key: item.key || "",
+    imageUrl: item.imageUrl || "",
     hidden: item.hidden,
     price: Number(item.price || 0),
     currency: item.currency,

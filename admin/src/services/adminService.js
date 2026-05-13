@@ -361,6 +361,21 @@ export async function updateAdminShopItem(itemId, payload) {
   return response.data;
 }
 
+export async function uploadAdminShopItemImage(itemId, file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await axios.post(
+    `/api/admin/shop/items/${itemId}/image`,
+    formData
+  );
+  return response.data;
+}
+
+export async function removeAdminShopItemImage(itemId) {
+  const response = await axios.delete(`/api/admin/shop/items/${itemId}/image`);
+  return response.data;
+}
+
 export async function deleteAdminShopItem(itemId) {
   const response = await axios.delete(`/api/admin/shop/items/${itemId}`);
   return response.data;

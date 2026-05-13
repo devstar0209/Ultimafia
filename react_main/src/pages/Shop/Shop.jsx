@@ -57,145 +57,27 @@ function formatItemPrice(item = {}) {
     : `${item.price} coins`;
 }
 
-const shopItemVisuals = [
-  {
-    match: ["color", "text"],
-    icon: "fas fa-paint-brush",
-    accent: "#9b5cff",
-    secondAccent: "#ffb347",
-  },
-  {
-    match: ["profile", "customization"],
-    icon: "fas fa-id-card",
-    accent: "#5e7cff",
-    secondAccent: "#f4c542",
-  },
-  {
-    match: ["name change"],
-    icon: "fas fa-pen",
-    accent: "#3488ff",
-    secondAccent: "#7ac4ff",
-  },
-  {
-    match: ["3 character", "username"],
-    text: "ABC",
-    accent: "#8f52ff",
-    secondAccent: "#cf6cff",
-  },
-  {
-    match: ["2 character", "username"],
-    text: "AB",
-    accent: "#00c6c9",
-    secondAccent: "#68fff0",
-  },
-  {
-    match: ["1 character", "username"],
-    text: "A",
-    accent: "#7b42e8",
-    secondAccent: "#b66cff",
-  },
-  {
-    match: ["death message"],
-    icon: "fas fa-skull",
-    accent: "#28cad3",
-    secondAccent: "#8dfaff",
-  },
-  {
-    match: ["anonymous"],
-    icon: "fas fa-mask",
-    accent: "#00b8be",
-    secondAccent: "#66f5e9",
-  },
-  {
-    match: ["stamp"],
-    icon: "fas fa-stamp",
-    accent: "#ff8c42",
-    secondAccent: "#ffd066",
-  },
-];
+function ShopItemIcon({ item, cacheVal }) {
+  if (!item.imageUrl) return null;
 
-function getItemVisual(item = {}) {
-  const haystack = `${item.key || ""} ${item.name || ""} ${item.desc || ""}`
-    .toLowerCase()
-    .replace(/[-_]/g, " ");
-
-  return (
-    shopItemVisuals.find((visual) =>
-      visual.match.every((word) => haystack.includes(word))
-    ) || {
-      icon: "fas fa-gem",
-      accent: "#5fd1c7",
-      secondAccent: "#ff8c42",
-    }
-  );
-}
-
-function ShopItemIcon({ item }) {
-  const visual = getItemVisual(item);
-  const commonSx = {
-    width: 72,
-    height: 58,
-    mx: "auto",
-    borderRadius: 2,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: `linear-gradient(135deg, ${visual.accent}, ${visual.secondAccent})`,
-    border: "1px solid rgba(255,255,255,0.18)",
-    boxShadow: `0 18px 40px ${visual.accent}45`,
-    transform: "rotate(-6deg)",
-    color: "#ffffff",
-    textShadow: "0 2px 10px rgba(0,0,0,0.35)",
-  };
-
-  if (visual.text) {
-    return (
-      <Box sx={commonSx}>
-        <Typography
-          sx={{
-            fontSize: visual.text.length === 1 ? 44 : 34,
-            lineHeight: 1,
-            fontWeight: 900,
-          }}
-        >
-          {visual.text}
-        </Typography>
-      </Box>
-    );
-  }
+  const imageSrc =
+    cacheVal == null
+      ? item.imageUrl
+      : `${item.imageUrl}${item.imageUrl.includes("?") ? "&" : "?"}t=${cacheVal}`;
 
   return (
     <Box
+      component="img"
+      src={imageSrc}
+      alt=""
+      aria-hidden="true"
       sx={{
-        width: 88,
-        height: 66,
+        width: 100,
+        height: 75,
         mx: "auto",
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        display: "block",
       }}
-    >
-      <Box
-        sx={{
-          position: "absolute",
-          inset: "14px 10px 4px 10px",
-          borderRadius: "50%",
-          background: `${visual.accent}28`,
-          filter: "blur(12px)",
-        }}
-      />
-      <Box
-        component="i"
-        className={visual.icon || visual.fallbackIcon}
-        sx={{
-          position: "relative",
-          fontSize: 46,
-          color: visual.secondAccent,
-          filter: `drop-shadow(0 10px 18px ${visual.accent}75)`,
-        }}
-      />
-    </Box>
+    />
   );
 }
 
@@ -527,9 +409,11 @@ export default function Shop() {
                 Owned: {numOwned}
                 {item.limit != null && ` / ${item.limit}`}
               </Typography>
-              <Box sx={{ py: 0.5 }}>
-                <ShopItemIcon item={item} />
-              </Box>
+              {item.imageUrl && (
+                <Box>
+                  <ShopItemIcon item={item} cacheVal={siteInfo.cacheVal} />
+                </Box>
+              )}
               <Typography
                 variant="body2"
                 sx={{
