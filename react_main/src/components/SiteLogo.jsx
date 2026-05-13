@@ -32,7 +32,7 @@ export default function SiteLogo({
   }
 
   return (
-    <Link to="/play" {...linkProps} style={{ lineHeight: 0 }}>
+    <Link to="/welcome" {...linkProps} style={{ lineHeight: 0 }}>
       <img
         height={height}
         width={width}

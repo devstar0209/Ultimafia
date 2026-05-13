@@ -133,9 +133,9 @@ function Main(props) {
         justifyContent: "center",
       }}>
         <Stack direction="column" spacing={1} sx={{
-          margin: "30px auto",
+          margin: isWelcomeRoute ? "0 auto 30px" : "30px auto",
           px: isWelcomeRoute ? 0 : isPhoneDevice ? 1 : 20,
-          py: 1,
+          py: isWelcomeRoute ? 0 : 1,
           width: "100%",
           maxWidth: "100%",
         }}>
@@ -227,8 +227,6 @@ function Main(props) {
 function Header({ setShowAnnouncementTemporarily }) {
   const user = useContext(UserContext);
   const isPhoneDevice = useIsPhoneDevice();
-  const location = useLocation();
-  const isOnWelcomePage = location.pathname === "/welcome" || location.pathname === "/";
 
   const openAnnouncements = () => {
     setShowAnnouncementTemporarily(true);
@@ -323,7 +321,7 @@ function Header({ setShowAnnouncementTemporarily }) {
                 useUnreadNotifications={useUnreadNotifications}
               />
             ) : (
-              !isOnWelcomePage && <GuestAuthButtons />
+              <GuestAuthButtons />
             )}
           </div>
         </Stack>
@@ -418,7 +416,7 @@ function Header({ setShowAnnouncementTemporarily }) {
                   useUnreadNotifications={useUnreadNotifications}
                 />
               ) : (
-                !isOnWelcomePage && <GuestAuthButtons />
+                <GuestAuthButtons />
               )}
             </Box>
           </Stack>
