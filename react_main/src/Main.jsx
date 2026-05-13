@@ -114,6 +114,9 @@ function Main(props) {
   const Policy = lazy(() => import("pages/Policy/Policy"));
   const User = lazy(() => import("pages/User/User"));
   const Welcome = lazy(() => import("pages/Welcome/Welcome"));
+  const Shop = lazy(() => import("pages/Shop/Shop"));
+  const AvatarShop = lazy(() => import("pages/Shop/AvatarShop"));
+  const EmoteShop = lazy(() => import("pages/Shop/EmoteShop"));
   const AuthAction = lazy(() => import("pages/AuthAction/AuthAction"));
 
   const siteContent = (
@@ -130,10 +133,10 @@ function Main(props) {
         justifyContent: "center",
       }}>
         <Stack direction="column" spacing={1} sx={{
-          margin: "0 auto",
-          px: isWelcomeRoute ? 0 : isPhoneDevice ? 1 : 3,
+          margin: "30px auto",
+          px: isWelcomeRoute ? 0 : isPhoneDevice ? 1 : 20,
           py: 1,
-          width: isWelcomeRoute ? "100%" : "1080px",
+          width: "100%",
           maxWidth: "100%",
         }}>
           <Announcement
@@ -154,6 +157,9 @@ function Main(props) {
                   <Route path="policy/*" element={<Policy />} />
                   <Route path="user/*" element={<User />} />
                   <Route path="auth/action" element={<AuthAction />} />
+                  <Route path="shop" element={<Shop />} />
+                  <Route path="shop/avatars" element={<AvatarShop />} />
+                  <Route path="shop/emotes" element={<EmoteShop />} />
                   <Route path="*" element={<Navigate to="play" />} />
                 </Routes>
               </Suspense>
@@ -300,7 +306,7 @@ function Header({ setShowAnnouncementTemporarily }) {
                 items: [
                   {
                     text: "Shop",
-                    path: "/user/shop",
+                    path: "/shop",
                     hide: !user.loggedIn,
                   },
                 ],
@@ -385,7 +391,7 @@ function Header({ setShowAnnouncementTemporarily }) {
             />
             {user.loggedIn && (
               <NavLink
-                to="/user/shop"
+                to="/shop"
                 style={({ isActive }) => ({
                   textTransform: "uppercase",
                   color: "inherit",

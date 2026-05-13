@@ -5,9 +5,6 @@ import { Link, Route, Routes, Navigate } from "react-router-dom";
 
 import Profile from "./Profile";
 import Settings from "./Settings";
-import Shop from "./Shop";
-import AvatarShop from "./AvatarShop";
-import EmoteShop from "./EmoteShop";
 import Inbox from "./Inbox";
 import Family from "./Family";
 import { UserContext, SiteInfoContext, GameContext } from "Contexts";
@@ -286,9 +283,6 @@ export default function User(props) {
     <Routes>
       <Route path="/" element={<Profile />} />
       <Route path="settings/*" element={<Settings />} />
-      <Route path="shop" element={<Shop />} />
-      <Route path="shop/avatars" element={<AvatarShop />} />
-      <Route path="shop/emotes" element={<EmoteShop />} />
       <Route path="inbox" element={<Inbox />} />
       <Route path="family/:familyId" element={<Family />} />
       <Route path=":userId" element={<Profile />} />

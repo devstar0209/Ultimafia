@@ -296,7 +296,7 @@ export default function CreateDecks() {
                   {atLimit && (
                     <a
                       className="btn deck-buy-btn"
-                      href="/user/shop?buy=anonymousDeck"
+                      href="/shop?buy=anonymousDeck"
                     >
                       Buy More Decks
                     </a>

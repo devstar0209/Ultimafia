@@ -167,7 +167,7 @@ export default function EmoteShop() {
           <Typography variant="body2" color="text.secondary">
             Buy emote groups to add every emote in that group to your chat emote list.
           </Typography>
-          <Button variant="outlined" onClick={() => navigate("/user/shop")}>
+          <Button variant="outlined" onClick={() => navigate("/shop")}>
             Back to Shop
           </Button>
         </Stack>

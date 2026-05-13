@@ -1658,7 +1658,7 @@ export default function Profile() {
                       variant="contained"
                       onClick={() => {
                         closeAvatarSelectionDialog();
-                        navigate("/user/shop/avatars");
+                        navigate("/shop/avatars");
                       }}
                     >
                       Buy Avatar
