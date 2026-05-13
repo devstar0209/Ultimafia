@@ -178,34 +178,56 @@ const FALLBACK_CAROUSEL = [
   },
 ];
 
-const PLATFORM_STATS = [
-  { value: "13", label: "Game types" },
-  { value: "250+", label: "Mafia roles" },
-  { value: "24/7", label: "Community lobbies" },
+const DASHBOARD_STATS = [
+  { value: "7", label: "Rooms open" },
+  { value: "42", label: "Players active" },
+  { value: "3", label: "New-player tables" },
 ];
 
-const FEATURED_QUEUE = [
-  { gameType: "Mafia", label: "Ranked Standard", status: "Recruiting", players: "9/15" },
-  { gameType: "Resistance", label: "Spyfall Night", status: "Open", players: "5/8" },
-  { gameType: "Wacky Words", label: "Prompt Party", status: "Starting soon", players: "7/12" },
+const FEATURED_ROOMS = [
+  {
+    gameType: "Mafia",
+    room: "Ranked Standard",
+    host: "Community queue",
+    status: "Recruiting",
+    players: "9/15",
+    tone: "Competitive",
+    starts: "Starts when 15 join",
+  },
+  {
+    gameType: "Resistance",
+    room: "Spy Hunt",
+    host: "Fast table",
+    status: "Open",
+    players: "5/8",
+    tone: "Tactical",
+    starts: "2 seats left",
+  },
+  {
+    gameType: "Wacky Words",
+    room: "Prompt Party",
+    host: "Casual room",
+    status: "Starting soon",
+    players: "7/12",
+    tone: "Party",
+    starts: "Next round in 3 min",
+  },
+  {
+    gameType: "Liars Dice",
+    room: "Bluff Table",
+    host: "Quick match",
+    status: "Open",
+    players: "4/8",
+    tone: "Bluffing",
+    starts: "Join anytime",
+  },
 ];
 
-const FEATURE_PANELS = [
-  {
-    icon: "fas fa-sliders-h",
-    title: "Flexible hosting",
-    description: "Use official presets or configure settings for private groups, ranked nights, and quick casual games.",
-  },
-  {
-    icon: "fas fa-trophy",
-    title: "Progress that matters",
-    description: "Profiles, points, achievements, cosmetics, and competitive ladders give regulars long-term goals.",
-  },
-  {
-    icon: "fas fa-comments",
-    title: "Built around the table",
-    description: "Chat, forums, announcements, and community tools keep players connected before and after each match.",
-  },
+const ACTIVITY_FEED = [
+  "Ranked Mafia queue is filling",
+  "New-player friendly rooms are highlighted",
+  "Party games rotate through Wacky Words and Acrotopia",
+  "Competitive formats are available from the lobby",
 ];
 
 // localStorage.setItem('firebase:debug', 'true');
@@ -300,8 +322,13 @@ export const Welcome = () => {
           FALLBACK_CAROUSEL[index % FALLBACK_CAROUSEL.length].description,
       }))
     : FALLBACK_CAROUSEL;
-  const highlightedGames = gameCatalog.slice(0, 6);
-  const catalogGames = gameCatalog.slice(0, 12);
+  const catalogGames = gameCatalog;
+  const playableRooms = FEATURED_ROOMS.map((room) => ({
+    ...room,
+    title:
+      gameCatalog.find((game) => game.key === room.gameType)?.title ||
+      room.gameType,
+  }));
 
   if (user && user.loggedIn) {
     return <Navigate to="/play" />;
@@ -317,15 +344,14 @@ export const Welcome = () => {
         width: "100%",
         overflow: "hidden",
         color: "text.primary",
+        backgroundColor: "background.default",
       }}
     >
       <Box
         component="section"
         sx={{
           position: "relative",
-          minHeight: { xs: "calc(100vh - 210px)", md: "calc(100vh - 170px)" },
-          display: "flex",
-          alignItems: "stretch",
+          minHeight: { xs: "auto", lg: "calc(100vh - 58px)" },
           borderBottom: "1px solid",
           borderColor: "divider",
           backgroundColor: "#0f141a",
@@ -333,16 +359,9 @@ export const Welcome = () => {
             content: '""',
             position: "absolute",
             inset: 0,
-            backgroundImage: `linear-gradient(90deg, rgba(15,20,26,0.98) 0%, rgba(15,20,26,0.82) 44%, rgba(15,20,26,0.2) 100%), url(${activeBanner})`,
+            backgroundImage: `linear-gradient(180deg, rgba(15,20,26,0.88), rgba(15,20,26,0.98)), url(${activeBanner})`,
             backgroundPosition: "center",
             backgroundSize: "cover",
-          },
-          "&:after": {
-            content: '""',
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(180deg, rgba(95,209,199,0.12) 0%, rgba(255,140,66,0.07) 42%, rgba(15,20,26,0.96) 100%)",
           },
         }}
       >
@@ -352,142 +371,337 @@ export const Welcome = () => {
             position: "relative",
             zIndex: 1,
             width: "100%",
-            maxWidth: "1500px",
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) 420px" },
-            gap: { xs: 4, lg: 5 },
-            alignItems: "center",
-            py: { xs: 5, md: 7 },
-            px: { xs: 2, md: 5 },
+            maxWidth: "1540px",
+            px: { xs: 1.5, md: 3 },
+            py: { xs: 2, md: 3 },
           }}
         >
-          <Stack spacing={3} sx={{ maxWidth: 760 }}>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-              <Chip label="Browser-based party games" color="secondary" />
-              <Chip label="No download" variant="outlined" />
-            </Stack>
-            <Box>
-              <Typography
-                component="h1"
-                sx={{
-                  fontSize: { xs: "2.4rem", sm: "3.4rem", md: "4.5rem" },
-                  lineHeight: 0.95,
-                  fontWeight: 900,
-                  letterSpacing: 0,
-                  maxWidth: 720,
-                }}
-              >
-                PassionMafia
-              </Typography>
-              <Typography
-                variant="h2"
-                component="p"
-                sx={{
-                  mt: 1.5,
-                  maxWidth: 650,
-                  color: "rgba(215, 222, 229, 0.86)",
-                  fontSize: { xs: "1.15rem", md: "1.55rem" },
-                  lineHeight: 1.35,
-                  textTransform: "none",
-                }}
-              >
-                A modern game lobby for social deduction, bluffing, word games,
-                cards, and tabletop-style strategy.
-              </Typography>
-            </Box>
+          <Stack spacing={2}>
             <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1.25}
-              sx={{ alignItems: { xs: "stretch", sm: "center" } }}
+              direction={{ xs: "column", md: "row" }}
+              spacing={1.5}
+              sx={{
+                alignItems: { xs: "stretch", md: "center" },
+                justifyContent: "space-between",
+              }}
             >
-              <Button component={Link} to="/play" size="large">
-                Browse lobbies
-              </Button>
-              <Button component={Link} to="/learn/games" size="large" variant="outlined">
-                Explore games
-              </Button>
-            </Stack>
-            <Grid2 container spacing={1.5} sx={{ maxWidth: 620 }}>
-              {PLATFORM_STATS.map((stat) => (
-                <Grid2 key={stat.label} size={{ xs: 4 }}>
-                  <Box
-                    sx={{
-                      borderTop: "1px solid rgba(255,255,255,0.16)",
-                      pt: 1.25,
-                    }}
-                  >
-                    <Typography variant="h2" sx={{ lineHeight: 1 }}>
-                      {stat.value}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {stat.label}
-                    </Typography>
-                  </Box>
-                </Grid2>
-              ))}
-            </Grid2>
-          </Stack>
-
-          <Box
-            sx={{
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 2,
-              backgroundColor: "rgba(22, 33, 43, 0.76)",
-              backdropFilter: "blur(18px)",
-              boxShadow: "0 28px 90px rgba(0,0,0,0.38)",
-              overflow: "hidden",
-            }}
-          >
-            <Stack spacing={0} divider={<Box sx={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />}>
-              <Box sx={{ p: 2 }}>
-                <Typography variant="h3">Featured rooms</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Popular ways to jump into the community lobby.
+              <Box>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.75 }}>
+                  <Chip label="Lobby dashboard" color="secondary" size="small" />
+                  <Chip label="Guest access" variant="outlined" size="small" />
+                </Stack>
+                <Typography
+                  component="h1"
+                  sx={{
+                    fontSize: { xs: "2rem", md: "2.7rem" },
+                    lineHeight: 1,
+                    fontWeight: 900,
+                    letterSpacing: 0,
+                  }}
+                >
+                  Pick a table and start playing
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ maxWidth: 650, mt: 0.75 }}
+                >
+                  Browse live-style rooms, choose a game type, or learn a ruleset before joining the community lobby.
                 </Typography>
               </Box>
-              {FEATURED_QUEUE.map((item) => {
-                const content = GAME_WELCOME_CONTENT[item.gameType] || {};
-                return (
-                  <Box
-                    key={`${item.gameType}-${item.label}`}
-                    sx={{
-                      p: 1.5,
-                      display: "grid",
-                      gridTemplateColumns: "46px minmax(0, 1fr) auto",
-                      gap: 1.25,
-                      alignItems: "center",
-                    }}
-                  >
+
+              <Grid2 container spacing={1} sx={{ minWidth: { md: 430 } }}>
+                {DASHBOARD_STATS.map((stat) => (
+                  <Grid2 key={stat.label} size={{ xs: 4 }}>
                     <Box
-                      component="img"
-                      src={getGameIconSrc(
-                        item.gameType,
-                        siteInfo?.branding?.gameLogos,
-                        siteInfo?.gameCatalogMap
-                      )}
-                      alt=""
                       sx={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                        border: `2px solid ${content.accent || "#ff8c42"}`,
+                        height: "100%",
+                        p: 1.25,
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: 2,
+                        backgroundColor: "rgba(22,33,43,0.72)",
                       }}
-                    />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="h4" noWrap>
-                        {item.label}
+                    >
+                      <Typography variant="h2" sx={{ lineHeight: 1 }}>
+                        {stat.value}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {item.gameType} · {item.status}
+                        {stat.label}
                       </Typography>
                     </Box>
-                    <Chip label={item.players} size="small" />
-                  </Box>
-                );
-              })}
+                  </Grid2>
+                ))}
+              </Grid2>
             </Stack>
-          </Box>
+
+            <Grid2 container spacing={1.5} sx={{ alignItems: "stretch" }}>
+              <Grid2 size={{ xs: 12, lg: 7 }}>
+                <Stack
+                  spacing={1.25}
+                  sx={{
+                    height: "100%",
+                    p: { xs: 1.25, md: 1.5 },
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 2,
+                    backgroundColor: "rgba(22,33,43,0.82)",
+                    backdropFilter: "blur(14px)",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ justifyContent: "space-between", alignItems: "center" }}
+                  >
+                    <Box>
+                      <Typography variant="h2">Playable rooms</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Featured public tables and quick queues.
+                      </Typography>
+                    </Box>
+                    <Button component={Link} to="/play" variant="outlined" size="small">
+                      All lobbies
+                    </Button>
+                  </Stack>
+
+                  <Grid2 container spacing={1}>
+                    {playableRooms.map((room) => {
+                      const content = GAME_WELCOME_CONTENT[room.gameType] || GAME_WELCOME_CONTENT.Mafia;
+                      return (
+                        <Grid2 key={`${room.gameType}-${room.room}`} size={{ xs: 12, md: 6 }}>
+                          <Box
+                            component={Link}
+                            to={`/play?game=${encodeURIComponent(room.gameType)}`}
+                            sx={{
+                              minHeight: 156,
+                              height: "100%",
+                              display: "grid",
+                              gridTemplateRows: "auto 1fr auto",
+                              gap: 1,
+                              p: 1.5,
+                              border: "1px solid",
+                              borderColor: "divider",
+                              borderRadius: 2,
+                              backgroundColor: "rgba(15,20,26,0.62)",
+                              color: "text.primary",
+                              textDecoration: "none",
+                              transition: "transform 160ms ease, border-color 160ms ease, background-color 160ms ease",
+                              "&:hover": {
+                                transform: "translateY(-2px)",
+                                borderColor: content.accent,
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                              },
+                            }}
+                          >
+                            <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                              <Box
+                                component="img"
+                                src={getGameIconSrc(
+                                  room.gameType,
+                                  siteInfo?.branding?.gameLogos,
+                                  siteInfo?.gameCatalogMap
+                                )}
+                                alt=""
+                                sx={{
+                                  width: 48,
+                                  height: 48,
+                                  borderRadius: 1.5,
+                                  objectFit: "contain",
+                                  backgroundColor: "rgba(0,0,0,0.22)",
+                                  border: `1px solid ${content.accent}`,
+                                }}
+                              />
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography variant="h3" noWrap>
+                                  {room.room}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" noWrap>
+                                  {room.title} - {room.host}
+                                </Typography>
+                              </Box>
+                              <Chip label={room.players} size="small" />
+                            </Stack>
+
+                            <Typography variant="body2" color="text.secondary">
+                              {content.headline}
+                            </Typography>
+
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              sx={{ alignItems: "center", flexWrap: "wrap", gap: 0.75 }}
+                            >
+                              <Chip label={room.status} size="small" color="secondary" />
+                              <Chip label={room.tone} size="small" variant="outlined" />
+                              <Typography variant="caption" color="text.secondary">
+                                {room.starts}
+                              </Typography>
+                            </Stack>
+                          </Box>
+                        </Grid2>
+                      );
+                    })}
+                  </Grid2>
+                </Stack>
+              </Grid2>
+
+              <Grid2 size={{ xs: 12, lg: 5 }}>
+                <Stack
+                  spacing={1.25}
+                  sx={{
+                    height: "100%",
+                    p: { xs: 1.25, md: 1.5 },
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 2,
+                    backgroundColor: "rgba(22,33,43,0.82)",
+                    backdropFilter: "blur(14px)",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ justifyContent: "space-between", alignItems: "center" }}
+                  >
+                    <Box>
+                      <Typography variant="h2">Game catalog</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Choose the kind of table you want.
+                      </Typography>
+                    </Box>
+                    <Button component={Link} to="/learn/games" variant="outlined" size="small">
+                      Rules
+                    </Button>
+                  </Stack>
+
+                  <Grid2 container spacing={1}>
+                    {catalogGames.map((game, index) => {
+                      const key = game.key;
+                      const content = GAME_WELCOME_CONTENT[key] || GAME_WELCOME_CONTENT.Mafia;
+                      const openRooms = (index % 4) + 1;
+                      return (
+                        <Grid2 key={`catalog-primary-${key}`} size={{ xs: 6, sm: 4, lg: 3 }}>
+                          <Box
+                            component={Link}
+                            to={`/play?game=${encodeURIComponent(key)}`}
+                            sx={{
+                              minHeight: 118,
+                              height: "100%",
+                              p: 1,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 0.75,
+                              border: "1px solid",
+                              borderColor: "divider",
+                              borderRadius: 2,
+                              backgroundColor: "rgba(15,20,26,0.58)",
+                              color: "text.primary",
+                              textDecoration: "none",
+                              transition: "transform 160ms ease, border-color 160ms ease, background-color 160ms ease",
+                              "&:hover": {
+                                transform: "translateY(-2px)",
+                                borderColor: content.accent,
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                              },
+                            }}
+                          >
+                            <Stack direction="row" spacing={0.8} sx={{ alignItems: "center" }}>
+                              <Box
+                                component="img"
+                                src={getGameIconSrc(
+                                  key,
+                                  siteInfo?.branding?.gameLogos,
+                                  siteInfo?.gameCatalogMap
+                                )}
+                                alt=""
+                                sx={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: 1,
+                                  objectFit: "contain",
+                                  backgroundColor: "rgba(0,0,0,0.18)",
+                                }}
+                              />
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="h4" noWrap>
+                                  {game.title || key}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {content.pace}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              sx={{ mt: "auto", alignItems: "center", justifyContent: "space-between" }}
+                            >
+                              <Typography variant="caption" color="text.secondary" noWrap>
+                                {content.meta}
+                              </Typography>
+                              <Chip label={`${openRooms} open`} size="small" />
+                            </Stack>
+                          </Box>
+                        </Grid2>
+                      );
+                    })}
+                  </Grid2>
+                </Stack>
+              </Grid2>
+            </Grid2>
+
+            <Grid2 container spacing={1.5}>
+              <Grid2 size={{ xs: 12, md: 8 }}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 2,
+                    backgroundColor: "rgba(22,33,43,0.76)",
+                  }}
+                >
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    sx={{ alignItems: { xs: "stretch", sm: "center" }, justifyContent: "space-between" }}
+                  >
+                    <Box>
+                      <Typography variant="h3">New here?</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Open the lobby as a guest, read a ruleset, then sign in when you are ready to save progress.
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1}>
+                      <Button component={Link} to="/play" size="small">
+                        Enter lobby
+                      </Button>
+                      <Button component={Link} to="/learn/games" size="small" variant="outlined">
+                        Learn first
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Box>
+              </Grid2>
+              <Grid2 size={{ xs: 12, md: 4 }}>
+                <Box
+                  sx={{
+                    height: "100%",
+                    p: 1.5,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 2,
+                    backgroundColor: "rgba(22,33,43,0.76)",
+                  }}
+                >
+                  <Typography variant="h3">Activity</Typography>
+                  <Stack spacing={0.75} sx={{ mt: 1 }}>
+                    {ACTIVITY_FEED.slice(0, 2).map((item) => (
+                      <Typography key={item} variant="body2" color="text.secondary">
+                        {item}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid2>
+            </Grid2>
+          </Stack>
         </Container>
       </Box>
 
@@ -495,17 +709,17 @@ export const Welcome = () => {
         maxWidth={false}
         sx={{
           width: "100%",
-          maxWidth: "1500px",
-          px: { xs: 2, md: 5 },
-          py: { xs: 4, md: 6 },
+          maxWidth: "1540px",
+          px: { xs: 1.5, md: 3 },
+          py: { xs: 3, md: 4 },
         }}
       >
-        <Grid2 container spacing={2.5} sx={{ alignItems: "stretch" }}>
+        <Grid2 container spacing={2} sx={{ alignItems: "stretch" }}>
           <Grid2 size={{ xs: 12, lg: 7 }}>
             <Box
               sx={{
                 height: "100%",
-                minHeight: { xs: 360, md: 520 },
+                minHeight: { xs: 320, md: 420 },
                 border: "1px solid",
                 borderColor: "divider",
                 borderRadius: 2,
@@ -559,7 +773,7 @@ export const Welcome = () => {
                     key={slide.id}
                     sx={{
                       position: "relative",
-                      height: { xs: 360, md: 520 },
+                      height: { xs: 320, md: 420 },
                       textAlign: "left",
                       backgroundColor: "#0f141a",
                     }}
@@ -606,216 +820,28 @@ export const Welcome = () => {
 
           <Grid2 size={{ xs: 12, lg: 5 }}>
             <Stack spacing={2} sx={{ height: "100%" }}>
-              <Box>
-                <Typography variant="h2">Featured game styles</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 560 }}>
-                  Pick the pace you want tonight, from long-form social reads to fast party rounds.
-                </Typography>
+              <Box
+                sx={{
+                  mt: "auto",
+                  p: 1.5,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  backgroundColor: "background.paper",
+                }}
+              >
+                <Typography variant="h3">Community board</Typography>
+                <Stack spacing={0.75} sx={{ mt: 1 }}>
+                  {ACTIVITY_FEED.map((item) => (
+                    <Typography key={item} variant="body2" color="text.secondary">
+                      {item}
+                    </Typography>
+                  ))}
+                </Stack>
               </Box>
-              <Grid2 container spacing={1.25}>
-                {highlightedGames.map((game) => {
-                  const key = game.key;
-                  const content = GAME_WELCOME_CONTENT[key] || GAME_WELCOME_CONTENT.Mafia;
-                  return (
-                    <Grid2 key={`featured-${key}`} size={{ xs: 12, sm: 6 }}>
-                      <Box
-                        sx={{
-                          minHeight: 154,
-                          height: "100%",
-                          border: "1px solid",
-                          borderColor: "divider",
-                          borderRadius: 2,
-                          p: 1.5,
-                          background:
-                            "linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))",
-                          position: "relative",
-                          overflow: "hidden",
-                          "&:before": {
-                            content: '""',
-                            position: "absolute",
-                            inset: "auto -20px -42px auto",
-                            width: 116,
-                            height: 116,
-                            backgroundColor: content.accent,
-                            opacity: 0.12,
-                            borderRadius: "50%",
-                          },
-                        }}
-                      >
-                        <Stack spacing={1} sx={{ position: "relative" }}>
-                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                            <Box
-                              component="img"
-                              src={getGameIconSrc(
-                                key,
-                                siteInfo?.branding?.gameLogos,
-                                siteInfo?.gameCatalogMap
-                              )}
-                              alt=""
-                              sx={{
-                                width: 42,
-                                height: 42,
-                                borderRadius: 1.5,
-                                objectFit: "contain",
-                              }}
-                            />
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography variant="h4" noWrap>
-                                {game.title || key}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {content.tileDescription}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                          <Typography variant="body2" color="text.secondary">
-                            {content.headline}
-                          </Typography>
-                          <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
-                            <Chip label={content.meta} size="small" variant="outlined" />
-                            <Chip label={content.pace} size="small" />
-                          </Stack>
-                        </Stack>
-                      </Box>
-                    </Grid2>
-                  );
-                })}
-              </Grid2>
             </Stack>
           </Grid2>
         </Grid2>
-      </Container>
-
-      <Box
-        component="section"
-        sx={{
-          borderBlock: "1px solid",
-          borderColor: "divider",
-          backgroundColor: "rgba(22,33,43,0.42)",
-        }}
-      >
-        <Container
-          maxWidth={false}
-          sx={{
-            maxWidth: "1500px",
-            px: { xs: 2, md: 5 },
-            py: { xs: 4, md: 5 },
-          }}
-        >
-          <Grid2 container spacing={1.5}>
-            {FEATURE_PANELS.map((feature) => (
-              <Grid2 key={feature.title} size={{ xs: 12, md: 4 }}>
-                <Stack
-                  spacing={1}
-                  sx={{
-                    height: "100%",
-                    p: 2,
-                    borderLeft: "3px solid",
-                    borderColor: "secondary.main",
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                  }}
-                >
-                  <Box
-                    component="i"
-                    className={feature.icon}
-                    sx={{ color: "primary.main", fontSize: "1.3rem" }}
-                  />
-                  <Typography variant="h3">{feature.title}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {feature.description}
-                  </Typography>
-                </Stack>
-              </Grid2>
-            ))}
-          </Grid2>
-        </Container>
-      </Box>
-
-      <Container
-        maxWidth={false}
-        sx={{
-          maxWidth: "1500px",
-          px: { xs: 2, md: 5 },
-          py: { xs: 4, md: 6 },
-        }}
-      >
-        <Stack spacing={2}>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={1}
-            sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "end" } }}
-          >
-            <Box>
-              <Typography variant="h2">Game catalog</Typography>
-              <Typography variant="body2" color="text.secondary">
-                A cleaner catalog view for the current site game list.
-              </Typography>
-            </Box>
-            <Button component={Link} to="/learn/games" variant="outlined">
-              Learn the rules
-            </Button>
-          </Stack>
-          <Grid2 container spacing={1.25}>
-            {catalogGames.map((game, index) => {
-              const key = game.key;
-              const content = GAME_WELCOME_CONTENT[key] || GAME_WELCOME_CONTENT.Mafia;
-              return (
-                <Grid2 key={`catalog-${key}`} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
-                  <Box
-                    component={Link}
-                    to={`/learn/games?game=${encodeURIComponent(key)}`}
-                    sx={{
-                      minHeight: 176,
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 1,
-                      p: 1.25,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: 2,
-                      backgroundColor: index % 2 === 0 ? "background.paper" : "rgba(255,255,255,0.025)",
-                      color: "text.primary",
-                      textDecoration: "none",
-                      transition: "transform 160ms ease, border-color 160ms ease, background-color 160ms ease",
-                      "&:hover": {
-                        transform: "translateY(-2px)",
-                        borderColor: content.accent,
-                        backgroundColor: "action.hover",
-                      },
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={getGameIconSrc(
-                        key,
-                        siteInfo?.branding?.gameLogos,
-                        siteInfo?.gameCatalogMap
-                      )}
-                      alt={`${game.title || key} icon`}
-                      sx={{
-                        width: "100%",
-                        aspectRatio: "1 / 1",
-                        minHeight: 0,
-                        objectFit: "contain",
-                        borderRadius: 1.5,
-                        backgroundColor: "rgba(0,0,0,0.16)",
-                      }}
-                    />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="h4" noWrap>
-                        {game.title || key}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {content.pace} · {content.meta}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid2>
-              );
-            })}
-          </Grid2>
-        </Stack>
       </Container>
     </Box>
   );
