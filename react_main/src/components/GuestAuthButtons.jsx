@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button, Stack } from "@mui/material";
+import LoginOutlinedIcon from "@mui/icons-material/LoginOutlined";
 import { Auth } from "./Auth";
 
 export const GuestAuthButtons = () => {
@@ -11,35 +12,31 @@ export const GuestAuthButtons = () => {
     setAuthDialogOpen(true);
   };
 
-  const openRegisterDialog = () => {
-    setAuthDialogMode(1);
-    setAuthDialogOpen(true);
-  };
-
   return (
     <>
-      <Stack direction="row" spacing={1}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={openLoginDialog}
-          sx={{
-            textTransform: "none",
-            fontSize: "14px",
-          }}
-        >
-          Login
-        </Button>
+      <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
         <Button
           variant="contained"
           size="small"
-          onClick={openRegisterDialog}
+          startIcon={<LoginOutlinedIcon fontSize="small" />}
+          onClick={openLoginDialog}
           sx={{
+            minHeight: 36,
+            px: 2,
+            border: "1px solid",
+            borderColor: "primary.dark",
+            backgroundColor: "primary.main",
+            boxShadow: "none",
             textTransform: "none",
             fontSize: "14px",
+            "&:hover": {
+              borderColor: "primary.main",
+              backgroundColor: "primary.dark",
+              boxShadow: "none",
+            },
           }}
         >
-          Register
+          Login
         </Button>
       </Stack>
       <Auth

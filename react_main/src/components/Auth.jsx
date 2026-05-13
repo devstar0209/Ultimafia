@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Button,
   LinearProgress,
@@ -12,7 +12,13 @@ import {
   Typography,
   Dialog,
   DialogContent,
+  InputAdornment,
 } from "@mui/material";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import GoogleIcon from "../images/welcome_page/GoogleIcon.png";
 import DiscordIcon from "../images/welcome_page/DiscordIcon.png";
 import {
@@ -29,12 +35,10 @@ import {
 import axios from "axios";
 import { verifyRecaptcha } from "../utils";
 import { useSnackbar } from "../hooks/useSnackbar";
-import { SiteInfoContext } from "../Contexts";
 import { Link } from "react-router-dom";
 
 export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const snackbarHook = useSnackbar();
-  const siteInfo = useContext(SiteInfoContext);
   const [tabValue, setTabValue] = useState(defaultTab);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -48,6 +52,61 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const googleProvider = new GoogleAuthProvider();
   const skips = JSON.parse(import.meta.env.REACT_APP_RECAP_SKIP || "[]");
+  const isRegister = tabValue === 1;
+  const authTitle = showForgotPassword
+    ? "Reset your password"
+    : showResendVerification
+      ? "Verify your email"
+      : isRegister
+        ? "Create your account"
+        : "Welcome back";
+  const authSubtitle = showForgotPassword
+    ? "Enter your email and we will send a reset link."
+    : showResendVerification
+      ? "Resend the verification email for your account."
+      : isRegister
+        ? "Join the community and start playing."
+        : "Sign in to continue to PassionMafia.";
+  const inputIconSx = { color: "text.secondary", fontSize: 20 };
+  const fieldSx = {
+    mt: 2.75,
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 2,
+      backgroundColor: "rgba(255,255,255,0.035)",
+    },
+  };
+  const actionButtonSx = {
+    mt: 3,
+    py: 1.1,
+    backgroundColor: "primary.main",
+    boxShadow: "none",
+    "&:hover": {
+      backgroundColor: "primary.dark",
+      boxShadow: "none",
+    },
+  };
+  const providerButtonSx = {
+    width: 48,
+    height: 48,
+    border: 1,
+    borderColor: "divider",
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    "&:hover": {
+      borderColor: "primary.main",
+      backgroundColor: "rgba(var(--mui-palette-primary-mainChannel) / 0.1)",
+    },
+  };
+  const secondaryActionSx = {
+    pb: 0,
+    cursor: "pointer",
+    textTransform: "none",
+    fontSize: "12px",
+    color: "text.secondary",
+    "&:hover": {
+      color: "primary.main",
+    },
+  };
 
   const getAuthActionSettings = () => ({
     url: `${window.location.origin}/auth/action`,
@@ -485,9 +544,10 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           <Button
             variant="text"
             onClick={() => setShowForgotPassword(false)}
+            startIcon={<ArrowBackRoundedIcon fontSize="small" />}
             sx={{ mb: 2, textTransform: "none" }}
           >
-            <i className="fas fa-chevron-circle-left" /> Back to Login
+            Back to Login
           </Button>
           <form onSubmit={recoverPassword}>
             <TextField
@@ -496,15 +556,22 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
               autoFocus
               required
               autoComplete="off"
-              margin="dense"
               fullWidth
-              variant="standard"
+              variant="outlined"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailOutlinedIcon sx={inputIconSx} />
+                  </InputAdornment>
+                ),
+              }}
             />
             <Button
               fullWidth
-              sx={{ mt: 2 }}
+              sx={actionButtonSx}
               type="submit"
               disabled={loading || !email}
             >
@@ -518,9 +585,10 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           <Button
             variant="text"
             onClick={() => setShowResendVerification(false)}
+            startIcon={<ArrowBackRoundedIcon fontSize="small" />}
             sx={{ mb: 2, textTransform: "none" }}
           >
-            <i className="fas fa-chevron-circle-left" /> Back to Login
+            Back to Login
           </Button>
           <form onSubmit={resendVerification}>
             <TextField
@@ -529,27 +597,40 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
               autoFocus
               required
               autoComplete="off"
-              margin="dense"
               fullWidth
-              variant="standard"
+              variant="outlined"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailOutlinedIcon sx={inputIconSx} />
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               label="Password"
               type="password"
               required
               autoComplete="current-password"
-              margin="dense"
               fullWidth
-              variant="standard"
+              variant="outlined"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              sx={{ mt: 1 }}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockOutlinedIcon sx={inputIconSx} />
+                  </InputAdornment>
+                ),
+              }}
             />
             <Button
               fullWidth
-              sx={{ mt: 2 }}
+              sx={actionButtonSx}
               type="submit"
               disabled={loading || !email || !password}
             >
@@ -567,11 +648,18 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
               autoFocus
               required
               autoComplete="off"
-              margin="dense"
               fullWidth
-              variant="standard"
+              variant="outlined"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailOutlinedIcon sx={inputIconSx} />
+                  </InputAdornment>
+                ),
+              }}
             />
             <input hidden />
             <TextField
@@ -579,32 +667,33 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
               type="password"
               required
               autoComplete="new-password"
-              margin="none"
               fullWidth
-              variant="standard"
+              variant="outlined"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockOutlinedIcon sx={inputIconSx} />
+                  </InputAdornment>
+                ),
+              }}
             />
             <Button
               fullWidth
-              sx={{ mt: 2 }}
+              sx={actionButtonSx}
               type="submit"
               disabled={loading || !email || !password}
             >
               Login
             </Button>
           </form>
-          <Stack direction="row" spacing={1} sx={{ mt: 2, justifyContent: "center" }}>
+          <Stack direction="row" spacing={1.5} sx={{ mt: 3, justifyContent: "center" }}>
             <Tooltip title="Login with Google">
               <IconButton
                 onClick={loginGoogle}
-                sx={{
-                  border: 1,
-                  borderColor: "divider",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                  },
-                }}
+                sx={providerButtonSx}
               >
                 <img src={GoogleIcon} alt="Google" width={24} height={24} />
               </IconButton>
@@ -612,13 +701,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
             <Tooltip title="Login with Discord">
               <IconButton
                 onClick={loginDiscord}
-                sx={{
-                  border: 1,
-                  borderColor: "divider",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                  },
-                }}
+                sx={providerButtonSx}
               >
                 <img src={DiscordIcon} alt="Discord" width={24} height={24} />
               </IconButton>
@@ -631,7 +714,8 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
               opacity: "0.5",
               cursor: "default",
               userSelect: "none",
-              display: "inline",
+              display: "block",
+              mt: 2,
             }}
           >
             By logging in, you agree to our&nbsp;
@@ -639,17 +723,17 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
             &nbsp;and&nbsp;
             <Link to="/policy/privacy">Privacy Policy</Link>.
           </Typography>
-          <Stack direction="row" spacing={1} sx={{ mt: 1, justifyContent: "center" }}>
+          <Stack direction="row" spacing={1.5} sx={{ mt: 1.5, justifyContent: "center" }}>
             <Button
               variant="text"
-              sx={{ pb: 0, cursor: "Pointer", textTransform: "none", fontSize: "12px" }}
+              sx={secondaryActionSx}
               onClick={() => setShowForgotPassword(true)}
             >
               Forgot Password?
             </Button>
             <Button
               variant="text"
-              sx={{ pb: 0, cursor: "Pointer", textTransform: "none", fontSize: "12px" }}
+              sx={secondaryActionSx}
               onClick={() => setShowResendVerification(true)}
             >
               Resend Verification
@@ -671,11 +755,18 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           autoFocus
           required
           autoComplete="off"
-          margin="dense"
           fullWidth
-          variant="standard"
+          variant="outlined"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          sx={fieldSx}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <EmailOutlinedIcon sx={inputIconSx} />
+              </InputAdornment>
+            ),
+          }}
         />
         <input hidden />
         <TextField
@@ -683,32 +774,45 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           type="password"
           required
           autoComplete="new-password"
-          margin="none"
           fullWidth
-          variant="standard"
+          variant="outlined"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          sx={fieldSx}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockOutlinedIcon sx={inputIconSx} />
+              </InputAdornment>
+            ),
+          }}
         />
         <TextField
           label="Confirm Password"
           type="password"
           required
           autoComplete="new-password"
-          margin="none"
           fullWidth
-          variant="standard"
+          variant="outlined"
           value={passwordConfirmation}
           onChange={handlePasswordConfirmationChange}
           error={!!passwordConfirmationHelperText}
           helperText={passwordConfirmationHelperText}
+          sx={fieldSx}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockOutlinedIcon sx={inputIconSx} />
+              </InputAdornment>
+            ),
+          }}
         />
         <TextField
           label="Date of Birth"
           type="date"
           required
-          margin="dense"
           fullWidth
-          variant="standard"
+          variant="outlined"
           value={birthDate}
           onChange={handleBirthDateChange}
           error={!!ageError}
@@ -720,10 +824,18 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
               .toISOString()
               .split("T")[0], // Set max date to 13 years ago
           }}
+          sx={fieldSx}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <CakeOutlinedIcon sx={inputIconSx} />
+              </InputAdornment>
+            ),
+          }}
         />
         <Button
           fullWidth
-          sx={{ mt: 2 }}
+          sx={actionButtonSx}
           type="submit"
           disabled={
             loading ||
@@ -737,17 +849,11 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           Register
         </Button>
       </form>
-      <Stack direction="row" spacing={1} sx={{ mt: 2, justifyContent: "center" }}>
+      <Stack direction="row" spacing={1.5} sx={{ mt: 3, justifyContent: "center" }}>
         <Tooltip title="Register with Google">
           <IconButton
             onClick={registerGoogle}
-            sx={{
-              border: 1,
-              borderColor: "divider",
-              "&:hover": {
-                borderColor: "primary.main",
-              },
-            }}
+            sx={providerButtonSx}
           >
             <img src={GoogleIcon} alt="Google" width={24} height={24} />
           </IconButton>
@@ -755,13 +861,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
         <Tooltip title="Register with Discord">
           <IconButton
             onClick={registerDiscord}
-            sx={{
-              border: 1,
-              borderColor: "divider",
-              "&:hover": {
-                borderColor: "primary.main",
-              },
-            }}
+            sx={providerButtonSx}
           >
             <img src={DiscordIcon} alt="Discord" width={24} height={24} />
           </IconButton>
@@ -774,7 +874,8 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           opacity: "0.5",
           cursor: "default",
           userSelect: "none",
-          display: "inline",
+          display: "block",
+          mt: 2,
         }}
       >
         By registering, you agree to our&nbsp;
@@ -787,12 +888,33 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   );
 
   const authContent = (
-    <Box sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+    <Box sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box>
+        <Typography variant="h2" sx={{ fontSize: "1.45rem", mb: 0.5 }}>
+          {authTitle}
+        </Typography>
+        <Typography color="text.secondary" variant="body2">
+          {authSubtitle}
+        </Typography>
+      </Box>
       <Tabs
         value={tabValue}
         onChange={handleTabChange}
         aria-label="authentication tabs"
-        sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+        variant="fullWidth"
+        sx={{
+          flexShrink: 0,
+          borderBottom: 1,
+          borderColor: "divider",
+          "& .MuiTab-root": {
+            minHeight: 44,
+            textTransform: "none",
+            fontWeight: 800,
+          },
+          "& .Mui-selected": {
+            color: "primary.main",
+          },
+        }}
       >
         <Tab label="Login" />
         <Tab label="Register" />
@@ -832,12 +954,40 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
           fullWidth
           PaperProps={{
             sx: {
-              height: "600px",
+              height: "auto",
               maxHeight: "90vh",
+              borderRadius: 3,
+              overflow: "hidden",
+              borderTop: "4px solid",
+              borderTopColor: "primary.main",
+              backgroundColor: "background.paper",
+              backgroundImage: "none",
             }
           }}
         >
-          <DialogContent sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <DialogContent
+            sx={{
+              position: "relative",
+              p: { xs: 2.5, sm: 4 },
+              pt: { xs: 4.5, sm: 5 },
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+            }}
+          >
+            <IconButton
+              aria-label="Close auth dialog"
+              onClick={onClose}
+              size="small"
+              sx={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                color: "text.secondary",
+              }}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
             {authContent}
           </DialogContent>
         </Dialog>

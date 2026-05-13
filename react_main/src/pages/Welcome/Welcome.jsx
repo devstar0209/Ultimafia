@@ -4,9 +4,7 @@ import { Navigate } from "react-router-dom";
 import "css/main.css";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
 import { Carousel } from "react-responsive-carousel";
-import { Auth } from "../../components/Auth";
-import IconGallery from "../../components/IconGallery";
-import GameIcon, { getGameIconSrc } from "../../components/GameIcon";
+import { getGameIconSrc } from "../../components/GameIcon";
 import bannerImage from "../../images/welcome_page/banner.png";
 import {
   getAuth,
@@ -213,27 +211,8 @@ export const Welcome = () => {
         </Typography>
         <Grid2 container rowSpacing={1} columnSpacing={1} sx={{ alignItems: "stretch" }}>
           <Grid2
-            size={{ xs: 12, md: 3 }}
-            sx={{ display: "flex", order: { xs: 1, md: 1 } }}
-          >
-            <Paper
-              elevation={2}
-              sx={{
-                p: 2,
-                height: { xs: "auto", md: `${DESKTOP_COLUMN_HEIGHT}px` },
-                width: "100%",
-                display: "flex",
-                flexDirection: "column",
-                overflowY: { xs: "visible", md: "auto" },
-              }}
-            >
-              <Auth defaultTab={0} />
-            </Paper>
-          </Grid2>
-
-          <Grid2
-            size={{ xs: 12, md: 6 }}
-            sx={{ display: "flex", order: { xs: 3, md: 2 } }}
+            size={{ xs: 12, md: 8 }}
+            sx={{ display: "flex", order: { xs: 2, md: 1 } }}
           >
             <Paper
               elevation={0}
@@ -362,8 +341,8 @@ export const Welcome = () => {
           </Grid2>
 
           <Grid2
-            size={{ xs: 12, md: 3 }}
-            sx={{ display: "flex", order: { xs: 2, md: 3 } }}
+            size={{ xs: 12, md: 4 }}
+            sx={{ display: "flex", order: { xs: 1, md: 2 } }}
           >
             <Paper
               elevation={2}

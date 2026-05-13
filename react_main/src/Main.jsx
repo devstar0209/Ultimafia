@@ -227,8 +227,6 @@ function Main(props) {
 function Header({ setShowAnnouncementTemporarily }) {
   const user = useContext(UserContext);
   const isPhoneDevice = useIsPhoneDevice();
-  const location = useLocation();
-  const isOnWelcomePage = location.pathname === "/welcome" || location.pathname === "/";
 
   const openAnnouncements = () => {
     setShowAnnouncementTemporarily(true);
@@ -323,7 +321,7 @@ function Header({ setShowAnnouncementTemporarily }) {
                 useUnreadNotifications={useUnreadNotifications}
               />
             ) : (
-              !isOnWelcomePage && <GuestAuthButtons />
+              <GuestAuthButtons />
             )}
           </div>
         </Stack>
@@ -418,7 +416,7 @@ function Header({ setShowAnnouncementTemporarily }) {
                   useUnreadNotifications={useUnreadNotifications}
                 />
               ) : (
-                !isOnWelcomePage && <GuestAuthButtons />
+                <GuestAuthButtons />
               )}
             </Box>
           </Stack>
