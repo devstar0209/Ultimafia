@@ -195,10 +195,8 @@ export default function EmotesPage({ search = "" }) {
         const createResponse = await createAdminEmote({
           key: generatedKey,
           name: formData.name,
-          description: "",
           price: Number(formData.price || 0),
           currency: formData.currency,
-          limit: 1,
         });
         const activeKey = createResponse?.item?.key;
         if (activeKey && imageFile) {
@@ -352,7 +350,7 @@ export default function EmotesPage({ search = "" }) {
                                 borderRadius: 1,
                                 border: "1px dashed rgba(255,255,255,0.2)",
                                 backgroundColor: "rgba(255,255,255,0.04)",
-                                backgroundImage: emote.iconUrl ? `url(${emote.iconUrl})` : "none",
+                                backgroundImage: emote.imageUrl ? `url(${emote.imageUrl})` : "none",
                                 backgroundSize: "contain",
                                 backgroundRepeat: "no-repeat",
                                 backgroundPosition: "center",

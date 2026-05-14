@@ -191,7 +191,7 @@ function buildEmoteAssetId(groupKey, file, index = 0) {
 }
 
 function listEmoteGroupAssets(groupKey) {
-  const emoteDir = utils.resolveUploadPath("store/emotes");
+  const emoteDir = utils.resolveUploadPath(`${utils.EMOTES_UPLOAD_PATH}/${groupKey}`);
   if (!fs.existsSync(emoteDir)) return [];
 
   return fs
@@ -202,10 +202,10 @@ function listEmoteGroupAssets(groupKey) {
       return {
         id,
         name: id.replace(`${groupKey}-`, ""),
-        imageUrl: utils.toPublicUrl(getEmoteAssetRelativePath(id)),
+        imageUrl: utils.toPublicUrl(`${utils.EMOTES_UPLOAD_PATH}/${groupKey}`, id),
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    // .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function removeEmoteGroupAssets(groupKey) {
@@ -1152,53 +1152,23 @@ router.get("/emotes", async function (req, res) {
       ];
     }
 
-    const [total, emoteShopItems, allEmoteItems] = await Promise.all([
+    const [total, emoteShopItems] = await Promise.all([
       models.EmoteGroup.countDocuments(query),
       models.EmoteGroup.find(query)
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .select("_id key name desc price currency limit hidden sortOrder updatedAt -_id")
-        .lean(),
-      models.EmoteGroup.find({ key: /^emote-group-/i })
-        .select("hidden -_id")
-        .lean(),
+        .select("_id key name price currency hidden imageUrl sortOrder updatedAt -_id")
+        .lean()
     ]);
 
     const entries = emoteShopItems.map((item) => ({
-      id: item.key,
-      key: item.key,
-      name: item.name || item.key,
-      description: item.desc || "",
-      price: Number(item.price || 0),
-      currency: item.currency,
-      limit: item.limit == null ? null : Number(item.limit),
-      hidden: Boolean(item.hidden),
-      sortOrder: Number(item.sortOrder || 0),
-      imageUrl: item.imageUrl,
+      ...item,
       emotes: listEmoteGroupAssets(item.key),
-      collection: "Chat Emote Groups",
-      artist: "Store Asset",
-      rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
-      status: item.hidden ? "Hidden" : "Published",
-      updated: formatRelativeTime(item.updatedAt || Date.now()),
     }));
-
-    const publishedCount = allEmoteItems.filter((item) => !item.hidden).length;
-    const hiddenCount = allEmoteItems.length - publishedCount;
-
-    const collections = [
-      {
-        name: "Chat Emote Groups",
-        count: `${allEmoteItems.length} assets`,
-        theme: "Store-managed chat emote groups users can unlock.",
-        releaseWindow: `${publishedCount} published / ${hiddenCount} hidden`,
-      },
-    ];
 
     res.send({
       entries,
-      collections,
       pagination: {
         page,
         pageSize,
@@ -1220,13 +1190,8 @@ router.post("/emotes", async function (req, res) {
 
     const key = normalizeEmoteKey(req.body?.key);
     const name = String(req.body?.name || "").trim();
-    const description = String(req.body?.description || "").trim();
     const price = Number(req.body?.price || 0);
     const currency = req.body?.currency;
-    const limit =
-      req.body?.limit == null || req.body?.limit === ""
-        ? 1
-        : Number(req.body?.limit);
     const hidden = Boolean(req.body?.hidden);
 
     if (!key || !/^emote-group-[a-z0-9-]+$/.test(key)) {
@@ -1241,11 +1206,6 @@ router.post("/emotes", async function (req, res) {
       res.status(400).send("Emote group price must be a positive number.");
       return;
     }
-    if (limit != null && (!Number.isFinite(limit) || limit < 1)) {
-      res.status(400).send("Emote group limit must be null or a number greater than 0.");
-      return;
-    }
-
     
     const exists = await models.EmoteGroup.findOne({ key }).select("key -_id").lean();
     if (exists) {
@@ -1261,11 +1221,10 @@ router.post("/emotes", async function (req, res) {
     const created = await models.EmoteGroup.create({
       key,
       name,
-      desc: description,
       price,
       currency,
-      limit,
       hidden,
+      imageUrl: "",
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
       updatedAt: Date.now(),
     });
@@ -1281,15 +1240,10 @@ router.post("/emotes", async function (req, res) {
       item: {
         key: created.key,
         name: created.name,
-        description: created.desc || "",
         price: Number(created.price || 0),
         currency: created.currency,
-        limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0),
-        imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
-        iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(created.key)),
-        emotes: [],
       },
     });
   } catch (e) {
@@ -1312,13 +1266,9 @@ router.patch("/emotes/:key", async function (req, res) {
 
     const updates = {};
     if (req.body?.name !== undefined) updates.name = String(req.body.name || "").trim();
-    if (req.body?.description !== undefined)
-      updates.desc = String(req.body.description || "").trim();
     if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
     if (req.body?.currency !== undefined)
       updates.currency = req.body.currency;
-    if (req.body?.limit !== undefined)
-      updates.limit = req.body.limit == null || req.body.limit === "" ? null : Number(req.body.limit);
     if (req.body?.hidden !== undefined) updates.hidden = Boolean(req.body.hidden);
     updates.updatedAt = Date.now();
 
@@ -1330,18 +1280,9 @@ router.patch("/emotes/:key", async function (req, res) {
       res.status(400).send("Emote group price must be a positive number.");
       return;
     }
-    if (
-      updates.limit !== undefined &&
-      updates.limit != null &&
-      (!Number.isFinite(updates.limit) || updates.limit < 1)
-    ) {
-      res.status(400).send("Emote group limit must be null or a number greater than 0.");
-      return;
-    }
-
     
     const updated = await models.EmoteGroup.findOneAndUpdate({ key }, { $set: updates }, { new: true })
-      .select("key name desc price currency limit hidden sortOrder")
+      .select("key name price currency hidden sortOrder")
       .lean();
     if (!updated) {
       res.status(404).send("Emote group not found.");
@@ -1356,14 +1297,11 @@ router.patch("/emotes/:key", async function (req, res) {
       item: {
         key: updated.key,
         name: updated.name,
-        description: updated.desc || "",
         price: Number(updated.price || 0),
         currency: updated.currency,
-        limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
-        imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
-        iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(updated.key)),
+        imageUrl: updated.imageUrl,
         emotes: listEmoteGroupAssets(updated.key),
       },
     });
@@ -1431,7 +1369,7 @@ router.post("/emotes/:key/image", async function (req, res) {
       return;
     }
 
-    const imageUrl = await utils.uploadImage(file.path, utils.EMOTES_UPLOAD_PATH, key, {
+    const imageUrl = await utils.uploadImage(file.path, `${utils.EMOTES_UPLOAD_PATH}/${key}`, key, {
       animated: true,
       resize: {
         width: 64,
@@ -1479,10 +1417,7 @@ router.post("/emotes/:key/items", async function (req, res) {
     });
     const [, files] = await parseUploadForm(form, req);
     const fieldFiles = [
-      ...getUploadedFiles(files, "emotes"),
-      ...getUploadedFiles(files, "emotes[]"),
-      ...getUploadedFiles(files, "images"),
-      ...getUploadedFiles(files, "image"),
+      ...getUploadedFiles(files, "emotes")
     ];
     const uploadedFiles = (fieldFiles.length ? fieldFiles : getAllUploadedFiles(files))
       .filter((file) => file?.path);
@@ -1505,7 +1440,7 @@ router.post("/emotes/:key/items", async function (req, res) {
       const file = uploadedFiles[index];
       const assetId = buildEmoteAssetId(key, file, index);
 
-      const imageUrl = await utils.uploadImage(file.path, utils.EMOTES_UPLOAD_PATH, assetId, {
+      const imageUrl = await utils.uploadImage(file.path, `${utils.EMOTES_UPLOAD_PATH}/${key}`, assetId, {
         animated: true,
         resize: {
           width: 64,
@@ -1516,18 +1451,12 @@ router.post("/emotes/:key/items", async function (req, res) {
         },
         quality: 92,
       });
-
-      saved.push({
-        id: assetId,
-        name: assetId.replace(`${key}-`, ""),
-        imageUrl: imageUrl,
-      });
     }
 
     await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Uploaded Emote Group Items", [
       key,
-      `${saved.length}`,
+      `${uploadedFiles.length}`,
     ]);
 
     shopModule.invalidateShopItemsCache();
