@@ -28,7 +28,6 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
@@ -112,6 +111,49 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     url: `${window.location.origin}/auth/action`,
     handleCodeInApp: false,
   });
+
+  const handleFirebaseSession = async (userCred) => {
+    const idToken = await userCred.user.getIdToken(true);
+    await axios.post("/api/auth", { idToken });
+    if (asDialog && onClose) {
+      onClose();
+    }
+    window.location.reload();
+  };
+
+  const handleBackendAuthError = (err) => {
+    if (err?.response?.status !== 403 || !err?.response?.data) {
+      return false;
+    }
+
+    try {
+      const data =
+        typeof err.response.data === "string"
+          ? JSON.parse(err.response.data)
+          : err.response.data;
+      if (data.siteBanned) {
+        snackbarHook.popSiteBanned(data.banExpires);
+        return true;
+      }
+      if (data.deleted) {
+        snackbarHook.popUserDeleted();
+        return true;
+      }
+    } catch (parseErr) {
+      return false;
+    }
+
+    return false;
+  };
+
+  const handleFirebaseLoginError = (err) => {
+    if (err?.message?.includes("(auth/too-many-requests)")) {
+      snackbarHook.popTooManyLoginAttempts();
+    } else {
+      snackbarHook.popLoginFailed();
+    }
+    console.error(err);
+  };
 
   // Reset form when tab changes
   useEffect(() => {
@@ -209,35 +251,13 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
 
       const auth = getAuth();
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await userCred.user.getIdToken(true);
 
       try {
-        await axios.post("/api/auth", { idToken });
-        if (asDialog && onClose) {
-          onClose();
-        }
-        window.location.reload();
+        await handleFirebaseSession(userCred);
       } catch (err) {
-        // Check if this is a site-ban error
-        if (err?.response?.status === 403 && err?.response?.data) {
-          try {
-            const data =
-              typeof err.response.data === "string"
-                ? JSON.parse(err.response.data)
-                : err.response.data;
-            if (data.siteBanned) {
-              snackbarHook.popSiteBanned(data.banExpires);
-              setLoading(false);
-              return;
-            }
-            if (data.deleted) {
-              snackbarHook.popUserDeleted();
-              setLoading(false);
-              return;
-            }
-          } catch (parseErr) {
-            // Not a site-ban error, continue with regular error handling
-          }
+        if (handleBackendAuthError(err)) {
+          setLoading(false);
+          return;
         }
 
         snackbarHook.popUnexpectedError();
@@ -265,12 +285,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
         }
       }
     } catch (err) {
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-      console.error(err);
+      handleFirebaseLoginError(err);
     }
 
     setLoading(false);
@@ -283,47 +298,20 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
         await verifyRecaptcha("auth");
       }
       const userCred = await signInWithPopup(getAuth(), googleProvider);
-      const idToken = await userCred.user.getIdToken(true);
 
       try {
-        await axios.post("/api/auth", { idToken });
-        if (asDialog && onClose) {
-          onClose();
-        }
-        window.location.reload();
+        await handleFirebaseSession(userCred);
       } catch (err) {
-        // Check if this is a site-ban error
-        if (err?.response?.status === 403 && err?.response?.data) {
-          try {
-            const data =
-              typeof err.response.data === "string"
-                ? JSON.parse(err.response.data)
-                : err.response.data;
-            if (data.siteBanned) {
-              snackbarHook.popSiteBanned(data.banExpires);
-              setLoading(false);
-              return;
-            }
-            if (data.deleted) {
-              snackbarHook.popUserDeleted();
-              setLoading(false);
-              return;
-            }
-          } catch (parseErr) {
-            // Not a site-ban error, continue with regular error handling
-          }
+        if (handleBackendAuthError(err)) {
+          setLoading(false);
+          return;
         }
 
         snackbarHook.popUnexpectedError();
         console.error(err);
       }
     } catch (err) {
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-      console.error(err);
+      handleFirebaseLoginError(err);
     }
     setLoading(false);
   };
@@ -419,13 +407,19 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
       if (import.meta.env.MODE !== "development") {
         await verifyRecaptcha("auth");
       }
-      await signInWithRedirect(getAuth(), googleProvider);
+      const userCred = await signInWithPopup(getAuth(), googleProvider);
+      await handleFirebaseSession(userCred);
     } catch (err) {
-      if (!err?.message) return;
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
+      if (handleBackendAuthError(err)) {
+        setLoading(false);
+        return;
+      }
+
+      if (err?.response) {
+        snackbarHook.popUnexpectedError();
+        console.error(err);
       } else {
-        snackbarHook.popLoginFailed();
+        handleFirebaseLoginError(err);
       }
     }
     setLoading(false);
