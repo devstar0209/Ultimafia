@@ -53,6 +53,7 @@ export default function EmotesPage({ search = "" }) {
   const [emoteFiles, setEmoteFiles] = useState([]);
   const [removeImage, setRemoveImage] = useState(false);
   const [deletingKey, setDeletingKey] = useState("");
+  const [deletingItemId, setDeletingItemId] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [formData, setFormData] = useState({
@@ -195,10 +196,8 @@ export default function EmotesPage({ search = "" }) {
         const createResponse = await createAdminEmote({
           key: generatedKey,
           name: formData.name,
-          description: "",
           price: Number(formData.price || 0),
           currency: formData.currency,
-          limit: 1,
         });
         const activeKey = createResponse?.item?.key;
         if (activeKey && imageFile) {
@@ -239,15 +238,25 @@ export default function EmotesPage({ search = "" }) {
 
   async function handleDeleteEmoteItem(group, item) {
     if (!window.confirm(`Delete emote ":${item.name}:" from "${group.name}"?`)) return;
+    setDeletingItemId(item.id);
     try {
-      await deleteAdminEmoteItem(group.key, item.id);
+      const response = await deleteAdminEmoteItem(group.key, item.id);
+      const nextGroupEmotes =
+        response?.emotes || (group.emotes || []).filter((emote) => emote.id !== item.id);
+
+      setEmotes((prev) =>
+        prev.map((emote) =>
+          emote.key === group.key ? { ...emote, emotes: nextGroupEmotes } : emote
+        )
+      );
       setFeedback({ severity: "success", message: "Emote removed from group." });
-      await loadEmotes(page, rowsPerPage);
     } catch (err) {
       setFeedback({
         severity: "error",
         message: err?.response?.data || "Could not delete emote item.",
       });
+    } finally {
+      setDeletingItemId("");
     }
   }
 
@@ -352,7 +361,7 @@ export default function EmotesPage({ search = "" }) {
                                 borderRadius: 1,
                                 border: "1px dashed rgba(255,255,255,0.2)",
                                 backgroundColor: "rgba(255,255,255,0.04)",
-                                backgroundImage: emote.iconUrl ? `url(${emote.iconUrl})` : "none",
+                                backgroundImage: emote.imageUrl ? `url(${emote.imageUrl})` : "none",
                                 backgroundSize: "contain",
                                 backgroundRepeat: "no-repeat",
                                 backgroundPosition: "center",
@@ -533,6 +542,86 @@ export default function EmotesPage({ search = "" }) {
                 </Typography>
               ) : null}
             </Stack>
+            {editingKey ? (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Emotes</Typography>
+                {(editingEmote?.emotes || []).length ? (
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))",
+                      gap: 1,
+                    }}
+                  >
+                    {(editingEmote?.emotes || []).map((item) => (
+                      <Box
+                        key={item.id}
+                        sx={{
+                          position: "relative",
+                          minHeight: 88,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          borderRadius: 1,
+                          backgroundColor: "rgba(255,255,255,0.04)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          p: 1,
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={item.imageUrl}
+                          alt={`:${item.name}:`}
+                          sx={{
+                            width: 42,
+                            height: 42,
+                            objectFit: "contain",
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          color="error"
+                          title={`Delete :${item.name}:`}
+                          disabled={deletingItemId === item.id}
+                          onClick={() => handleDeleteEmoteItem(editingEmote, item)}
+                          sx={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            backgroundColor: "rgba(0,0,0,0.72)",
+                            "&:hover": {
+                              backgroundColor: "rgba(0,0,0,0.9)",
+                            },
+                          }}
+                        >
+                          <Icon icon="mdi:trash-can" />
+                        </IconButton>
+                        <Typography
+                          variant="caption"
+                          title={`:${item.name}:`}
+                          sx={{
+                            position: "absolute",
+                            left: 6,
+                            right: 6,
+                            bottom: 4,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            textAlign: "center",
+                          }}
+                        >
+                          :{item.name}:
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No emotes in this group.
+                  </Typography>
+                )}
+              </Stack>
+            ) : null}
             <TextField
               label="Price"
               type="number"

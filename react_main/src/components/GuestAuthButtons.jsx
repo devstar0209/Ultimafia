@@ -13,7 +13,7 @@ const SOCIAL_LINKS = [
   },
   {
     label: "Discord",
-    href: "https://discord.gg/C5WMFpYRHQ",
+    href: "https://discord.gg/x8eJSjfSd",
     icon: "simple-icons:discord",
     color: "#5865F2",
   },

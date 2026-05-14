@@ -554,7 +554,7 @@ function Footer() {
           </MuiLink>
           
           <MuiLink
-            href="https://discord.gg/C5WMFpYRHQ"
+            href="https://discord.gg/x8eJSjfSd"
             target="blank"
             rel="noopener noreferrer nofollow"
             sx={{ display: "flex", }}
