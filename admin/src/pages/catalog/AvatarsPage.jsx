@@ -37,6 +37,12 @@ import {
   uploadAdminAvatarImage,
 } from "../../services/adminService";
 
+function getLimitLabel(limit) {
+  if (limit == null) return "Unlimited";
+  if (Number(limit) === 1) return "One-Time";
+  return `Limited (${limit})`;
+}
+
 export default function AvatarsPage({ search = "" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,6 +61,7 @@ export default function AvatarsPage({ search = "" }) {
   const [formData, setFormData] = useState({
     price: 0,
     currency: "dollar",
+    limit: null,
   });
 
   async function loadAvatars(nextPage = page, nextRowsPerPage = rowsPerPage) {
@@ -119,6 +126,7 @@ export default function AvatarsPage({ search = "" }) {
     setFormData({
       price: 0,
       currency: "dollar",
+      limit: null,
     });
     setDialogOpen(true);
   }
@@ -130,6 +138,7 @@ export default function AvatarsPage({ search = "" }) {
     setFormData({
       price: Number(avatar.price || 0),
       currency: avatar.currency || "dollar",
+      limit: avatar.limit == null ? null : Number(avatar.limit),
     });
     setDialogOpen(true);
   }
@@ -171,6 +180,7 @@ export default function AvatarsPage({ search = "" }) {
         const updateResponse = await updateAdminAvatar(editingKey, {
           price: Number(formData.price || 0),
           currency: formData.currency,
+          limit: formData.limit == null ? null : Number(formData.limit),
         });
         const activeKey = updateResponse?.item?.key || editingKey;
         if (removeImage) {
@@ -189,6 +199,7 @@ export default function AvatarsPage({ search = "" }) {
           description: "",
           price: Number(formData.price || 0),
           currency: formData.currency,
+          limit: formData.limit == null ? null : Number(formData.limit),
         });
         const activeKey = createResponse?.item?.key;
         if (activeKey && imageFile) {
@@ -293,6 +304,7 @@ export default function AvatarsPage({ search = "" }) {
                     <TableCell>Avatar</TableCell>
                     <TableCell>Key</TableCell>
                     <TableCell align="right">Price</TableCell>
+                    <TableCell>Limit</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -300,7 +312,7 @@ export default function AvatarsPage({ search = "" }) {
                 <TableBody>
                   {avatars.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center">
+                      <TableCell colSpan={6} align="center">
                         <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                           No avatars
                         </Typography>
@@ -340,6 +352,14 @@ export default function AvatarsPage({ search = "" }) {
                           {avatar.currency === "coins"
                             ? `${avatar.price} coins`
                             : `$${Number(avatar.price || 0).toFixed(2)}`}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={getLimitLabel(avatar.limit)}
+                            color={avatar.limit == null ? "warning" : "default"}
+                            variant="outlined"
+                          />
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -465,6 +485,19 @@ export default function AvatarsPage({ search = "" }) {
               <MenuItem value="dollar">Dollar</MenuItem>
               <MenuItem value="coins">Coins</MenuItem>
             </TextField>
+            <TextField
+              label="Purchase Limit"
+              type="number"
+              value={formData.limit === null ? "" : formData.limit}
+              onChange={(event) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  limit: event.target.value === "" ? null : event.target.value,
+                }))
+              }
+              inputProps={{ min: 1 }}
+              helperText="Leave empty for unlimited, 1 for one-time, or enter a number"
+            />
             {editingKey ? (
               <Typography variant="caption" color="text.secondary">
                 Editing: {editingAvatar?.name || editingKey}

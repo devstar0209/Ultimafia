@@ -821,52 +821,18 @@ router.get("/avatars", async function (req, res) {
       ];
     }
 
-    const [total, avatarShopItems, allAvatarItems] = await Promise.all([
+    const [total, avatarShopItems] = await Promise.all([
       models.AvatarItem.countDocuments(query),
       models.AvatarItem.find(query)
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
         .select("_id key name imageUrl price currency limit hidden sortOrder updatedAt -_id")
-        .lean(),
-      models.AvatarItem.find({ key: /^avatar-/i })
-        .select("hidden -_id")
-        .lean(),
+        .lean()
     ]);
 
-    const entries = avatarShopItems.map((item) => ({
-      id: item.key,
-      key: item.key,
-      name: item.name || item.key,
-      description: item.desc || "",
-      price: Number(item.price || 0),
-      currency: item.currency,
-      limit: item.limit == null ? null : Number(item.limit),
-      hidden: Boolean(item.hidden),
-      sortOrder: Number(item.sortOrder || 0),
-      imageUrl: utils.toPublicUrl(item.imageUrl),
-      collection: "Profile Avatars",
-      artist: "Store Asset",
-      rarity: Number(item.limit || 0) === 1 ? "Limited Ownership" : "Standard",
-      status: item.hidden ? "Hidden" : "Published",
-      updated: formatRelativeTime(item.updatedAt || Date.now()),
-    }));
-
-    const publishedCount = allAvatarItems.filter((item) => !item.hidden).length;
-    const hiddenCount = allAvatarItems.length - publishedCount;
-
-    const collections = [
-      {
-        name: "Profile Avatars",
-        count: `${allAvatarItems.length} assets`,
-        theme: "Store-managed profile image catalog for users.",
-        releaseWindow: `${publishedCount} published / ${hiddenCount} hidden`,
-      },
-    ];
-
     res.send({
-      entries,
-      collections,
+      entries: avatarShopItems,
       pagination: {
         page,
         pageSize,
@@ -888,7 +854,6 @@ router.post("/avatars", async function (req, res) {
 
     const key = normalizeAvatarKey(req.body?.key);
     const name = String(req.body?.name || "").trim();
-    const description = String(req.body?.description || "").trim();
     const price = Number(req.body?.price || 0);
     const currency = req.body?.currency;
     const limit =
@@ -928,7 +893,6 @@ router.post("/avatars", async function (req, res) {
     const created = await models.AvatarItem.create({
       key,
       name,
-      desc: description,
       price,
       currency,
       limit,
@@ -948,13 +912,11 @@ router.post("/avatars", async function (req, res) {
       item: {
         key: created.key,
         name: created.name,
-        description: created.desc || "",
         price: Number(created.price || 0),
         currency: created.currency,
         limit: created.limit == null ? null : Number(created.limit),
         hidden: Boolean(created.hidden),
-        sortOrder: Number(created.sortOrder || 0),
-        imageUrl: utils.toPublicUrl(getAvatarAssetRelativePath(created.key)),
+        sortOrder: Number(created.sortOrder || 0)
       },
     });
   } catch (e) {
@@ -977,8 +939,6 @@ router.patch("/avatars/:key", async function (req, res) {
 
     const updates = {};
     if (req.body?.name !== undefined) updates.name = String(req.body.name || "").trim();
-    if (req.body?.description !== undefined)
-      updates.desc = String(req.body.description || "").trim();
     if (req.body?.price !== undefined) updates.price = Number(req.body.price || 0);
     if (req.body?.currency !== undefined)
       updates.currency = req.body.currency;
@@ -1021,13 +981,11 @@ router.patch("/avatars/:key", async function (req, res) {
       item: {
         key: updated.key,
         name: updated.name,
-        description: updated.desc || "",
         price: Number(updated.price || 0),
         currency: updated.currency,
         limit: updated.limit == null ? null : Number(updated.limit),
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
-        imageUrl: utils.toPublicUrl(getAvatarAssetRelativePath(updated.key)),
       },
     });
   } catch (e) {
@@ -1217,8 +1175,7 @@ router.get("/emotes", async function (req, res) {
       limit: item.limit == null ? null : Number(item.limit),
       hidden: Boolean(item.hidden),
       sortOrder: Number(item.sortOrder || 0),
-      imageUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
-      iconUrl: utils.toPublicUrl(getEmoteGroupIconRelativePath(item.key)),
+      imageUrl: item.imageUrl,
       emotes: listEmoteGroupAssets(item.key),
       collection: "Chat Emote Groups",
       artist: "Store Asset",
@@ -1317,6 +1274,7 @@ router.post("/emotes", async function (req, res) {
       key,
       name,
     ]);
+    shopModule.invalidateShopItemsCache();
 
     res.send({
       ok: true,

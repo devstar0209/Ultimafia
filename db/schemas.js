@@ -1127,7 +1127,6 @@ var schemas = {
     imageUrl: String,
     price: { type: Number, default: 0 },
     currency: { type: String, enum: ["coins", "dollar"], default: "dollar" },
-    limit: { type: Number, default: 1 },
     hidden: { type: Boolean, default: false, index: true },
     sortOrder: { type: Number, default: 0, index: true },
     createdAt: { type: Number, default: Date.now, index: true },
