@@ -1,29 +1,10 @@
 import React, { useContext } from "react";
+import { Box } from "@mui/material";
 
 import { SiteInfoContext } from "../Contexts";
 
-export const gamesIcons = {
-  Mafia: require("images/game_icons/Mafia.png"),
-  Resistance: require("images/game_icons/Resistance.png"),
-  Jotto: require("images/game_icons/Jotto.png"),
-  Acrotopia: require("images/game_icons/Acrotopia.png"),
-  "Secret Dictator": require("images/game_icons/SecretDictator.png"),
-  "Wacky Words": require("images/game_icons/WackyWords.png"),
-  "Liars Dice": require("images/game_icons/LiarsDice.png"),
-  "Texas Hold Em": require("images/game_icons/TexasHoldEm.png"),
-  Cheat: require("images/game_icons/Cheat.png"),
-  Ratscrew: require("images/game_icons/Ratscrew.png"),
-  Battlesnakes: require("images/game_icons/Battlesnakes.png"),
-  "Connect Four": require("images/game_icons/ConnectFour.png"),
-  "Dice Wars": require("images/game_icons/DiceWars.png"),
-};
-
-export function getGameIconSrc(gameType, brandingGameLogos, gameCatalogMap) {
-  return (
-    gameCatalogMap?.[gameType]?.logoUrl ||
-    brandingGameLogos?.[gameType] ||
-    gamesIcons[gameType]
-  );
+export function getGameIconSrc(gameType, gameCatalogMap) {
+  return gameCatalogMap?.[gameType]?.logoUrl || "";
 }
 
 export default function GameIcon(props) {
@@ -31,29 +12,56 @@ export default function GameIcon(props) {
   const gameType = props.gameType;
   const size = props.size;
   const circular = props.circular;
+  const src = props.src || getGameIconSrc(gameType, siteInfo?.gameCatalogMap);
+  const label = String(props.alt ?? gameType ?? "");
+  const sx = {
+    display: "block",
+    objectFit: "cover",
+    width: size,
+    height: size,
+    ...(circular
+      ? {
+          borderRadius: "50%",
+          overflow: "hidden",
+        }
+      : {}),
+    ...props.sx,
+  };
+
+  if (src) {
+    return (
+      <Box
+        component="img"
+        className={`game-icon ${props.className || ""}`}
+        src={src}
+        alt={label}
+        width={size}
+        height={size}
+        sx={sx}
+        style={props.style}
+      />
+    );
+  }
 
   return (
-    <img
-      className="game-icon"
-      src={getGameIconSrc(
-        gameType,
-        siteInfo?.branding?.gameLogos,
-        siteInfo?.gameCatalogMap
-      )}
-      alt={gameType}
-      width={size}
-      height={size}
-      style={{
-        ...(circular
-          ? {
-              borderRadius: "50%",
-              display: "block",
-              objectFit: "cover",
-              overflow: "hidden",
-            }
-          : {}),
-        ...props.style,
+    <Box
+      component="span"
+      className={`game-icon ${props.className || ""}`}
+      aria-label={label || undefined}
+      title={gameType}
+      sx={{
+        alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.12)",
+        color: "inherit",
+        display: "inline-flex",
+        fontSize: size ? Math.max(Math.round(size * 0.36), 10) : "0.8rem",
+        fontWeight: 700,
+        justifyContent: "center",
+        ...sx,
       }}
-    />
+      style={props.style}
+    >
+      {String(gameType || "?").charAt(0)}
+    </Box>
   );
 }

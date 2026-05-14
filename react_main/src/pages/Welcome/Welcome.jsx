@@ -12,7 +12,7 @@ import { Link, Navigate } from "react-router-dom";
 import "css/main.css";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
 import { Carousel } from "react-responsive-carousel";
-import { getGameIconSrc } from "../../components/GameIcon";
+import GameIcon from "../../components/GameIcon";
 import bannerImage from "../../images/welcome_page/banner.png";
 import welcomeSlideOne from "../../images/welcome_page/welcome-page_1.png";
 import welcomeSlideTwo from "../../images/welcome_page/welcome-page_2.png";
@@ -493,14 +493,10 @@ export const Welcome = () => {
                             }}
                           >
                             <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-                              <Box
-                                component="img"
-                                src={getGameIconSrc(
-                                  room.gameType,
-                                  siteInfo?.branding?.gameLogos,
-                                  siteInfo?.gameCatalogMap
-                                )}
+                              <GameIcon
+                                gameType={room.gameType}
                                 alt=""
+                                size={48}
                                 sx={{
                                   width: 48,
                                   height: 48,
@@ -604,14 +600,10 @@ export const Welcome = () => {
                             }}
                           >
                             <Stack direction="row" spacing={0.8} sx={{ alignItems: "center" }}>
-                              <Box
-                                component="img"
-                                src={getGameIconSrc(
-                                  key,
-                                  siteInfo?.branding?.gameLogos,
-                                  siteInfo?.gameCatalogMap
-                                )}
+                              <GameIcon
+                                gameType={key}
                                 alt=""
+                                size={36}
                                 sx={{
                                   width: 36,
                                   height: 36,

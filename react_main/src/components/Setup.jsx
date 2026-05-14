@@ -5,7 +5,7 @@ import { RoleCount } from "components/Roles";
 import { filterProfanity } from "components/Basic";
 import { SearchBar } from "components/Nav";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
-import { hyphenDelimit } from "utils";
+import GameIcon from "components/GameIcon";
 
 import {
   Box,
@@ -868,12 +868,6 @@ export function FullRoleList({ setup, compact = false }) {
       )}
     </Stack>
   );
-}
-
-export function GameIcon(props) {
-  const gameType = hyphenDelimit(props.gameType);
-
-  return <div className={`game-icon ${gameType}`} />;
 }
 
 export function GameStateIcon(props) {
