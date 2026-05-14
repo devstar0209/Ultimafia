@@ -118,6 +118,9 @@ function Main(props) {
   const AvatarShop = lazy(() => import("pages/Shop/AvatarShop"));
   const EmoteShop = lazy(() => import("pages/Shop/EmoteShop"));
   const AuthAction = lazy(() => import("pages/AuthAction/AuthAction"));
+  const DiscordRedirect = lazy(() =>
+    import("pages/DiscordRedirect/DiscordRedirect")
+  );
 
   const siteContent = (
     <Stack sx={{
@@ -157,6 +160,7 @@ function Main(props) {
                   <Route path="policy/*" element={<Policy />} />
                   <Route path="user/*" element={<User />} />
                   <Route path="auth/action" element={<AuthAction />} />
+                  <Route path="auth/discord/redirect" element={<DiscordRedirect />} />
                   <Route path="shop" element={<Shop />} />
                   <Route path="shop/avatars" element={<AvatarShop />} />
                   <Route path="shop/emotes" element={<EmoteShop />} />

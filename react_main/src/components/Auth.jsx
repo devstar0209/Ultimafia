@@ -28,7 +28,6 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
@@ -52,6 +51,9 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const googleProvider = new GoogleAuthProvider();
   const skips = JSON.parse(import.meta.env.REACT_APP_RECAP_SKIP || "[]");
+  const isDevelopment =
+    import.meta.env.REACT_APP_ENVIRONMENT === "development" ||
+    import.meta.env.MODE === "development";
   const isRegister = tabValue === 1;
   const authTitle = showForgotPassword
     ? "Reset your password"
@@ -112,6 +114,63 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     url: `${window.location.origin}/auth/action`,
     handleCodeInApp: false,
   });
+
+  const handleFirebaseSession = async (userCred) => {
+    const idToken = await userCred.user.getIdToken(true);
+    await axios.post("/api/auth", { idToken });
+    if (asDialog && onClose) {
+      onClose();
+    }
+    window.location.reload();
+  };
+
+  const handleBackendAuthError = (err) => {
+    if (err?.response?.status !== 403 || !err?.response?.data) {
+      return false;
+    }
+
+    try {
+      const data =
+        typeof err.response.data === "string"
+          ? JSON.parse(err.response.data)
+          : err.response.data;
+      if (data.siteBanned) {
+        snackbarHook.popSiteBanned(data.banExpires);
+        return true;
+      }
+      if (data.deleted) {
+        snackbarHook.popUserDeleted();
+        return true;
+      }
+    } catch (parseErr) {
+      return false;
+    }
+
+    return false;
+  };
+
+  const handleFirebaseLoginError = (err) => {
+    if (err?.message?.includes("(auth/too-many-requests)")) {
+      snackbarHook.popTooManyLoginAttempts();
+    } else {
+      snackbarHook.popLoginFailed();
+    }
+    console.error(err);
+  };
+
+  const redirectToDiscord = async () => {
+    setLoading(true);
+    try {
+      if (!isDevelopment) {
+        await verifyRecaptcha("auth");
+      }
+
+      window.location.href = "/api/auth/discord";
+    } catch (err) {
+      handleFirebaseLoginError(err);
+      setLoading(false);
+    }
+  };
 
   // Reset form when tab changes
   useEffect(() => {
@@ -203,41 +262,19 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     }
 
     try {
-      if (import.meta.env.MODE !== "development" && emailTest) {
+      if (!isDevelopment && emailTest) {
         await verifyRecaptcha("auth");
       }
 
       const auth = getAuth();
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await userCred.user.getIdToken(true);
 
       try {
-        await axios.post("/api/auth", { idToken });
-        if (asDialog && onClose) {
-          onClose();
-        }
-        window.location.reload();
+        await handleFirebaseSession(userCred);
       } catch (err) {
-        // Check if this is a site-ban error
-        if (err?.response?.status === 403 && err?.response?.data) {
-          try {
-            const data =
-              typeof err.response.data === "string"
-                ? JSON.parse(err.response.data)
-                : err.response.data;
-            if (data.siteBanned) {
-              snackbarHook.popSiteBanned(data.banExpires);
-              setLoading(false);
-              return;
-            }
-            if (data.deleted) {
-              snackbarHook.popUserDeleted();
-              setLoading(false);
-              return;
-            }
-          } catch (parseErr) {
-            // Not a site-ban error, continue with regular error handling
-          }
+        if (handleBackendAuthError(err)) {
+          setLoading(false);
+          return;
         }
 
         snackbarHook.popUnexpectedError();
@@ -265,12 +302,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
         }
       }
     } catch (err) {
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-      console.error(err);
+      handleFirebaseLoginError(err);
     }
 
     setLoading(false);
@@ -279,75 +311,30 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const loginGoogle = async () => {
     setLoading(true);
     try {
-      if (import.meta.env.MODE !== "development") {
+      if (!isDevelopment) {
         await verifyRecaptcha("auth");
       }
       const userCred = await signInWithPopup(getAuth(), googleProvider);
-      const idToken = await userCred.user.getIdToken(true);
 
       try {
-        await axios.post("/api/auth", { idToken });
-        if (asDialog && onClose) {
-          onClose();
-        }
-        window.location.reload();
+        await handleFirebaseSession(userCred);
       } catch (err) {
-        // Check if this is a site-ban error
-        if (err?.response?.status === 403 && err?.response?.data) {
-          try {
-            const data =
-              typeof err.response.data === "string"
-                ? JSON.parse(err.response.data)
-                : err.response.data;
-            if (data.siteBanned) {
-              snackbarHook.popSiteBanned(data.banExpires);
-              setLoading(false);
-              return;
-            }
-            if (data.deleted) {
-              snackbarHook.popUserDeleted();
-              setLoading(false);
-              return;
-            }
-          } catch (parseErr) {
-            // Not a site-ban error, continue with regular error handling
-          }
+        if (handleBackendAuthError(err)) {
+          setLoading(false);
+          return;
         }
 
         snackbarHook.popUnexpectedError();
         console.error(err);
       }
     } catch (err) {
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-      console.error(err);
+      handleFirebaseLoginError(err);
     }
     setLoading(false);
   };
 
   const loginDiscord = async () => {
-    setLoading(true);
-    try {
-      let hrefUrl;
-      if (import.meta.env.MODE !== "development") {
-        await verifyRecaptcha("auth");
-        hrefUrl = window.location.origin + "/auth/discord";
-      } else {
-        hrefUrl = window.location.origin + ":3000/auth/discord";
-      }
-      window.location.href = hrefUrl;
-    } catch (err) {
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-      console.error(err);
-    }
-    setLoading(false);
+    await redirectToDiscord();
   };
 
   // Register handlers
@@ -369,7 +356,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
 
       setLoading(true);
 
-      if (import.meta.env.MODE !== "development") {
+      if (!isDevelopment) {
         await verifyRecaptcha("auth");
       }
 
@@ -416,38 +403,29 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (import.meta.env.MODE !== "development") {
+      if (!isDevelopment) {
         await verifyRecaptcha("auth");
       }
-      await signInWithRedirect(getAuth(), googleProvider);
+      const userCred = await signInWithPopup(getAuth(), googleProvider);
+      await handleFirebaseSession(userCred);
     } catch (err) {
-      if (!err?.message) return;
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
+      if (handleBackendAuthError(err)) {
+        setLoading(false);
+        return;
+      }
+
+      if (err?.response) {
+        snackbarHook.popUnexpectedError();
+        console.error(err);
       } else {
-        snackbarHook.popLoginFailed();
+        handleFirebaseLoginError(err);
       }
     }
     setLoading(false);
   };
 
   const registerDiscord = async () => {
-    setLoading(true);
-    try {
-      let hrefUrl =
-        import.meta.env.MODE !== "development"
-          ? `${window.location.origin}/auth/discord`
-          : `${window.location.origin}:3000/auth/discord`;
-      window.location.href = hrefUrl;
-    } catch (err) {
-      if (!err?.message) return;
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-    }
-    setLoading(false);
+    await redirectToDiscord();
   };
 
   // Forgot password handlers
@@ -480,7 +458,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     }
 
     try {
-      if (import.meta.env.MODE !== "development" && emailTest) {
+      if (!isDevelopment && emailTest) {
         await verifyRecaptcha("auth");
       }
 
