@@ -51,6 +51,9 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const googleProvider = new GoogleAuthProvider();
   const skips = JSON.parse(import.meta.env.REACT_APP_RECAP_SKIP || "[]");
+  const isDevelopment =
+    import.meta.env.REACT_APP_ENVIRONMENT === "development" ||
+    import.meta.env.MODE === "development";
   const isRegister = tabValue === 1;
   const authTitle = showForgotPassword
     ? "Reset your password"
@@ -155,6 +158,20 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     console.error(err);
   };
 
+  const redirectToDiscord = async () => {
+    setLoading(true);
+    try {
+      if (!isDevelopment) {
+        await verifyRecaptcha("auth");
+      }
+
+      window.location.href = "/api/auth/discord";
+    } catch (err) {
+      handleFirebaseLoginError(err);
+      setLoading(false);
+    }
+  };
+
   // Reset form when tab changes
   useEffect(() => {
     setPassword("");
@@ -245,7 +262,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     }
 
     try {
-      if (import.meta.env.MODE !== "development" && emailTest) {
+      if (!isDevelopment && emailTest) {
         await verifyRecaptcha("auth");
       }
 
@@ -294,7 +311,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   const loginGoogle = async () => {
     setLoading(true);
     try {
-      if (import.meta.env.MODE !== "development") {
+      if (!isDevelopment) {
         await verifyRecaptcha("auth");
       }
       const userCred = await signInWithPopup(getAuth(), googleProvider);
@@ -317,25 +334,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   };
 
   const loginDiscord = async () => {
-    setLoading(true);
-    try {
-      let hrefUrl;
-      if (import.meta.env.MODE !== "development") {
-        await verifyRecaptcha("auth");
-        hrefUrl = window.location.origin + "/auth/discord";
-      } else {
-        hrefUrl = window.location.origin + ":3000/auth/discord";
-      }
-      window.location.href = hrefUrl;
-    } catch (err) {
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-      console.error(err);
-    }
-    setLoading(false);
+    await redirectToDiscord();
   };
 
   // Register handlers
@@ -357,7 +356,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
 
       setLoading(true);
 
-      if (import.meta.env.MODE !== "development") {
+      if (!isDevelopment) {
         await verifyRecaptcha("auth");
       }
 
@@ -404,7 +403,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (import.meta.env.MODE !== "development") {
+      if (!isDevelopment) {
         await verifyRecaptcha("auth");
       }
       const userCred = await signInWithPopup(getAuth(), googleProvider);
@@ -426,22 +425,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
   };
 
   const registerDiscord = async () => {
-    setLoading(true);
-    try {
-      let hrefUrl =
-        import.meta.env.MODE !== "development"
-          ? `${window.location.origin}/auth/discord`
-          : `${window.location.origin}:3000/auth/discord`;
-      window.location.href = hrefUrl;
-    } catch (err) {
-      if (!err?.message) return;
-      if (err.message.includes("(auth/too-many-requests)")) {
-        snackbarHook.popTooManyLoginAttempts();
-      } else {
-        snackbarHook.popLoginFailed();
-      }
-    }
-    setLoading(false);
+    await redirectToDiscord();
   };
 
   // Forgot password handlers
@@ -474,7 +458,7 @@ export const Auth = ({ defaultTab = 0, open, onClose, asDialog = false }) => {
     }
 
     try {
-      if (import.meta.env.MODE !== "development" && emailTest) {
+      if (!isDevelopment && emailTest) {
         await verifyRecaptcha("auth");
       }
 

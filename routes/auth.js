@@ -14,21 +14,53 @@ const router = express.Router();
 const passport = require("passport");
 const DiscordStrategy = require("passport-discord").Strategy;
 
-let callbackUrl;
+const isDevelopment = String(process.env.NODE_ENV || "").includes(
+  "development"
+);
 
-if (process.env.NODE_ENV.includes("development")) {
-  callbackUrl = "http://127.0.0.1:3000/auth/discord/redirect";
-} else {
-  callbackUrl = process.env.BASE_URL + "/auth/discord/redirect";
+function sendDiscordAuthFailure(res, err) {
+  if (err?.siteBanned) {
+    res.status(403);
+    res.send(
+      JSON.stringify({
+        siteBanned: true,
+        banExpires: err.banExpires,
+      })
+    );
+    return;
+  }
+
+  if (err?.deleted) {
+    res.status(403);
+    res.send(JSON.stringify({ deleted: true }));
+    return;
+  }
+
+  res.status(403);
+  res.send(JSON.stringify({ error: "Discord authentication failed." }));
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function emailLookup(email, extraQuery = {}) {
+  return {
+    ...extraQuery,
+    email: {
+      $elemMatch: {
+        $regex: new RegExp(`^${escapeRegex(email)}$`, "i"),
+      },
+    },
+  };
 }
 
 passport.use(
   new DiscordStrategy(
     {
       passReqToCallback: true,
-      clientID: process.env.DISCORD_CLIENT_ID ?? "disabled hehe",
-      clientSecret: process.env.DISCORD_CLIENT_SECRET ?? "disabled hehe",
-      callbackURL: callbackUrl,
+      clientID: process.env.DISCORD_CLIENT_ID,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET,
       scope: ["identify", "email"],
     },
     async (req, accessToken, refreshToken, profile, done) => {
@@ -69,6 +101,8 @@ passport.deserializeUser(async (id, done) => {
     done(null, user);
   }
 });
+
+const startDiscordAuth = passport.authenticate("discord");
 
 const allowedEmailDomans = JSON.parse(process.env.EMAIL_DOMAINS);
 
@@ -128,25 +162,32 @@ router.post("/", async function (req, res) {
   }
 });
 
-router.get("/discord", passport.authenticate("discord"));
+router.get("/discord", startDiscordAuth);
 
-router.get("/discord/redirect", (req, res, next) => {
+router.post("/discord/complete", (req, res, next) => {
+  const code = String(req.body.code || "").trim();
+  const state = String(req.body.state || "").trim();
+
+  if (!code) {
+    res.status(400);
+    res.send(JSON.stringify({ error: "Missing Discord authorization code." }));
+    return;
+  }
+
   passport.authenticate("discord", { session: false }, (err, user, info) => {
     if (err) {
-      logger.warn(`Discord authentication error: ${err.message}`);
-      res.status(403);
-      res.send("Authentication failed.");
+      logger.warn(`Discord authentication error: ${err.message || err}`);
+      sendDiscordAuthFailure(res, err);
       return;
     }
+
     if (!req.session.user) {
-      // authSuccess failed silently - session was not created
       logger.warn("Discord authentication succeeded but no session was created");
-      res.status(403);
-      res.send("Authentication failed.");
+      sendDiscordAuthFailure(res);
       return;
     }
-    // Authentication succeeded and session was created
-    res.redirect("/");
+
+    res.sendStatus(200);
   })(req, res, next);
 });
 
@@ -161,7 +202,7 @@ router.post("/verifyCaptcha", async function (req, res) {
       );
 
     if (
-      process.env.NODE_ENV.includes("development") ||
+      isDevelopment ||
       (capRes.data.success &&
         capRes.data.action == "auth" &&
         capRes.data.score > constants.captchaThreshold)
@@ -291,16 +332,45 @@ async function authSuccess(req, uid, email, discordProfile) {
 
     var id = routeUtils.getUserId(req);
     var ip = routeUtils.getIP(req);
-    var user = await models.User.findOne({ email, deleted: false }).select(
-      "id deleted discordId fbUid"
-    );
-    var bannedUser = await models.User.findOne({ email, banned: true }).select(
+    var normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!normalizedEmail) return;
+
+    var bannedLookup = emailLookup(normalizedEmail, { banned: true });
+    if (discordProfile?.id) {
+      bannedLookup = {
+        banned: true,
+        $or: [{ discordId: discordProfile.id }, emailLookup(normalizedEmail)],
+      };
+    }
+
+    var deletedLookup = emailLookup(normalizedEmail, { deleted: true });
+    if (discordProfile?.id) {
+      deletedLookup = {
+        deleted: true,
+        $or: [{ discordId: discordProfile.id }, emailLookup(normalizedEmail)],
+      };
+    }
+
+    var user = null;
+    if (discordProfile?.id) {
+      user = await models.User.findOne({
+        discordId: discordProfile.id,
+        deleted: false,
+      }).select("id deleted discordId fbUid email");
+    }
+
+    if (!user) {
+      user = await models.User.findOne(
+        emailLookup(normalizedEmail, { deleted: false })
+      ).select("id deleted discordId fbUid email");
+    }
+    var bannedUser = await models.User.findOne(bannedLookup).select(
       "id discordId"
     );
-    var deletedUser = await models.User.findOne({
-      email,
-      deleted: true,
-    }).select("id discordId");
+    var deletedUser = await models.User.findOne(deletedLookup).select(
+      "id discordId"
+    );
 
     if (!user && !bannedUser && !deletedUser) {
       //Create new account (5) (6)
@@ -311,15 +381,21 @@ async function authSuccess(req, uid, email, discordProfile) {
 
       if (bannedSameIP.length > 0) return;
 
-      var emailDomain = email.split("@")[1] || "";
+      var emailDomain = normalizedEmail.split("@")[1] || "";
 
       if (allowedEmailDomans.indexOf(emailDomain) == -1) return;
 
       var name = null;
       if (discordProfile) {
-        name = discordProfile.global_name;
-        doesItExist = await models.User.findOne({ name: name }).select("id");
-        if (doesItExist.id) {
+        name = (
+          discordProfile.global_name ||
+          discordProfile.username ||
+          ""
+        ).slice(0, constants.maxUserNameLength);
+        var doesItExist = name
+          ? await models.User.findOne({ name: name }).select("id")
+          : null;
+        if (!name || doesItExist) {
           name = routeUtils.nameGen().slice(0, constants.maxUserNameLength);
         }
       } else {
@@ -335,7 +411,7 @@ async function authSuccess(req, uid, email, discordProfile) {
       user = new models.User({
         id: id,
         name: name,
-        email: email,
+        email: normalizedEmail,
         admin: false,
         fbUid: uid,
         joined: Date.now(),
@@ -347,13 +423,13 @@ async function authSuccess(req, uid, email, discordProfile) {
         coins: registerCoinsReward,
       });
 
-      if (process.env.NODE_ENV.includes("development")) {
+      if (isDevelopment) {
         user.dev = true;
       }
 
       await user.save();
 
-      if (process.env.NODE_ENV.includes("development")) {
+      if (isDevelopment) {
         var group = await models.Group.findOne({
           name: "Owner",
         }).select("rank");
@@ -380,10 +456,9 @@ async function authSuccess(req, uid, email, discordProfile) {
       var flagReason = suspicious ? "Shared IP with flagged user" : null;
 
       if (!suspicious) {
-        var flaggedSameEmail = await models.User.find({
-          email,
-          flagged: true,
-        }).select("_id");
+        var flaggedSameEmail = await models.User.find(
+          emailLookup(normalizedEmail, { flagged: true })
+        ).select("_id");
         suspicious = flaggedSameEmail.length > 0;
         if (suspicious) flagReason = "Shared email with flagged user";
       }
@@ -504,21 +579,45 @@ async function authSuccess(req, uid, email, discordProfile) {
         return;
       }
 
-      await models.User.updateOne({ id: id }, { $addToSet: { ip: ip } });
-
-      // Link Discord profile if logging in with Discord.
-      if (discordProfile && !user.discordId) {
-        await models.User.updateOne(
-          { id: id },
-          {
-            $set: {
-              discordId: discordProfile.id,
-              discordUsername: discordProfile.username,
-              discordName: discordProfile.global_name,
-            },
-          }
+      if (
+        discordProfile &&
+        user.discordId &&
+        user.discordId !== discordProfile.id
+      ) {
+        logger.warn(
+          `Discord ID mismatch for user ${id}: stored=${user.discordId}, provided=${discordProfile.id}`
         );
+        return;
       }
+
+      if (discordProfile && !user.discordId) {
+        const existingDiscordUser = await models.User.findOne({
+          id: { $ne: id },
+          discordId: discordProfile.id,
+          deleted: false,
+        }).select("id");
+
+        if (existingDiscordUser) {
+          logger.warn(
+            `Discord ID ${discordProfile.id} is already linked to user ${existingDiscordUser.id}`
+          );
+          return;
+        }
+      }
+
+      var userUpdates = { $addToSet: { ip: ip } };
+
+      // Link or refresh Discord profile details when logging in with Discord.
+      if (discordProfile) {
+        userUpdates.$set = {
+          discordId: discordProfile.id,
+          discordUsername: discordProfile.username,
+          discordName: discordProfile.global_name,
+        };
+        userUpdates.$addToSet.email = normalizedEmail;
+      }
+
+      await models.User.updateOne({ id: id }, userUpdates);
 
       // When auto-approval is on, ensure returning users who qualify get Competitive Player.
       // This heals users who may have lost it (e.g. from cache/DB issues) and keeps them in sync.
