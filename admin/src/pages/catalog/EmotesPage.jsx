@@ -240,9 +240,16 @@ export default function EmotesPage({ search = "" }) {
     if (!window.confirm(`Delete emote ":${item.name}:" from "${group.name}"?`)) return;
     setDeletingItemId(item.id);
     try {
-      await deleteAdminEmoteItem(group.key, item.id);
+      const response = await deleteAdminEmoteItem(group.key, item.id);
+      const nextGroupEmotes =
+        response?.emotes || (group.emotes || []).filter((emote) => emote.id !== item.id);
+
+      setEmotes((prev) =>
+        prev.map((emote) =>
+          emote.key === group.key ? { ...emote, emotes: nextGroupEmotes } : emote
+        )
+      );
       setFeedback({ severity: "success", message: "Emote removed from group." });
-      await loadEmotes(page, rowsPerPage);
     } catch (err) {
       setFeedback({
         severity: "error",
