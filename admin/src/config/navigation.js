@@ -106,7 +106,7 @@ export const menuGroups = [
       {
         key: "catalog-emotes",
         label: "Emotes",
-        path: "/catalog/emotes",
+        path: "/admin/catalog/emotes",
         description: "Chat emotes",
       },
     ],
