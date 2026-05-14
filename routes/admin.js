@@ -1517,12 +1517,18 @@ router.delete("/emotes/:key/items/:itemId", async function (req, res) {
       return;
     }
 
-    utils.removeUploadFile(item.imageUrl);
+    const existingAsset = listEmoteGroupAssets(key).find((asset) => asset.id === itemId);
+    if (!existingAsset) {
+      res.status(404).send("Emote item not found.");
+      return;
+    }
+
+    utils.removeUploadFile(existingAsset.imageUrl);
     await models.CustomEmote.updateMany(
       { id: itemId },
       { $set: { deleted: true } }
     ).exec();
-    await models.EmoteGroup.updateOne({ key }, { $set: { imageUrl: "", updatedAt: Date.now() } }).exec();
+    await models.EmoteGroup.updateOne({ key }, { $set: { updatedAt: Date.now() } }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group Item", [
       key,
       itemId,
@@ -1550,13 +1556,7 @@ router.delete("/emotes/:key", async function (req, res) {
       return;
     }
 
-    const groupAssets = listEmoteGroupAssets(key);
-    utils.removeUploadFile(existing.imageUrl);
-    removeEmoteGroupAssets(key);
-    await models.CustomEmote.updateMany(
-      { id: { $in: groupAssets.map((asset) => asset.id) } },
-      { $set: { deleted: true } }
-    ).exec();
+    utils.removeUploadDir(`${utils.EMOTES_UPLOAD_PATH}/${key}`);
     await models.EmoteGroup.deleteOne({ key }).exec();
     await routeUtils.createModAction(sessionInfo.user.id, "Deleted Emote Group", [key]);
     shopModule.invalidateShopItemsCache();
