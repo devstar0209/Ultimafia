@@ -67,8 +67,10 @@ const GameStatus = (props) => {
       color={buttonColor}
       disabled={buttonDisabled}
       sx={{
+        minHeight: 34,
         p: 0.5,
         width: "100%",
+        borderRadius: 1,
         fontWeight: "bold",
       }}
     >
@@ -77,7 +79,7 @@ const GameStatus = (props) => {
   );
 
   const gameButtonWrapped = (
-    <Box sx={{ width: "100px", ml: 0.5 }}>
+    <Box sx={{ width: 104 }}>
       {canShowGameButton && GameButton}
       <div
         style={{
@@ -106,10 +108,10 @@ const GameStatus = (props) => {
   return (
     <Stack
       direction="row"
-      spacing={1}
+      spacing={0.75}
       sx={{
-        ml: 1,
         alignItems: "center",
+        flexShrink: 0,
       }}
     >
       {/* LOBBY ICON GOES HERE */}
@@ -131,8 +133,6 @@ const GameStatus = (props) => {
           alignItems: "stretch",
           justifyContent: "center",
           alignSelf: "stretch",
-          ml: 1,
-          mr: 0.5,
         }}
       >
         <PlayerCount
@@ -180,7 +180,7 @@ export const GameRow = (props) => {
   if (!props.game.setup) return <></>;
 
   return (
-    <div className="shiny-container" style={{ minwidth: "0px" }}>
+    <div className="shiny-container" style={{ minWidth: "0px", width: "100%" }}>
       {props.game.competitive && <i className="shiny" />}
       <HostGameDialogue
         open={ishostGameDialogueOpen}
@@ -188,27 +188,34 @@ export const GameRow = (props) => {
         setup={props.game.setup}
       />
       <Stack
-        direction="row"
-        spacing={1}
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.25}
         sx={{
-          p: 1,
+          p: 1.25,
           width: "100%",
-          alignItems: "center",
-          background: getRowColor(props.game, false),
+          alignItems: { xs: "stretch", sm: "center" },
+          background: `linear-gradient(90deg, ${getRowColor(
+            props.game,
+            false
+          )}, rgba(255, 255, 255, 0.02))`,
+          transition: "background 160ms ease",
+          "&:hover": {
+            background: getRowColor(props.game, true),
+          },
         }}
         key={props.game.id}
       >
         <GameStatus
           small={props?.small}
           game={props.game}
-          status={props.status}
+          status={props.game.status}
           showGameTypeIcon={showGameTypeIcon}
           showGameState={showGameState}
         />
         <Stack
           direction="column"
           sx={{
-            minwidth: 0,
+            minWidth: 0,
             flex: "1 1",
           }}
         >
