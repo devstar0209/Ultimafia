@@ -442,27 +442,13 @@ export default function LobbyBrowser() {
             flex: 1,
           }}
         >
-          <GameIcon gameType={selectedGameType} size={28} circular />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h3" color="primary" noWrap>
               Live Rooms
             </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {games.length} shown in {selectedGameMeta.title || selectedGameType}
-            </Typography>
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          {user.loggedIn && (
-            <Button
-              variant="contained"
-              size="small"
-              href="/play/create"
-              startIcon={<AddRoundedIcon />}
-            >
-              Create Host
-            </Button>
-          )}
           <div onClick={refreshGames}>
             <RefreshButton isSpinning={refreshButtonIsSpinning} />
           </div>
