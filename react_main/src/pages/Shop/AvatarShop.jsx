@@ -171,7 +171,9 @@ export default function AvatarShop(props) {
                         height: 60,
                         borderRadius: "8px",
                         backgroundColor: "rgba(255,255,255,0.06)",
-                        backgroundImage: url(avatar.imageUrl),
+                        backgroundImage: avatar.imageUrl
+                          ? `url("${avatar.imageUrl}")`
+                          : "none",
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         border: "1px solid rgba(255,255,255,0.08)",
