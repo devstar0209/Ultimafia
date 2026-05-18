@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import axios from "axios";
 
 import { useErrorAlert } from "../../components/Alerts";
@@ -8,6 +8,10 @@ import { UserContext, SiteInfoContext } from "../../Contexts";
 import {
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Typography,
   Card,
   CardContent,
@@ -17,8 +21,6 @@ import {
 } from "@mui/material";
 
 import { Loading } from "../../components/Loading";
-
-import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
 const formatUsdAmount = (amount) =>
   Number(amount || 0).toLocaleString(undefined, {
@@ -45,18 +47,18 @@ function formatItemPrice(item = {}) {
     : `${item.price} coins`;
 }
 
-export default function AvatarShop(props) {
+export default function AvatarShop() {
   const [shopInfo, setShopInfo] = useState({
     avatarItems: [],
     equippedAvatarKey: "",
   });
   const [loaded, setLoaded] = useState(false);
+  const [avatarToBuy, setAvatarToBuy] = useState(null);
+  const [isBuyingAvatar, setIsBuyingAvatar] = useState(false);
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
-  const isPhoneDevice = useIsPhoneDevice();
-  const navigate = useNavigate();
 
   useEffect(() => {
     document.title = "Avatar Shop | PassionMafia";
@@ -78,9 +80,17 @@ export default function AvatarShop(props) {
     axios
       .post("/api/user/avatar/equip", { avatarKey })
       .then((res) => {
+        const equippedAvatarKey = res.data.avatarKey || avatarKey;
         setShopInfo((prev) => ({
           ...prev,
-          equippedAvatarKey: res.data.avatarKey || avatarKey,
+          equippedAvatarKey,
+        }));
+        user.set((prev) => ({
+          ...prev,
+          settings: {
+            ...(prev.settings || {}),
+            equippedAvatarKey,
+          },
         }));
         siteInfo.showAlert("Avatar equipped.", "success");
       })
@@ -90,13 +100,18 @@ export default function AvatarShop(props) {
   function onBuyItem(avatarKey) {
     const avatar = shopInfo.avatarItems.find((item) => item.key === avatarKey);
     if (!avatar) return;
+    setAvatarToBuy(avatar);
+  }
 
-    const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${avatar.name} for ${formatItemPrice(avatar)}?`
-    );
+  function closeBuyAvatarModal() {
+    if (isBuyingAvatar) return;
+    setAvatarToBuy(null);
+  }
 
-    if (!shouldBuy) return;
-
+  function confirmBuyAvatar() {
+    const avatar = avatarToBuy;
+    if (!avatar) return;
+    setIsBuyingAvatar(true);
     axios
       .post("/api/shop/purchase", { key: avatar.key })
       .then((res) => {
@@ -107,7 +122,7 @@ export default function AvatarShop(props) {
           balance: res.data.balance,
           balanceDollar: res.data.balanceDollar,
           avatarItems: prev.avatarItems.map((item) =>
-            item.key === avatarKey ? { ...item, owned: true } : item
+            item.key === avatar.key ? { ...item, owned: true } : item
           ),
         }));
         user.set((prev) => ({
@@ -117,16 +132,28 @@ export default function AvatarShop(props) {
         }));
 
         // Auto-equip the newly purchased avatar
-        return axios.post("/api/user/avatar/equip", { avatarKey });
+        return axios.post("/api/user/avatar/equip", { avatarKey: avatar.key });
       })
       .then((res) => {
+        const equippedAvatarKey = res.data.avatarKey || avatar.key;
         setShopInfo((prev) => ({
           ...prev,
-          equippedAvatarKey: res.data.avatarKey || avatarKey,
+          equippedAvatarKey,
+        }));
+        user.set((prev) => ({
+          ...prev,
+          settings: {
+            ...(prev.settings || {}),
+            equippedAvatarKey,
+          },
         }));
         siteInfo.showAlert("Avatar equipped.", "success");
+        setAvatarToBuy(null);
       })
-      .catch(errorAlert);
+      .catch(errorAlert)
+      .finally(() => {
+        setIsBuyingAvatar(false);
+      });
   }
 
   if (user.loaded && !user.loggedIn) return <Navigate to="/play" />;
@@ -137,7 +164,9 @@ export default function AvatarShop(props) {
     <Stack direction="column" spacing={2}>
       <Grid2 container spacing={2}>
         {shopInfo.avatarItems.map((avatar) => {
-          const isEquipped = user.settings.equippedAvatarKey === avatar.key;
+          const equippedAvatarKey =
+            shopInfo.equippedAvatarKey || user.settings?.equippedAvatarKey;
+          const isEquipped = equippedAvatarKey === avatar.key;
           return (
             <Grid2
               key={avatar.key}
@@ -252,6 +281,91 @@ export default function AvatarShop(props) {
           </Stack>
         </Paper>
       )}
+
+      <Dialog
+        open={Boolean(avatarToBuy)}
+        onClose={closeBuyAvatarModal}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Buy Avatar</DialogTitle>
+        <DialogContent dividers>
+          {avatarToBuy && (
+            <Stack direction="column" spacing={2}>
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 72,
+                    height: 72,
+                    flex: "0 0 auto",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    backgroundImage: avatarToBuy.imageUrl
+                      ? `url("${avatarToBuy.imageUrl}")`
+                      : "none",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h6" sx={{ overflowWrap: "anywhere" }}>
+                    {avatarToBuy.name || "Avatar"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    This avatar will be equipped after purchase.
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Box
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 1.5,
+                  px: 2,
+                  py: 1.5,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Price
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                    {formatItemPrice(avatarToBuy)}
+                  </Typography>
+                  <Box
+                    component="i"
+                    className={
+                      isDollarBalanceItem(avatarToBuy)
+                        ? "fas fa-wallet"
+                        : "fas fa-coins"
+                    }
+                    aria-hidden="true"
+                    sx={{
+                      fontSize: 16,
+                      color: isDollarBalanceItem(avatarToBuy)
+                        ? "success.main"
+                        : "#f5c542",
+                    }}
+                  />
+                </Stack>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeBuyAvatarModal} disabled={isBuyingAvatar}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={confirmBuyAvatar}
+            disabled={!avatarToBuy || isBuyingAvatar}
+          >
+            {isBuyingAvatar ? "Buying..." : "Buy Avatar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
