@@ -55,24 +55,29 @@
 .player-count {
   display: inline-block;
   position: relative;
-  width: 100px;
+  width: 104px;
+  min-height: 34px;
+  overflow: hidden;
 
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
 
-  font-size: 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
   text-align: center;
 }
 
 .player-count progress {
   position: absolute;
+  top: 0;
+  left: 50%;
   height: 100%;
   width: 100%;
   transform: translateX(-50%);
 
   color: #0064b4;
   border: 1px solid rgba(12, 12, 12, 0.15);
-  border-radius: 4px;
+  border-radius: inherit;
 
   background-color: rgba(211, 211, 211, 0.15);
 }

@@ -13,6 +13,8 @@ import { Loading } from "components/Loading";
 import {
   Box,
   Button,
+  Chip,
+  Divider,
   Grid2,
   ListItem,
   Paper,
@@ -20,6 +22,10 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { useLoading } from "../../../hooks/useLoading";
 import { GameRow } from "./GameRow";
 import { RecentlyPlayedSetups } from "./RecentlyPlayedSetups";
@@ -193,9 +199,54 @@ export default function LobbyBrowser() {
   if (!user.loaded) return <Loading small />;
   // Allow logged-out users to access LobbyBrowser
 
+  const selectedGameMeta =
+    gameCatalog.find((game) => game.key === selectedGameType) ||
+    gameCatalog[0] ||
+    {};
+  const selectedOpenCount = openGamesCounts[selectedGameType] || 0;
+  const totalOpenCount = Object.values(openGamesCounts).reduce(
+    (total, count) => total + count,
+    0
+  );
+  const panelSx = {
+    border: 1,
+    borderColor: "divider",
+    borderRadius: 1,
+    background:
+      theme.palette.mode === "dark"
+        ? "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02))"
+        : "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72))",
+    boxShadow:
+      theme.palette.mode === "dark"
+        ? "0 18px 48px rgba(0, 0, 0, 0.24)"
+        : "0 18px 48px rgba(33, 43, 54, 0.12)",
+    overflow: "hidden",
+  };
+
   const gameCategoryPanel = (
-    <Paper sx={{ p: 1 }}>
-      <Stack spacing={0.5}>
+    <Paper sx={{ ...panelSx, p: 1 }}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1,
+          py: 0.75,
+        }}
+      >
+        <Typography variant="h3" color="primary">
+          Library
+        </Typography>
+        <Chip
+          size="small"
+          icon={<SportsEsportsRoundedIcon />}
+          label={totalOpenCount}
+          color="secondary"
+          sx={{ borderRadius: 1, fontWeight: 800 }}
+        />
+      </Stack>
+      <Divider sx={{ mb: 1 }} />
+      <Stack spacing={0.75}>
         {gameCatalog.map((game) => (
           <Box
             key={`game-category-${game.key}`}
@@ -203,35 +254,39 @@ export default function LobbyBrowser() {
             onClick={() => setSelectedGameType(game.key)}
             sx={{
               width: "100%",
-              border: "1px solid",
+              border: 1,
               borderColor:
                 selectedGameType === game.key ? "primary.main" : "divider",
               borderRadius: 1,
-              px: 1,
-              py: 0.75,
+              px: 1.25,
+              py: 1,
               display: "flex",
               alignItems: "center",
               gap: 1,
               cursor: "pointer",
               backgroundColor:
                 selectedGameType === game.key
-                  ? "action.selected"
-                  : "background.paper",
+                  ? "rgba(var(--mui-palette-primary-mainChannel) / 0.14)"
+                  : "transparent",
+              color: "text.primary",
+              transition:
+                "background-color 160ms ease, border-color 160ms ease, transform 160ms ease",
               "&:hover": {
                 backgroundColor: "action.hover",
+                transform: "translateY(-1px)",
               },
             }}
           >
-            <GameIcon gameType={game.key} size={22} circular />
+            <GameIcon gameType={game.key} size={34} circular />
             <Stack
               direction="column"
               sx={{
-                minwidth: 0,
+                minWidth: 0,
                 flex: 1,
                 textAlign: "left",
               }}
             >
-              <Typography variant="body2">
+              <Typography variant="body2" noWrap sx={{ fontWeight: 800 }}>
                 {game.title}
               </Typography>
               {Number(game.coins || 0) > 0 && (
@@ -268,13 +323,17 @@ export default function LobbyBrowser() {
             <Typography
               variant="caption"
               sx={{
-                borderRadius: 10,
+                borderRadius: 1,
                 px: 0.75,
-                py: 0.2,
-                backgroundColor: theme.palette.secondary.main,
+                py: 0.35,
+                backgroundColor:
+                  selectedGameType === game.key
+                    ? "primary.main"
+                    : "rgba(var(--mui-palette-secondary-mainChannel) / 0.22)",
                 color: "white",
-                minwidth: "22px",
+                minWidth: "28px",
                 textAlign: "center",
+                fontWeight: 800,
               }}
             >
               {openGamesCounts[game.key] || 0}
@@ -286,20 +345,34 @@ export default function LobbyBrowser() {
   );
 
   const gameList = loading ? (
-    <Loading small />
+    <Box sx={{ py: 5 }}>
+      <Loading small />
+    </Box>
   ) : games.length ? (
-    <Stack direction="column" spacing={1}>
+    <Stack direction="column" spacing={1.25}>
       {games.map((game) => {
         return (
-          <ListItem disablePadding key={game.id}>
+          <ListItem
+            disablePadding
+            key={game.id}
+            sx={{
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 1,
+              overflow: "hidden",
+              backgroundColor: "background.paper",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0 10px 30px rgba(0, 0, 0, 0.22)"
+                  : "0 10px 30px rgba(33, 43, 54, 0.1)",
+            }}
+          >
             <Box
               className={game.competitive ? "metallic-gold" : undefined}
               sx={{
                 backgroundColor: getRowStubColor(game),
-                borderTopLeftRadius: "var(--mui-shape-borderRadius)",
-                borderBottomLeftRadius: "var(--mui-shape-borderRadius)",
                 alignSelf: "stretch",
-                minwidth: "16px",
+                minWidth: "8px",
               }}
             />
             <GameRow
@@ -315,15 +388,43 @@ export default function LobbyBrowser() {
       })}
     </Stack>
   ) : (
-    <Typography style={{ textAlign: "center" }}>
-      No open games in this category right now.
-    </Typography>
+    <Paper
+      variant="outlined"
+      sx={{
+        borderRadius: 1,
+        py: 6,
+        px: 2,
+        textAlign: "center",
+        backgroundColor: "rgba(var(--mui-palette-primary-mainChannel) / 0.05)",
+      }}
+    >
+      <SportsEsportsRoundedIcon color="primary" sx={{ fontSize: 42, mb: 1 }} />
+      <Typography variant="h3" color="primary">
+        No live rooms
+      </Typography>
+      <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+        No open {selectedGameMeta.title || selectedGameType} games are listed
+        right now.
+      </Typography>
+      {user.loggedIn && (
+        <Button
+          variant="contained"
+          size="small"
+          href="/play/create"
+          startIcon={<AddRoundedIcon />}
+          sx={{ mt: 2 }}
+        >
+          Create Host
+        </Button>
+      )}
+    </Paper>
   );
 
   const buttons = (
-    <Paper>
+    <Paper sx={{ ...panelSx, p: 1.25 }}>
       <Stack
-        direction="row"
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.25}
         sx={{
           width: "100%",
           alignItems: "center",
@@ -331,19 +432,23 @@ export default function LobbyBrowser() {
         }}
       >
         <PageNav page={page} onNav={(page) => getGameList(listType, page)} />
-        <Typography variant="h3" color="primary">
-          Games
-        </Typography>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h3" color="primary" noWrap>
+              Live Rooms
+            </Typography>
+          </Box>
+        </Stack>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          {user.loggedIn && (
-            <Button
-              variant="outlined"
-              size="small"
-              href="/play/create"
-            >
-              Create Host
-            </Button>
-          )}
           <div onClick={refreshGames}>
             <RefreshButton isSpinning={refreshButtonIsSpinning} />
           </div>
@@ -353,7 +458,77 @@ export default function LobbyBrowser() {
   );
 
   return (
-    <Stack direction="column" spacing={1} sx={{ pt: 4 }}>
+    <Box
+      sx={{
+        pt: 3,
+        pb: 4,
+        px: { xs: 1, sm: 2 },
+      }}
+    >
+      <Stack spacing={2}>
+        <Paper
+          sx={{
+            ...panelSx,
+            p: { xs: 2, md: 2.5 },
+            background:
+              theme.palette.mode === "dark"
+                ? "linear-gradient(135deg, rgba(var(--mui-palette-primary-mainChannel) / 0.2), rgba(255,255,255,0.045) 45%, rgba(var(--mui-palette-secondary-mainChannel) / 0.16))"
+                : "linear-gradient(135deg, rgba(var(--mui-palette-primary-mainChannel) / 0.16), rgba(255,255,255,0.86) 45%, rgba(var(--mui-palette-secondary-mainChannel) / 0.16))",
+          }}
+        >
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            sx={{
+              alignItems: { xs: "stretch", md: "center" },
+              justifyContent: "space-between",
+            }}
+          >
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+              <GameIcon gameType={selectedGameType} size={58} circular />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h2" noWrap>
+                  {selectedGameMeta.title || selectedGameType}
+                </Typography>
+                <Typography color="text.secondary">
+                  Browse live rooms, jump into a table, or host a fresh match.
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 1,
+                justifyContent: { xs: "flex-start", md: "flex-end" },
+              }}
+            >
+              <Chip
+                icon={<BoltRoundedIcon />}
+                label={`${selectedOpenCount} open`}
+                color="primary"
+                sx={{ borderRadius: 1, fontWeight: 800 }}
+              />
+              <Chip
+                icon={<GroupsRoundedIcon />}
+                label={`${totalOpenCount} total`}
+                color="secondary"
+                sx={{ borderRadius: 1, fontWeight: 800 }}
+              />
+              {user.loggedIn && (
+                <Button
+                  variant="contained"
+                  href="/play/create"
+                  startIcon={<AddRoundedIcon />}
+                >
+                  Create Host
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        </Paper>
       <Grid2 container rowSpacing={2} columnSpacing={2}>
         <Grid2 size={{ xs: 12, md: 2.5 }}>
           <Stack spacing={1}>
@@ -362,7 +537,7 @@ export default function LobbyBrowser() {
         </Grid2>
         <Grid2 size={{ xs: 12, md: 5.5 }}>
           <Stack spacing={2}>
-            <Stack direction="column" spacing={1}>
+            <Stack direction="column" spacing={1.25}>
               {buttons}
               {gameList}
             </Stack>
@@ -384,6 +559,7 @@ export default function LobbyBrowser() {
           </Stack>
         </Grid2>
       </Grid2>
-    </Stack>
+      </Stack>
+    </Box>
   );
 }
