@@ -23,6 +23,8 @@ import {
 import { Loading } from "../../components/Loading";
 import avatarShopHero from "../../images/shop/avatars-shop.webp";
 
+const AVATAR_PAGE_SIZE = 8;
+
 const formatUsdAmount = (amount) =>
   Number(amount || 0).toLocaleString(undefined, {
     style: "currency",
@@ -293,6 +295,8 @@ export default function AvatarShop() {
   const [isBuyingAvatar, setIsBuyingAvatar] = useState(false);
   const [selectedAvatarKey, setSelectedAvatarKey] = useState("");
   const [filter, setFilter] = useState("all");
+  const [avatarPage, setAvatarPage] = useState(1);
+  const [isAvatarPageLoading, setIsAvatarPageLoading] = useState(false);
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
@@ -310,8 +314,14 @@ export default function AvatarShop() {
 
   useEffect(() => {
     if (user.loaded && user.loggedIn) {
+      setIsAvatarPageLoading(true);
       axios
-        .get("/api/shop/avatars")
+        .get("/api/shop/avatars", {
+          params: {
+            page: avatarPage,
+            pageSize: AVATAR_PAGE_SIZE,
+          },
+        })
         .then((res) => {
           const avatars = res.data.avatarItems || [];
           const equippedAvatarKey = res.data.equippedAvatarKey;
@@ -319,16 +329,23 @@ export default function AvatarShop() {
             avatars.find((item) => item.key === equippedAvatarKey)?.key ||
             avatars.find((item) => item.available && !item.owned && !isSoldOut(item))
               ?.key ||
-            avatars[0]?.key ||
+              avatars[0]?.key ||
             "";
 
           setShopInfo(res.data);
-          setSelectedAvatarKey((currentKey) => currentKey || initialSelection);
+          setSelectedAvatarKey((currentKey) =>
+            avatars.some((item) => item.key === currentKey)
+              ? currentKey
+              : initialSelection
+          );
           setLoaded(true);
         })
-        .catch((e) => errorAlertRef.current(e));
+        .catch((e) => errorAlertRef.current(e))
+        .finally(() => {
+          setIsAvatarPageLoading(false);
+        });
     }
-  }, [user.loaded, user.loggedIn]);
+  }, [avatarPage, user.loaded, user.loggedIn]);
 
   const equippedAvatarKey =
     shopInfo.equippedAvatarKey || user.settings?.equippedAvatarKey || "";
@@ -356,6 +373,13 @@ export default function AvatarShop() {
     filteredAvatars[0] ||
     avatarItems[0] ||
     null;
+  const avatarPagination = shopInfo.pagination || {
+    page: avatarPage,
+    pageSize: AVATAR_PAGE_SIZE,
+    total: avatarItems.length,
+    totalPages: 1,
+  };
+  const avatarTotalPages = Math.max(1, Number(avatarPagination.totalPages || 1));
 
   function onEquipAvatar(avatarKey) {
     axios
@@ -851,6 +875,47 @@ export default function AvatarShop() {
                   </Typography>
                 </Stack>
               </Paper>
+            )}
+
+            {avatarTotalPages > 1 && (
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  mt: 1.5,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}
+                >
+                  Page {avatarPagination.page} / {avatarTotalPages}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  aria-label="Previous avatar page"
+                  disabled={isAvatarPageLoading || avatarPage <= 1}
+                  onClick={() => setAvatarPage((page) => Math.max(1, page - 1))}
+                  sx={{ minWidth: 38, width: 38, px: 0 }}
+                >
+                  <Box component="i" className="fas fa-chevron-left" />
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  aria-label="Next avatar page"
+                  disabled={isAvatarPageLoading || avatarPage >= avatarTotalPages}
+                  onClick={() =>
+                    setAvatarPage((page) => Math.min(avatarTotalPages, page + 1))
+                  }
+                  sx={{ minWidth: 38, width: 38, px: 0 }}
+                >
+                  <Box component="i" className="fas fa-chevron-right" />
+                </Button>
+              </Stack>
             )}
           </Box>
         </Box>

@@ -144,13 +144,27 @@ async function getShopItems() {
   }
 }
 
-async function getAvatarItems() {
-  const avatarItems = await models.AvatarItem.find({
+async function getAvatarItems(options = {}) {
+  const query = {
     $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  })
-    .sort("sortOrder")
-    .lean();
+  };
+  const page = Number(options.page || 0);
+  const pageSize = Number(options.pageSize || 0);
+  const shouldPaginate = page > 0 && pageSize > 0;
+  const findQuery = models.AvatarItem.find(query).sort("sortOrder");
+
+  if (shouldPaginate) {
+    findQuery.skip((page - 1) * pageSize).limit(pageSize);
+  }
+
+  const avatarItems = await findQuery.lean();
   return avatarItems.map(buildRuntimeShopItem);
+}
+
+async function getAvatarItemCount() {
+  return models.AvatarItem.countDocuments({
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  });
 }
 
 async function getEmoteGroupItems() {
@@ -218,9 +232,14 @@ router.get("/avatars", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     const userId = await routeUtils.verifyLoggedIn(req, true);
+    const hasPagination =
+      req.query?.page !== undefined || req.query?.pageSize !== undefined;
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 8)));
 
-    const [avatarItems, user] = await Promise.all([
-      getAvatarItems(),
+    const [avatarItems, totalAvatarItems, user] = await Promise.all([
+      getAvatarItems(hasPagination ? { page, pageSize } : {}),
+      hasPagination ? getAvatarItemCount() : null,
       userId
         ? models.User.findOne({ id: userId, deleted: false })
             .select("avatarsOwned itemsOwned settings coins balanceDollar -_id")
@@ -246,6 +265,16 @@ router.get("/avatars", async function (req, res) {
       equippedAvatarKey,
       balance: Number(user?.coins || 0),
       balanceDollar: Number(user?.balanceDollar || 0),
+      ...(hasPagination
+        ? {
+            pagination: {
+              page,
+              pageSize,
+              total: totalAvatarItems,
+              totalPages: Math.max(1, Math.ceil(totalAvatarItems / pageSize)),
+            },
+          }
+        : {}),
     });
   } catch (e) {
     logger.error(e);
