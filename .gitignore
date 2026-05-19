@@ -32,3 +32,4 @@ firebase.json
 
 .DS_Store
 .claude
+*.log
