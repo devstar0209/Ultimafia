@@ -168,6 +168,7 @@ function buildRuntimeShopItem(item) {
     price: Number(item.price || 0),
     currency: item.currency,
     limit: item.limit || null,
+    holderCnt: item.holderCnt,
     disabled: false,
     propagateItemUpdates: {},
     validate: avatarItem
@@ -453,9 +454,7 @@ router.get("/emotes", async function (req, res) {
   }
 });
 
-router.post(
-  "/purchase",
-  async function (req, res) {
+router.post( "/purchase", async function (req, res) {
     try {
       var userId = await routeUtils.verifyLoggedIn(req);
       var itemIndex = Number(req.body.item);
