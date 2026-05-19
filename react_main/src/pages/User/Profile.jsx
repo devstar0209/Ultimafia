@@ -340,6 +340,7 @@ export default function Profile() {
       setSetupsPage(1);
       setSetupsMaxPage(1);
       setSetupsLoading(false);
+      setStats();
 
       axios
         .get(`/api/user/${userId}/profile`)
@@ -364,7 +365,6 @@ export default function Profile() {
           // setMaxFriendsPage(res.data.maxFriendsPage);
           setFriendRequests(res.data.friendRequests);
           setFriendsPage(1);
-          setStats(res.data.stats);
           setKudos(res.data.kudos);
           setCoinBalance(res.data.coins || 0);
           setPointsHistoryPage(0);
@@ -405,6 +405,7 @@ export default function Profile() {
           setFriendsPage(1);
           loadRecentGames(resolvedId, 1);
           loadSetups(resolvedId, 1);
+          loadStats(resolvedId);
           loadFriends(resolvedId, "", 1);
 
           // Load current user's family info if viewing another user's profile
@@ -977,6 +978,17 @@ export default function Profile() {
       .catch(() => {
         // Ignore errors
       });
+  }
+
+  function loadStats(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/stats`)
+      .then((res) => {
+        setStats(res.data?.stats || undefined);
+      })
+      .catch(errorAlert);
   }
 
   function loadRecentGames(id, pageToLoad = 1) {

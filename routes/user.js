@@ -174,6 +174,27 @@ async function buildPurchasedItems(itemsOwned, user = {}) {
     );
 }
 
+function buildUserStats(stats) {
+  const allStats = dbStats.allStats();
+  const userStats = stats || allStats;
+
+  for (let gameType in allStats) {
+    if (!userStats[gameType]) {
+      userStats[gameType] = dbStats.statsSet(gameType);
+    } else {
+      let statsSet = dbStats.statsSet(gameType);
+
+      for (let objName in statsSet) {
+        if (!userStats[gameType][objName]) {
+          userStats[gameType][objName] = statsSet[objName];
+        }
+      }
+    }
+  }
+
+  return userStats;
+}
+
 async function getPublicCurrentGame(userId) {
   const inGame = await redis.inGame(userId);
   if (!inGame) return null;
@@ -475,6 +496,37 @@ router.get("/:id/gamePoints", async function (req, res) {
   }
 });
 
+router.get("/:id/stats", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await resolveUserId(String(req.params.id));
+
+    if (!userId) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("settings stats -_id")
+      .lean();
+
+    if (!user) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    res.send({
+      stats: user.settings?.hideStatistics ? null : buildUserStats(user.stats),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Unable to load stats.");
+  }
+});
+
 router.get("/:id/profile", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
@@ -525,7 +577,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner numFriends stats lastActive joined nameChanged favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner numFriends lastActive joined nameChanged favoriteRoles roleIconCredits _id"
       );
 
     if (!user) {
@@ -545,21 +597,6 @@ router.get("/:id/profile", async function (req, res) {
 
     var userMongoId = user._id;
     delete user._id;
-
-    var allStats = dbStats.allStats();
-    user.stats = user.stats || allStats;
-
-    for (let gameType in allStats) {
-      if (!user.stats[gameType])
-        user.stats[gameType] = dbStats.statsSet(gameType);
-      else {
-        let statsSet = dbStats.statsSet(gameType);
-
-        for (let objName in statsSet)
-          if (!user.stats[gameType][objName])
-            user.stats[gameType][objName] = statsSet[objName];
-      }
-    }
 
     var archivedGames = await models.ArchivedGame.find({ user: userMongoId })
       .select("game description")
@@ -805,9 +842,6 @@ router.get("/:id/profile", async function (req, res) {
 
     if (!user.settings) user.settings = {};
 
-    if (user.settings.hideStatistics) {
-      delete user.stats;
-    }
     if (user.settings.hideKarma) {
       delete user.karmaInfo;
     }
