@@ -188,6 +188,8 @@ export default function Profile() {
   const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
   const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
   const [showPointsHistoryModal, setShowPointsHistoryModal] = useState(false);
+  const [ownedEmoteGroups, setOwnedEmoteGroups] = useState([]);
+  const [selectedEmoteGroup, setSelectedEmoteGroup] = useState(null);
   const [purchasedItems, setPurchasedItems] = useState([]);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
@@ -364,6 +366,8 @@ export default function Profile() {
       setPokeStatus({ status: "none" });
       setPokesDisabled(false);
       setIncomingPokes([]);
+      setOwnedEmoteGroups([]);
+      setSelectedEmoteGroup(null);
 
       axios
         .get(`/api/user/${userId}/profile`)
@@ -401,6 +405,7 @@ export default function Profile() {
           );
           setJoined(res.data.joined || null);
           setFriendsPage(1);
+          loadOwnedEmoteGroups(resolvedId);
           loadPurchasedItems(resolvedId);
           loadArchivedGames(resolvedId);
           loadScrapbook(resolvedId);
@@ -839,6 +844,13 @@ export default function Profile() {
     setShowPointsHistoryModal(false);
   }
 
+  function onEmoteGroupKeyDown(event, group) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setSelectedEmoteGroup(group);
+    }
+  }
+
   function onBioClick() {
     setEditingBio(isSelf);
     setOldBio(bio);
@@ -1004,6 +1016,19 @@ export default function Profile() {
           Array.isArray(res.data?.purchasedItems)
             ? res.data.purchasedItems
             : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadOwnedEmoteGroups(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/emoteGroups`)
+      .then((res) => {
+        setOwnedEmoteGroups(
+          Array.isArray(res.data?.emoteGroups) ? res.data.emoteGroups : []
         );
       })
       .catch(errorAlert);
@@ -1873,6 +1898,63 @@ export default function Profile() {
           </Box>
         }
       />
+      <Modal
+        show={Boolean(selectedEmoteGroup)}
+        onBgClick={() => setSelectedEmoteGroup(null)}
+        header={
+          <Typography variant="h3">
+            {selectedEmoteGroup?.name || "Emote Group"}
+          </Typography>
+        }
+        content={
+          <Box sx={{ minWidth: 320, maxWidth: 720 }}>
+            {selectedEmoteGroup?.emotes?.length > 0 ? (
+              <Grid container spacing={1}>
+                {selectedEmoteGroup.emotes.map((emote) => (
+                  <Grid item xs={6} sm={4} md={3} key={emote.id}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 0.75,
+                        p: 1,
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 1,
+                          backgroundColor: "rgba(255,255,255,0.06)",
+                          backgroundImage: emote.imageUrl
+                            ? `url(${emote.imageUrl}?t=${siteInfo.cacheVal || ""})`
+                            : "none",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "center",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      />
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <Typography color="text.secondary">
+                No emotes available in this group.
+              </Typography>
+            )}
+          </Box>
+        }
+        footer={
+          <Stack direction="row" justifyContent="flex-end">
+            <Button onClick={() => setSelectedEmoteGroup(null)}>Close</Button>
+          </Stack>
+        }
+      />
       <Grid
         container
         rowSpacing={1}
@@ -1987,6 +2069,65 @@ export default function Profile() {
                 ) : (
                   <Typography color="text.secondary">
                     No game catalog points yet.
+                  </Typography>
+                )}
+              </div>
+            </div>
+            <div className="box-panel" style={panelStyle}>
+              <Typography variant="h3" style={headingStyle}>
+                Emote Groups
+              </Typography>
+              <div className="content">
+                {ownedEmoteGroups.length > 0 ? (
+                  <Grid container spacing={1}>
+                    {ownedEmoteGroups.map((group) => (
+                      <Grid item xs={12} sm={6} md={4} key={group.key}>
+                        <Box
+                          role="button"
+                          tabIndex={0}
+                          title="View emotes"
+                          onClick={() => setSelectedEmoteGroup(group)}
+                          onKeyDown={(event) => onEmoteGroupKeyDown(event, group)}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            p: 1,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 1,
+                            cursor: "pointer",
+                            minHeight: 48,
+                            "&:hover": {
+                              bgcolor: "action.hover",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              flexShrink: 0,
+                              borderRadius: 1,
+                              backgroundColor: "rgba(255,255,255,0.06)",
+                              backgroundImage: group.imageUrl
+                                ? `url(${group.imageUrl}?t=${siteInfo.cacheVal || ""})`
+                                : "none",
+                              backgroundSize: "contain",
+                              backgroundRepeat: "no-repeat",
+                              backgroundPosition: "center",
+                              border: "1px solid rgba(255,255,255,0.08)",
+                            }}
+                          />
+                          <Typography variant="body2" noWrap>
+                            {group.name || group.key}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography color="text.secondary">
+                    No emote groups yet.
                   </Typography>
                 )}
               </div>

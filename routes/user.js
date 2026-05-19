@@ -1,5 +1,6 @@
 const express = require("express");
 const bluebird = require("bluebird");
+const fs = require("fs");
 const fbAdmin = require("firebase-admin");
 const formidable = bluebird.promisifyAll(require("formidable"), {
   multiArgs: true,
@@ -193,6 +194,38 @@ function buildUserStats(stats) {
   }
 
   return userStats;
+}
+
+function getEmoteNameFromAssetId(assetId, groupKey = "") {
+  const prefix = `${groupKey}-`;
+  return String(assetId || "")
+    .replace(prefix, "")
+    .trim()
+    .toLowerCase();
+}
+
+function buildEmoteGroupAssets(groupKey) {
+  const emoteDir = utils.resolveUploadPath(
+    `${utils.EMOTES_UPLOAD_PATH}/${groupKey}`
+  );
+  if (!fs.existsSync(emoteDir)) return [];
+
+  return fs
+    .readdirSync(emoteDir)
+    .filter(
+      (filename) =>
+        filename.startsWith(`${groupKey}-`) && filename.endsWith(".webp")
+    )
+    .map((filename) => filename.replace(/\.webp$/i, ""))
+    .sort((a, b) => a.localeCompare(b))
+    .map((assetId) => ({
+      id: assetId,
+      name: getEmoteNameFromAssetId(assetId, groupKey),
+      imageUrl: utils.toPublicUrl(
+        `${utils.EMOTES_UPLOAD_PATH}/${groupKey}`,
+        assetId
+      ),
+    }));
 }
 
 async function getPublicCurrentGame(userId) {
@@ -960,6 +993,53 @@ router.get("/:id/purchasedItems", async function (req, res) {
     logger.error(e);
     res.status(500);
     res.send("Unable to load purchased items.");
+  }
+});
+
+router.get("/:id/emoteGroups", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await resolveUserId(String(req.params.id));
+
+    if (!userId) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("emoteGroupsOwned -_id")
+      .lean();
+
+    if (!user) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    const ownedKeys = user.emoteGroupsOwned || [];
+    const emoteGroups = ownedKeys.length
+      ? await models.EmoteGroup.find({ key: { $in: ownedKeys } })
+          .select("key name imageUrl sortOrder -_id")
+          .lean()
+      : [];
+
+    const sortedEmoteGroups = emoteGroups.sort(
+      (a, b) =>
+        Number(a.sortOrder || 0) - Number(b.sortOrder || 0) ||
+        String(a.name || a.key).localeCompare(String(b.name || b.key))
+    );
+
+    res.send({
+      emoteGroups: sortedEmoteGroups.map((group) => ({
+        ...group,
+        emotes: buildEmoteGroupAssets(group.key),
+      })),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Unable to load emote groups.");
   }
 });
 
