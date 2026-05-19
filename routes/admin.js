@@ -214,54 +214,6 @@ function removeEmoteGroupAssets(groupKey) {
   }
 }
 
-async function grantEmoteAssetsToGroupOwners(groupKey, assets = []) {
-  if (!assets.length) return;
-
-  const owners = await models.User.find({
-    [`itemsOwned.${groupKey}`]: { $gt: 0 },
-    deleted: false,
-  })
-    .select("id _id")
-    .lean();
-
-  for (const owner of owners) {
-    const customEmoteIds = [];
-    for (const asset of assets) {
-      const existingSameName = await models.CustomEmote.findOne({
-        creator: owner._id,
-        name: asset.name,
-        deleted: false,
-      })
-        .select("id")
-        .lean();
-      if (existingSameName && existingSameName.id !== asset.id) continue;
-
-      const customEmote = await models.CustomEmote.findOneAndUpdate(
-        { creator: owner._id, id: asset.id },
-        {
-          $set: {
-            id: asset.id,
-            name: asset.name,
-            extension: "webp",
-            creator: owner._id,
-            deleted: false,
-          },
-        },
-        { new: true, upsert: true }
-      );
-      customEmoteIds.push(customEmote._id);
-    }
-
-    if (customEmoteIds.length) {
-      await models.User.updateOne(
-        { _id: owner._id },
-        { $addToSet: { customEmotes: { $each: customEmoteIds } } }
-      ).exec();
-      await redis.cacheUserInfo(owner.id, true);
-    }
-  }
-}
-
 async function createBrandingModAction(userId, name, args = []) {
   await models.ModAction.create({
     id: shortid.generate(),
@@ -385,7 +337,7 @@ router.get("/overview", async function (req, res) {
       models.User.countDocuments({
         deleted: false,
         $or: [
-          { avatar: true },
+          { avatar: { $nin: [false, null, ""] } },
           { banner: true },
           { profileBackground: true },
         ],
@@ -827,7 +779,7 @@ router.get("/avatars", async function (req, res) {
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .select("_id key name imageUrl price currency limit hidden sortOrder updatedAt -_id")
+        .select("_id key name imageUrl price currency limit holderCnt hidden sortOrder updatedAt -_id")
         .lean()
     ]);
 
@@ -896,6 +848,7 @@ router.post("/avatars", async function (req, res) {
       price,
       currency,
       limit,
+      holderCnt: 0,
       hidden,
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
       updatedAt: Date.now(),
@@ -915,6 +868,7 @@ router.post("/avatars", async function (req, res) {
         price: Number(created.price || 0),
         currency: created.currency,
         limit: created.limit == null ? null : Number(created.limit),
+        holderCnt: created.holderCnt,
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0)
       },
@@ -966,7 +920,7 @@ router.patch("/avatars/:key", async function (req, res) {
 
     
     const updated = await models.AvatarItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
-      .select("key name desc price currency limit hidden sortOrder")
+      .select("key name desc price currency limit holderCnt hidden sortOrder")
       .lean();
     if (!updated) {
       res.status(404).send("Avatar item not found.");
@@ -984,6 +938,7 @@ router.patch("/avatars/:key", async function (req, res) {
         price: Number(updated.price || 0),
         currency: updated.currency,
         limit: updated.limit == null ? null : Number(updated.limit),
+        remaining: updated.holderCnt,
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
       },

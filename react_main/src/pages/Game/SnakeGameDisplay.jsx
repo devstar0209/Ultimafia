@@ -206,14 +206,23 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
       if (snake.segments.length > 0) {
         const p = players && players[id];
         const hasAvatar = p && p.avatar && p.userId;
+        const avatarUrl =
+          hasAvatar && typeof p.avatar === "string"
+            ? p.avatar
+            : hasAvatar
+            ? `/uploads/${p.userId}_avatar.webp`
+            : null;
         headData.push({
           x: snake.segments[0].x,
           y: snake.segments[0].y,
           id,
           name: p && p.name ? p.name : `Player ${idx + 1}`,
-          avatarUrl: hasAvatar
-            ? `/uploads/${p.userId}_avatar.webp${siteInfo ? `?t=${siteInfo.cacheVal}` : ""}`
-            : null,
+          avatarUrl:
+            avatarUrl && siteInfo
+              ? `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}t=${
+                  siteInfo.cacheVal
+                }`
+              : avatarUrl,
         });
       }
     });

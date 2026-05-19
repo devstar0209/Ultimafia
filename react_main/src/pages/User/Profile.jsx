@@ -181,12 +181,15 @@ export default function Profile() {
   const [isMarried, setIsMarried] = useState(false);
   const [kudos, setKudos] = useState(0);
   const [pointsByGameCatalog, setPointsByGameCatalog] = useState([]);
+  const [gamePointsLoading, setGamePointsLoading] = useState(false);
   const [pointsHistory, setPointsHistory] = useState([]);
   const [pointsHistoryLoading, setPointsHistoryLoading] = useState(false);
   const [pointsHistoryPage, setPointsHistoryPage] = useState(0);
   const [pointsHistoryRowsPerPage, setPointsHistoryRowsPerPage] = useState(10);
   const [pointsHistoryTotal, setPointsHistoryTotal] = useState(0);
   const [showPointsHistoryModal, setShowPointsHistoryModal] = useState(false);
+  const [ownedEmoteGroups, setOwnedEmoteGroups] = useState([]);
+  const [selectedEmoteGroup, setSelectedEmoteGroup] = useState(null);
   const [purchasedItems, setPurchasedItems] = useState([]);
   const [coinBalance, setCoinBalance] = useState(0);
   const [achievements, setAchievements] = useState([]);
@@ -198,7 +201,7 @@ export default function Profile() {
   const [pendingConfirmationTrades, setPendingConfirmationTrades] = useState([]);
   const [profileRefetchKey, setProfileRefetchKey] = useState(0);
   const [trophies, setTrophies] = useState([]);
-  const [karmaInfo, setKarmaInfo] = useState({});
+  const [karmaInfo, setKarmaInfo] = useState(null);
   const [settings, setSettings] = useState({});
   const [avatarSelectionOpen, setAvatarSelectionOpen] = useState(false);
   const [avatarShopItems, setAvatarShopItems] = useState([]);
@@ -329,6 +332,42 @@ export default function Profile() {
     if (userId) {
       setProfileLoaded(false);
       setCanonicalUserId(null);
+      setPointsByGameCatalog([]);
+      setGamePointsLoading(false);
+      setRecentGames([]);
+      setRecentGamesPage(1);
+      setRecentGamesMaxPage(1);
+      setRecentGamesLoading(false);
+      setCreatedSetups([]);
+      setSetupsPage(1);
+      setSetupsMaxPage(1);
+      setSetupsLoading(false);
+      setStats();
+      setPurchasedItems([]);
+      setArchivedGames([]);
+      setStamps([]);
+      setHiddenStamps([]);
+      setLockedCountsByRoleKey({});
+      setPendingConfirmationTrades([]);
+      setTrophies([]);
+      setKarmaInfo(null);
+      setGroups([]);
+      setFriendRequests([]);
+      setLove({});
+      setCurrentUserLove({});
+      setSaved(false);
+      setIsFriend(false);
+      setIsFriendRequested(false);
+      setIsLove(false);
+      setIsMarried(false);
+      setStatus("offline");
+      setInGame(null);
+      setProfileFamily(null);
+      setPokeStatus({ status: "none" });
+      setPokesDisabled(false);
+      setIncomingPokes([]);
+      setOwnedEmoteGroups([]);
+      setSelectedEmoteGroup(null);
 
       axios
         .get(`/api/user/${userId}/profile`)
@@ -344,43 +383,17 @@ export default function Profile() {
           setPronouns(
             filterProfanity(res.data.pronouns, user.settings, "\\*") || ""
           );
-          setIsFriend(res.data.isFriend);
-          setIsFriendRequested(res.data.isFriendRequested);
-          setIsLove(res.data.isLove);
-          setIsMarried(res.data.isMarried);
           setSettings(res.data.settings);
-          setRecentGames(res.data.games);
-          setRecentGamesPage(1);
-          setRecentGamesMaxPage(res.data.maxGamesPage || 1);
-          setArchivedGames(res.data.archivedGames);
-          setCreatedSetups(res.data.setups);
-          setSetupsPage(1);
-          setSetupsMaxPage(res.data.maxSetupsPage || 1);
           // setMaxFriendsPage(res.data.maxFriendsPage);
-          setFriendRequests(res.data.friendRequests);
           setFriendsPage(1);
-          setStats(res.data.stats);
           setKudos(res.data.kudos);
           setCoinBalance(res.data.coins || 0);
-          setPointsByGameCatalog(
-            Array.isArray(res.data.pointsByGameCatalog)
-              ? res.data.pointsByGameCatalog
-              : []
-          );
           setPointsHistoryPage(0);
-          setPurchasedItems(
-            Array.isArray(res.data.purchasedItems) ? res.data.purchasedItems : []
-          );
-          setKarmaInfo(res.data.karmaInfo);
-          setGroups(res.data.groups);
-          setStatus(res.data.status || "offline");
+          setStatus("offline");
           setLastActive(res.data.lastActive);
-          setInGame(res.data.inGame);
+          setInGame(null);
           setMediaUrl("");
           setAutoplay(false);
-          setSaved(res.data.saved);
-          setLove(res.data.love);
-          setCurrentUserLove(res.data.currentLove);
           setAchievements(res.data.achievements);
           setFavoriteRoles(
             Array.isArray(res.data.favoriteRoles) ? res.data.favoriteRoles : []
@@ -390,19 +403,17 @@ export default function Profile() {
               ? res.data.roleIconCredits
               : []
           );
-          setTrophies(res.data.trophies || []);
-          setStamps(res.data.stamps || []);
-          setHiddenStamps(res.data.hiddenStamps || []);
-          setLockedCountsByRoleKey(res.data.lockedCountsByRoleKey || {});
-          setPendingConfirmationTrades(
-            res.data.pendingConfirmationTrades || []
-          );
-          setProfileFamily(res.data.family || null);
           setJoined(res.data.joined || null);
-          setPokeStatus(res.data.pokeStatus || { status: "none" });
-          setPokesDisabled(res.data.pokesDisabled || false);
-          setIncomingPokes(res.data.incomingPokes || []);
           setFriendsPage(1);
+          loadOwnedEmoteGroups(resolvedId);
+          loadPurchasedItems(resolvedId);
+          loadArchivedGames(resolvedId);
+          loadScrapbook(resolvedId);
+          loadTrophies(resolvedId);
+          loadSocialProfile(resolvedId);
+          loadRecentGames(resolvedId, 1);
+          loadSetups(resolvedId, 1);
+          loadStats(resolvedId);
           loadFriends(resolvedId, "", 1);
 
           // Load current user's family info if viewing another user's profile
@@ -423,6 +434,35 @@ export default function Profile() {
         });
     }
   }, [userId, profileRefetchKey]);
+
+  useEffect(() => {
+    if (!profileLoaded || !profileUserId) return;
+
+    let active = true;
+    setGamePointsLoading(true);
+
+    axios
+      .get(`/api/user/${profileUserId}/gamePoints`)
+      .then((res) => {
+        if (!active) return;
+
+        setPointsByGameCatalog(
+          Array.isArray(res.data?.pointsByGameCatalog)
+            ? res.data.pointsByGameCatalog
+            : []
+        );
+      })
+      .catch((e) => {
+        if (active) errorAlertRef.current(e);
+      })
+      .finally(() => {
+        if (active) setGamePointsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profileLoaded, profileUserId]);
 
   const refetchProfile = () => setProfileRefetchKey((k) => k + 1);
 
@@ -483,7 +523,7 @@ export default function Profile() {
   function openAvatarSelectionDialog() {
     setAvatarShopLoading(true);
     axios
-      .get("/api/shop/info")
+      .get("/api/shop/avatars")
       .then((res) => {
         setAvatarShopItems(res.data.avatarItems || []);
         setAvatarSelectionOpen(true);
@@ -511,7 +551,7 @@ export default function Profile() {
     axios
       .post("/api/user/avatar/equip", { avatarKey })
       .then((res) => {
-        setAvatar(true);
+        setAvatar(res.data.avatar || true);
         setSettings((prev) => ({ ...prev, equippedAvatarKey: avatarKey }));
         siteInfo.clearCache();
         siteInfo.showAlert("Avatar selected.", "success");
@@ -804,6 +844,13 @@ export default function Profile() {
     setShowPointsHistoryModal(false);
   }
 
+  function onEmoteGroupKeyDown(event, group) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setSelectedEmoteGroup(group);
+    }
+  }
+
   function onBioClick() {
     setEditingBio(isSelf);
     setOldBio(bio);
@@ -946,6 +993,121 @@ export default function Profile() {
       .catch(() => {
         // Ignore errors
       });
+  }
+
+  function loadStats(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/stats`)
+      .then((res) => {
+        setStats(res.data?.stats || undefined);
+      })
+      .catch(errorAlert);
+  }
+
+  function loadPurchasedItems(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/purchasedItems`)
+      .then((res) => {
+        setPurchasedItems(
+          Array.isArray(res.data?.purchasedItems)
+            ? res.data.purchasedItems
+            : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadOwnedEmoteGroups(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/emoteGroups`)
+      .then((res) => {
+        setOwnedEmoteGroups(
+          Array.isArray(res.data?.emoteGroups) ? res.data.emoteGroups : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadArchivedGames(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/archivedGames`)
+      .then((res) => {
+        setArchivedGames(
+          Array.isArray(res.data?.archivedGames) ? res.data.archivedGames : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadScrapbook(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/scrapbook`)
+      .then((res) => {
+        setStamps(Array.isArray(res.data?.stamps) ? res.data.stamps : []);
+        setHiddenStamps(
+          Array.isArray(res.data?.hiddenStamps) ? res.data.hiddenStamps : []
+        );
+        setLockedCountsByRoleKey(res.data?.lockedCountsByRoleKey || {});
+        setPendingConfirmationTrades(
+          Array.isArray(res.data?.pendingConfirmationTrades)
+            ? res.data.pendingConfirmationTrades
+            : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadTrophies(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/trophies`)
+      .then((res) => {
+        setTrophies(Array.isArray(res.data?.trophies) ? res.data.trophies : []);
+      })
+      .catch(errorAlert);
+  }
+
+  function loadSocialProfile(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/social`)
+      .then((res) => {
+        setGroups(Array.isArray(res.data?.groups) ? res.data.groups : []);
+        setKarmaInfo(res.data?.karmaInfo || null);
+        setFriendRequests(
+          Array.isArray(res.data?.friendRequests)
+            ? res.data.friendRequests
+            : []
+        );
+        setLove(res.data?.love || {});
+        setCurrentUserLove(res.data?.currentLove || {});
+        setSaved(Boolean(res.data?.saved));
+        setIsFriend(Boolean(res.data?.isFriend));
+        setIsFriendRequested(Boolean(res.data?.isFriendRequested));
+        setIsLove(Boolean(res.data?.isLove));
+        setIsMarried(Boolean(res.data?.isMarried));
+        setStatus(res.data?.status || "offline");
+        setInGame(res.data?.inGame || null);
+        setProfileFamily(res.data?.family || null);
+        setPokeStatus(res.data?.pokeStatus || { status: "none" });
+        setPokesDisabled(Boolean(res.data?.pokesDisabled));
+        setIncomingPokes(
+          Array.isArray(res.data?.incomingPokes) ? res.data.incomingPokes : []
+        );
+      })
+      .catch(errorAlert);
   }
 
   function loadRecentGames(id, pageToLoad = 1) {
@@ -1736,6 +1898,63 @@ export default function Profile() {
           </Box>
         }
       />
+      <Modal
+        show={Boolean(selectedEmoteGroup)}
+        onBgClick={() => setSelectedEmoteGroup(null)}
+        header={
+          <Typography variant="h3">
+            {selectedEmoteGroup?.name || "Emote Group"}
+          </Typography>
+        }
+        content={
+          <Box sx={{ minWidth: 320, maxWidth: 720 }}>
+            {selectedEmoteGroup?.emotes?.length > 0 ? (
+              <Grid container spacing={1}>
+                {selectedEmoteGroup.emotes.map((emote) => (
+                  <Grid item xs={6} sm={4} md={3} key={emote.id}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 0.75,
+                        p: 1,
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: 1,
+                          backgroundColor: "rgba(255,255,255,0.06)",
+                          backgroundImage: emote.imageUrl
+                            ? `url(${emote.imageUrl}?t=${siteInfo.cacheVal || ""})`
+                            : "none",
+                          backgroundSize: "contain",
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "center",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      />
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <Typography color="text.secondary">
+                No emotes available in this group.
+              </Typography>
+            )}
+          </Box>
+        }
+        footer={
+          <Stack direction="row" justifyContent="flex-end">
+            <Button onClick={() => setSelectedEmoteGroup(null)}>Close</Button>
+          </Stack>
+        }
+      />
       <Grid
         container
         rowSpacing={1}
@@ -1805,7 +2024,9 @@ export default function Profile() {
                 </Button>
               </Box>
               <div className="content">
-                {displayedPointsByGameCatalog.length > 0 ? (
+                {gamePointsLoading ? (
+                  <Loading small />
+                ) : displayedPointsByGameCatalog.length > 0 ? (
                   <Grid container spacing={1}>
                     {displayedPointsByGameCatalog.map((item) => (
                       <Grid item xs={12} sm={6} md={3} key={item.key}>
@@ -1848,6 +2069,65 @@ export default function Profile() {
                 ) : (
                   <Typography color="text.secondary">
                     No game catalog points yet.
+                  </Typography>
+                )}
+              </div>
+            </div>
+            <div className="box-panel" style={panelStyle}>
+              <Typography variant="h3" style={headingStyle}>
+                Emote Groups
+              </Typography>
+              <div className="content">
+                {ownedEmoteGroups.length > 0 ? (
+                  <Grid container spacing={1}>
+                    {ownedEmoteGroups.map((group) => (
+                      <Grid item xs={12} sm={6} md={4} key={group.key}>
+                        <Box
+                          role="button"
+                          tabIndex={0}
+                          title="View emotes"
+                          onClick={() => setSelectedEmoteGroup(group)}
+                          onKeyDown={(event) => onEmoteGroupKeyDown(event, group)}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            p: 1,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 1,
+                            cursor: "pointer",
+                            minHeight: 48,
+                            "&:hover": {
+                              bgcolor: "action.hover",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              flexShrink: 0,
+                              borderRadius: 1,
+                              backgroundColor: "rgba(255,255,255,0.06)",
+                              backgroundImage: group.imageUrl
+                                ? `url(${group.imageUrl}?t=${siteInfo.cacheVal || ""})`
+                                : "none",
+                              backgroundSize: "contain",
+                              backgroundRepeat: "no-repeat",
+                              backgroundPosition: "center",
+                              border: "1px solid rgba(255,255,255,0.08)",
+                            }}
+                          />
+                          <Typography variant="body2" noWrap>
+                            {group.name || group.key}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography color="text.secondary">
+                    No emote groups yet.
                   </Typography>
                 )}
               </div>

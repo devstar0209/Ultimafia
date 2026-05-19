@@ -33,6 +33,7 @@ export function UserProvider({
     blockedUsers: [],
     settings: {},
     itemsOwned: {},
+    emoteGroupsOwned: [],
   });
 
   function clear() {

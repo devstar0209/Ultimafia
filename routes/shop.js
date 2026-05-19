@@ -1,11 +1,9 @@
 const express = require("express");
 const fs = require("fs");
-const path = require("path");
 const routeUtils = require("./utils");
 const redis = require("../modules/redis");
 const models = require("../db/models");
-const constants = require("../data/constants");
-const customEmoteUtils = require("../lib/Utils");
+const utils = require("../lib/Utils");
 const logger = require("../modules/logging")(".");
 const shortid = require("shortid");
 const router = express.Router();
@@ -76,26 +74,8 @@ function getEmoteNameFromAssetId(assetId, groupKey = "") {
     .toLowerCase();
 }
 
-function getEmoteAssetPath(assetId) {
-  return path.join(
-    process.env.UPLOAD_PATH || "uploads",
-    "store",
-    "emotes",
-    `${assetId}.webp`
-  );
-}
-
-function getEmoteGroupIconPath(groupKey) {
-  return path.join(
-    process.env.UPLOAD_PATH || "uploads",
-    "store",
-    "emote-groups",
-    `${groupKey}.webp`
-  );
-}
-
 function getEmoteGroupAssetIds(groupKey) {
-  const emoteDir = path.join(process.env.UPLOAD_PATH || "uploads", "store", "emotes");
+  const emoteDir = utils.resolveUploadPath(`${utils.EMOTES_UPLOAD_PATH}/${groupKey}`);
   if (!fs.existsSync(emoteDir)) return [];
 
   return fs
@@ -109,89 +89,8 @@ function buildEmoteGroupAssets(groupKey) {
   return getEmoteGroupAssetIds(groupKey).map((assetId) => ({
     id: assetId,
     name: getEmoteNameFromAssetId(assetId, groupKey),
-    imageUrl: buildEmoteImageUrl(assetId),
+    imageUrl: utils.toPublicUrl(`${utils.EMOTES_UPLOAD_PATH}/${groupKey}`, assetId),
   }));
-}
-
-async function validateEmoteGroupPurchase(userId, item) {
-  const user = await models.User.findOne({ id: userId, deleted: false })
-    .select("_id customEmotes")
-    .lean();
-  if (!user) throw new Error("User not found.");
-
-  if (!fs.existsSync(getEmoteGroupIconPath(item.key))) {
-    throw new Error("Emote group icon is unavailable.");
-  }
-
-  const assets = buildEmoteGroupAssets(item.key);
-  if (!assets.length) {
-    throw new Error("Emote group has no emotes.");
-  }
-
-  for (const asset of assets) {
-    if (!asset.name || asset.name.includes(":") || asset.name.includes(" ")) {
-      throw new Error("Emote group contains an invalid emote name.");
-    }
-
-    const existingSameName = await models.CustomEmote.findOne({
-      creator: user._id,
-      name: asset.name,
-      deleted: false,
-    })
-      .select("id")
-      .lean();
-    if (existingSameName && existingSameName.id !== asset.id) {
-      throw new Error(`You already have an emote named :${asset.name}:.`);
-    }
-  }
-
-  return { userMongoId: user._id, emoteAssets: assets };
-}
-
-async function grantPurchasedEmoteGroup(userId, item, context = {}) {
-  const userMongoId = context.userMongoId;
-  const extension = "webp";
-  const assets = context.emoteAssets || buildEmoteGroupAssets(item.key);
-  const customEmotesByToken = {};
-  const customEmoteIds = [];
-
-  for (const asset of assets) {
-    const targetPath = customEmoteUtils.getCustomEmoteFilepath(
-      userId,
-      asset.id,
-      extension
-    );
-
-    const customEmote = await models.CustomEmote.findOneAndUpdate(
-      { creator: userMongoId, id: asset.id },
-      {
-        $set: {
-          id: asset.id,
-          name: asset.name,
-          extension,
-          creator: userMongoId,
-          deleted: false,
-        },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).exec();
-
-    customEmoteIds.push(customEmote._id);
-    customEmotesByToken[`:${asset.name}:`] = {
-      userId,
-      id: asset.id,
-      extension,
-      name: asset.name,
-      path: targetPath,
-    };
-  }
-
-  await models.User.updateOne(
-    userMongoId ? { _id: userMongoId } : { id: userId },
-    { $addToSet: { customEmotes: { $each: customEmoteIds } } }
-  ).exec();
-
-  context.customEmote = customEmotesByToken;
 }
 
 function buildRuntimeShopItem(item) {
@@ -204,14 +103,9 @@ function buildRuntimeShopItem(item) {
     price: Number(item.price || 0),
     currency: item.currency,
     limit: item.limit || null,
+    holderCnt: item.holderCnt,
     disabled: false,
     propagateItemUpdates: {},
-    validate: isEmoteGroupItem(item)
-      ? (userId) => validateEmoteGroupPurchase(userId, item)
-      : undefined,
-    onBuy: isEmoteGroupItem(item)
-      ? (userId, context) => grantPurchasedEmoteGroup(userId, item, context)
-      : async function (userId) {},
   };
 }
 
@@ -250,115 +144,55 @@ async function getShopItems() {
   }
 }
 
-async function getAvatarItems() {
-  const avatarItems = await models.AvatarItem.find({
+async function getAvatarItems(options = {}) {
+  const query = {
     $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  })
-    .sort("sortOrder")
-    .lean();
+  };
+  const page = Number(options.page || 0);
+  const pageSize = Number(options.pageSize || 0);
+  const shouldPaginate = page > 0 && pageSize > 0;
+  const findQuery = models.AvatarItem.find(query).sort("sortOrder");
+
+  if (shouldPaginate) {
+    findQuery.skip((page - 1) * pageSize).limit(pageSize);
+  }
+
+  const avatarItems = await findQuery.lean();
   return avatarItems.map(buildRuntimeShopItem);
 }
 
-async function getEmoteGroupItems() {
-  const emoteGroups = await models.EmoteGroup.find({
+async function getAvatarItemCount() {
+  return models.AvatarItem.countDocuments({
     $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  })
-    .sort("sortOrder")
-    .lean();
+  });
+}
+
+async function getEmoteGroupItems(options = {}) {
+  const query = {
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  };
+  const page = Number(options.page || 0);
+  const pageSize = Number(options.pageSize || 0);
+  const shouldPaginate = page > 0 && pageSize > 0;
+  const findQuery = models.EmoteGroup.find(query).sort("sortOrder");
+
+  if (shouldPaginate) {
+    findQuery.skip((page - 1) * pageSize).limit(pageSize);
+  }
+
+  const emoteGroups = await findQuery.lean();
   return emoteGroups.map(buildRuntimeShopItem);
 }
 
-async function resolveAvatarPurchaseItem(key) {
-  if (!isAvatarItem({ key })) return null;
-  
-
-  const dbItem = await models.AvatarItem.findOne({
-    key,
+async function getEmoteGroupItemCount() {
+  return models.EmoteGroup.countDocuments({
     $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  }).lean();
-
-  return dbItem
-    ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "avatar" }
-    : null;
-}
-
-async function resolveEmoteGroupPurchaseItem(key) {
-  if (!isEmoteGroupItem({ key })) return null;
-  
-
-  const dbItem = await models.EmoteGroup.findOne({
-    key,
-    $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  }).lean();
-
-  return dbItem
-    ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "emoteGroup" }
-    : null;
-}
-
-async function resolveShopPurchaseItem(key, itemIndex) {
-  if (key) {
-    if (
-      HIDDEN_SHOP_ITEM_KEYS.includes(key) ||
-      isAvatarItem({ key }) ||
-      isEmoteCatalogItem({ key })
-    ) {
-      return null;
-    }
-
-    const dbItem = await models.ShopItem.findOne({
-      key,
-      $or: [{ hidden: false }, { hidden: { $exists: false } }],
-    }).lean();
-
-    return dbItem
-      ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "shopItem" }
-      : null;
-  }
-
-  const shopItems = await getShopItems();
-  if (itemIndex < 0 || itemIndex >= shopItems.length) return null;
-  const runtimeItem = shopItems[itemIndex];
-  if (
-    !runtimeItem?.key ||
-    HIDDEN_SHOP_ITEM_KEYS.includes(runtimeItem.key) ||
-    isAvatarItem(runtimeItem) ||
-    isEmoteCatalogItem(runtimeItem)
-  ) {
-    return null;
-  }
-
-  const dbItem = await models.ShopItem.findOne({
-    key: runtimeItem.key,
-    $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  }).lean();
-
-  return dbItem
-    ? { item: buildRuntimeShopItem(dbItem), purchaseKind: "shopItem" }
-    : null;
-}
-
-async function resolvePurchaseRequest(key, itemIndex) {
-  if (isAvatarItem({ key })) {
-    return resolveAvatarPurchaseItem(key);
-  }
-  if (isEmoteGroupItem({ key })) {
-    return resolveEmoteGroupPurchaseItem(key);
-  }
-  return resolveShopPurchaseItem(key, itemIndex);
+  });
 }
 
 function invalidateShopItemsCache() {
   shopItemsCache = null;
   shopItemsCacheTime = 0;
-}
-
-function buildEmoteImageUrl(emoteKey) {
-  return `/uploads/store/emotes/${emoteKey}.webp`;
-}
-
-function buildEmoteGroupIconUrl(groupKey) {
-  return `/uploads/store/emote-groups/${groupKey}.webp`;
 }
 
 function isAvatarItem(item = {}) {
@@ -371,10 +205,6 @@ function isEmoteGroupItem(item = {}) {
 
 function isEmoteCatalogItem(item = {}) {
   return String(item.key || "").startsWith("emote-");
-}
-
-function isDollarBalanceItem(item = {}) {
-  return item.currency === "dollar";
 }
 
 function getPurchaseDetails(item = {}) {
@@ -396,10 +226,6 @@ function roundDollarAmount(amount) {
   return Math.round(Number(amount || 0) * 100) / 100;
 }
 
-async function getItemDollarPrice(item) {
-  return roundDollarAmount(Number(item.price || 0));
-}
-
 router.get("/info", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
@@ -419,12 +245,50 @@ router.get("/info", async function (req, res) {
 router.get("/avatars", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
+    const userId = await routeUtils.verifyLoggedIn(req, true);
+    const hasPagination =
+      req.query?.page !== undefined || req.query?.pageSize !== undefined;
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 8)));
 
-    const [avatarItems] =
-      await Promise.all([getAvatarItems()]);
+    const [avatarItems, totalAvatarItems, user] = await Promise.all([
+      getAvatarItems(hasPagination ? { page, pageSize } : {}),
+      hasPagination ? getAvatarItemCount() : null,
+      userId
+        ? models.User.findOne({ id: userId, deleted: false })
+            .select("avatarsOwned itemsOwned settings coins balanceDollar -_id")
+            .lean()
+        : null,
+    ]);
+    const ownedAvatarKeys = new Set(user?.avatarsOwned || []);
+    const itemsOwned = user?.itemsOwned || {};
+    const equippedAvatarKey = user?.settings?.equippedAvatarKey || "";
 
     res.send({
-      avatarItems: avatarItems
+      avatarItems: avatarItems.map((avatar) => {
+        const owned =
+          ownedAvatarKeys.has(avatar.key) ||
+          Number(itemsOwned?.[avatar.key] || 0) > 0;
+        return {
+          ...avatar,
+          owned,
+          equipped: equippedAvatarKey === avatar.key,
+          available: Boolean(avatar.imageUrl),
+        };
+      }),
+      equippedAvatarKey,
+      balance: Number(user?.coins || 0),
+      balanceDollar: Number(user?.balanceDollar || 0),
+      ...(hasPagination
+        ? {
+            pagination: {
+              page,
+              pageSize,
+              total: totalAvatarItems,
+              totalPages: Math.max(1, Math.ceil(totalAvatarItems / pageSize)),
+            },
+          }
+        : {}),
     });
   } catch (e) {
     logger.error(e);
@@ -436,12 +300,47 @@ router.get("/avatars", async function (req, res) {
 router.get("/emotes", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
+    const userId = await routeUtils.verifyLoggedIn(req, true);
+    const hasPagination =
+      req.query?.page !== undefined || req.query?.pageSize !== undefined;
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 4)));
 
-    const [emoteItems] =
-      await Promise.all([getEmoteItems()]);
+    const [emoteItems, totalEmoteItems, user] = await Promise.all([
+      getEmoteGroupItems(hasPagination ? { page, pageSize } : {}),
+      hasPagination ? getEmoteGroupItemCount() : null,
+      userId
+        ? models.User.findOne({ id: userId, deleted: false })
+            .select("emoteGroupsOwned coins balanceDollar -_id")
+            .lean()
+        : null,
+    ]);
+    const emoteGroupsOwned = new Set(user?.emoteGroupsOwned || []);
 
     res.send({
-      emoteItems: emoteItems
+      emoteItems: emoteItems.map((group) => {
+        const emotes = buildEmoteGroupAssets(group.key);
+
+        return {
+          ...group,
+          iconUrl: group.imageUrl || "",
+          emotes,
+          owned: emoteGroupsOwned.has(group.key),
+          available: Boolean(group.imageUrl && emotes.length),
+        };
+      }),
+      balance: Number(user?.coins || 0),
+      balanceDollar: Number(user?.balanceDollar || 0),
+      ...(hasPagination
+        ? {
+            pagination: {
+              page,
+              pageSize,
+              total: totalEmoteItems,
+              totalPages: Math.max(1, Math.ceil(totalEmoteItems / pageSize)),
+            },
+          }
+        : {}),
     });
   } catch (e) {
     logger.error(e);
@@ -450,112 +349,397 @@ router.get("/emotes", async function (req, res) {
   }
 });
 
-router.post(
-  "/purchase",
-  async function (req, res) {
-    try {
-      var userId = await routeUtils.verifyLoggedIn(req);
-      var itemIndex = Number(req.body.item);
-      const requestedKey = String(req.body.key || "").trim();
-      
-      const resolvedPurchase = await resolvePurchaseRequest(
-        requestedKey,
-        itemIndex
-      );
-      var item = resolvedPurchase?.item;
-      const purchaseKind = resolvedPurchase?.purchaseKind;
+router.post("/purchaseShopItem", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const itemIndex = Number(req.body.item);
+    const requestedKey = String(req.body.key || "").trim();
+    let dbItem;
 
-      if (!item) {
-        res.status(500);
-        res.send("Invalid item purchased.");
-        return;
-      }
-      const purchase = getPurchaseDetails(item);
-
-      if (!Number.isFinite(purchase.price) || purchase.price < 0) {
-        res.status(500);
-        res.send("Invalid item price.");
+    if (requestedKey) {
+      if (
+        HIDDEN_SHOP_ITEM_KEYS.includes(requestedKey) ||
+        isAvatarItem({ key: requestedKey }) ||
+        isEmoteCatalogItem({ key: requestedKey })
+      ) {
+        res.status(500).send("Invalid item purchased.");
         return;
       }
 
-      var user = await models.User.findOne({ id: userId }).select(
-        "coins balanceDollar itemsOwned"
-      );
-      const currentBalance = Number(user?.[purchase.balanceField] || 0);
-
-      if (currentBalance < purchase.price) {
-        res.status(500);
-        res.send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      dbItem = await models.ShopItem.findOne({
+        key: requestedKey,
+        $or: [{ hidden: false }, { hidden: { $exists: false } }],
+      }).lean();
+    } else {
+      const shopItems = await getShopItems();
+      if (itemIndex < 0 || itemIndex >= shopItems.length) {
+        res.status(500).send("Invalid item purchased.");
         return;
       }
 
-      if (item.limit != null && Number(user.itemsOwned?.[item.key] || 0) >= item.limit) {
-        res.status(500);
-        res.send("You already own this.");
+      const runtimeItem = shopItems[itemIndex];
+      if (
+        !runtimeItem?.key ||
+        HIDDEN_SHOP_ITEM_KEYS.includes(runtimeItem.key) ||
+        isAvatarItem(runtimeItem) ||
+        isEmoteCatalogItem(runtimeItem)
+      ) {
+        res.status(500).send("Invalid item purchased.");
         return;
       }
 
-      var context;
-      if (item.validate) {
-        try {
-          context = await item.validate(userId, req.body);
-        } catch (e) {
-          res.status(400);
-          res.send(e.message);
-          return;
-        }
+      dbItem = await models.ShopItem.findOne({
+        key: runtimeItem.key,
+        $or: [{ hidden: false }, { hidden: { $exists: false } }],
+      }).lean();
+    }
+
+    if (!dbItem) {
+      res.status(500).send("Invalid item purchased.");
+      return;
+    }
+
+    const item = dbItem;
+    const purchase = getPurchaseDetails(item);
+
+    if (!Number.isFinite(purchase.price) || purchase.price < 0) {
+      res.status(500).send("Invalid item price.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("_id coins balanceDollar itemsOwned")
+      .lean();
+    if (!user) {
+      res.status(404).send("User not found.");
+      return;
+    }
+
+    if (Number(user[purchase.balanceField] || 0) < purchase.price) {
+      res.status(500).send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      return;
+    }
+
+    if (item.limit != null && Number(user.itemsOwned?.[item.key] || 0) >= item.limit) {
+      res.status(500).send("You already own this.");
+      return;
+    }
+
+    let context = {};
+    if (item.key === "stamp") {
+      let gameId = String(req.body.gameId || "").trim();
+      const urlMatch = gameId.match(/\/game\/([^/?\s]+)/);
+      if (urlMatch) gameId = urlMatch[1];
+      if (!gameId) {
+        res.status(400).send("Please provide a game URL or ID.");
+        return;
       }
 
-      let userChanges = {
-        [`itemsOwned.${item.key}`]: 1,
-      };
-      userChanges[purchase.balanceField] = -1 * purchase.price;
-
-      for (let k in item.propagateItemUpdates) {
-        let change = item.propagateItemUpdates[k];
-        userChanges[`itemsOwned.${k}`] = change;
+      try {
+        context = await checkStampEligibility(userId, gameId);
+      } catch (e) {
+        res.status(400).send(e.message);
+        return;
       }
 
-      const updateResult = await models.User.updateOne(
-        { id: userId, [purchase.balanceField]: { $gte: purchase.price } },
+      const existingStamp = await models.Stamp.findOne({ userId, gameId })
+        .select("_id")
+        .lean();
+      if (existingStamp) {
+        res.status(400).send("You already have a stamp for this game.");
+        return;
+      }
+      context.gameId = gameId;
+    }
+
+    const userChanges = {
+      [`itemsOwned.${item.key}`]: 1,
+      [purchase.balanceField]: -1 * purchase.price,
+    };
+
+    const userFilter = {
+      id: userId,
+      [purchase.balanceField]: { $gte: purchase.price },
+    };
+    if (item.limit != null) {
+      userFilter.$or = [
+        { [`itemsOwned.${item.key}`]: { $exists: false } },
+        { [`itemsOwned.${item.key}`]: { $lt: item.limit } },
+      ];
+    }
+
+    const updateResult = await models.User.updateOne(
+      userFilter,
+      { $inc: userChanges }
+    ).exec();
+
+    if (!updateResult.modifiedCount) {
+      res.status(500).send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      return;
+    }
+
+    if (item.key === "stamp") {
+      try {
+        await models.Stamp.create({
+          user: user._id,
+          userId,
+          gameId: context.gameId,
+          gameType: context.gameType,
+          role: context.role,
+          hidden: false,
+          createdAt: Date.now(),
+        });
+      } catch (e) {
+        await models.User.updateOne(
+          { id: userId },
+          {
+            $inc: {
+              [`itemsOwned.${item.key}`]: -1,
+              [purchase.balanceField]: purchase.price,
+            },
+          }
+        ).exec();
+        throw e;
+      }
+    }
+
+    await redis.cacheUserInfo(userId, true);
+    const updatedUser = await models.User.findOne({ id: userId })
+      .select("coins balanceDollar")
+      .lean();
+
+    res.send({
+      ...context,
+      purchaseKind: "shopItem",
+      currency: purchase.currency,
+      price: purchase.price,
+      balanceType: purchase.balanceField,
+      balance: Number(updatedUser?.coins || 0),
+      balanceDollar: Number(updatedUser?.balanceDollar || 0),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error completing purchase.");
+  }
+});
+
+router.post("/purchaseAvatar", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const key = String(req.body.key || "").trim();
+
+    if (!isAvatarItem({ key })) {
+      res.status(500).send("Invalid item purchased.");
+      return;
+    }
+
+    const item = await models.AvatarItem.findOne({
+      key,
+      $or: [{ hidden: false }, { hidden: { $exists: false } }],
+    }).lean();
+
+    if (!item) {
+      res.status(500).send("Invalid item purchased.");
+      return;
+    }
+    if (!item.imageUrl) {
+      res.status(400).send("Avatar image is unavailable.");
+      return;
+    }
+
+    const purchase = getPurchaseDetails(item);
+    if (!Number.isFinite(purchase.price) || purchase.price < 0) {
+      res.status(500).send("Invalid item price.");
+      return;
+    }
+
+    if (item.limit != null && Number(item.holderCnt || 0) >= Number(item.limit)) {
+      res.status(402).send("This avatar is sold out.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("coins balanceDollar avatarsOwned")
+      .lean();
+    if (!user) {
+      res.status(404).send("User not found.");
+      return;
+    }
+
+    if ((user.avatarsOwned || []).includes(item.key)) {
+      res.status(500).send("You already own this.");
+      return;
+    }
+
+    if (Number(user[purchase.balanceField] || 0) < purchase.price) {
+      res.status(500).send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      return;
+    }
+
+    const userUpdateResult = await models.User.updateOne(
+      {
+        id: userId,
+        [purchase.balanceField]: { $gte: purchase.price },
+        avatarsOwned: { $ne: item.key },
+      },
+      {
+        $inc: {
+          [purchase.balanceField]: -1 * purchase.price,
+        },
+        $addToSet: {
+          avatarsOwned: item.key,
+        },
+      }
+    ).exec();
+
+    if (!userUpdateResult.modifiedCount) {
+      res.status(500).send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      return;
+    }
+
+    const avatarFilter = { key: item.key };
+    if (item.limit != null) {
+      avatarFilter.holderCnt = { $lt: Number(item.limit) };
+    }
+    const avatarUpdateResult = await models.AvatarItem.updateOne(
+      avatarFilter,
+      { $inc: { holderCnt: 1 } }
+    ).exec();
+
+    if (!avatarUpdateResult.modifiedCount) {
+      await models.User.updateOne(
+        { id: userId },
         {
-          $inc: userChanges,
+          $inc: { [purchase.balanceField]: purchase.price },
+          $pull: { avatarsOwned: item.key },
         }
       ).exec();
+      res.status(402).send("This avatar is sold out.");
+      return;
+    }
 
-      if (!updateResult.modifiedCount) {
-        res.status(500);
-        res.send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+    await redis.cacheUserInfo(userId, true);
+    const updatedUser = await models.User.findOne({ id: userId })
+      .select("coins balanceDollar")
+      .lean();
+    const updatedAvatar = await models.AvatarItem.findOne({ key: item.key })
+      .select("holderCnt -_id")
+      .lean();
+
+    res.send({
+      purchaseKind: "avatar",
+      currency: purchase.currency,
+      price: purchase.price,
+      balanceType: purchase.balanceField,
+      balance: Number(updatedUser?.coins || 0),
+      balanceDollar: Number(updatedUser?.balanceDollar || 0),
+      holderCnt: Number(updatedAvatar?.holderCnt || 0),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error completing purchase.");
+  }
+});
+
+router.post("/purchaseEmoteGroup", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const key = String(req.body.key || "").trim();
+
+    if (!isEmoteGroupItem({ key })) {
+      res.status(500).send("Invalid item purchased.");
+      return;
+    }
+
+    const item = await models.EmoteGroup.findOne({
+      key,
+      $or: [{ hidden: false }, { hidden: { $exists: false } }],
+    }).lean();
+
+    if (!item) {
+      res.status(500).send("Invalid item purchased.");
+      return;
+    }
+    if (!item.imageUrl) {
+      res.status(400).send("Emote group icon is unavailable.");
+      return;
+    }
+
+    const assets = buildEmoteGroupAssets(item.key);
+    if (!assets.length) {
+      res.status(400).send("Emote group has no emotes.");
+      return;
+    }
+    for (const asset of assets) {
+      if (!asset.name || asset.name.includes(":") || asset.name.includes(" ")) {
+        res.status(400).send("Emote group contains an invalid emote name.");
         return;
       }
-
-      await item.onBuy(userId, context);
-      if (context) {
-        delete context.userMongoId;
-        delete context.emoteAssets;
-      }
-
-      await redis.cacheUserInfo(userId, true);
-      const updatedUser = await models.User.findOne({ id: userId })
-        .select("coins balanceDollar")
-        .lean();
-
-      res.send({
-        ...(context || {}),
-        purchaseKind,
-        currency: purchase.currency,
-        price: purchase.price,
-        balanceType: purchase.balanceField,
-        balance: Number(updatedUser?.coins || 0),
-        balanceDollar: Number(updatedUser?.balanceDollar || 0),
-      });
-    } catch (e) {
-      logger.error(e);
-      res.status(500);
-      res.send("Error completing purchase.");
     }
+
+    const purchase = getPurchaseDetails(item);
+    if (!Number.isFinite(purchase.price) || purchase.price < 0) {
+      res.status(500).send("Invalid item price.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("coins balanceDollar emoteGroupsOwned")
+      .lean();
+    if (!user) {
+      res.status(404).send("User not found.");
+      return;
+    }
+
+    if ((user.emoteGroupsOwned || []).includes(item.key)) {
+      res.status(500).send("You already own this.");
+      return;
+    }
+
+    if (Number(user[purchase.balanceField] || 0) < purchase.price) {
+      res.status(500).send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      return;
+    }
+
+    const updateResult = await models.User.updateOne(
+      {
+        id: userId,
+        [purchase.balanceField]: { $gte: purchase.price },
+        emoteGroupsOwned: { $ne: item.key },
+      },
+      {
+        $inc: {
+          [purchase.balanceField]: -1 * purchase.price,
+        },
+        $addToSet: {
+          emoteGroupsOwned: item.key,
+        },
+      }
+    ).exec();
+
+    if (!updateResult.modifiedCount) {
+      res.status(500).send(`You do not have enough ${purchase.balanceLabel} to purchase this.`);
+      return;
+    }
+
+    await redis.cacheUserInfo(userId, true);
+    const updatedUser = await models.User.findOne({ id: userId })
+      .select("coins balanceDollar")
+      .lean();
+
+    res.send({
+      purchaseKind: "emoteGroup",
+      currency: purchase.currency,
+      price: purchase.price,
+      balanceType: purchase.balanceField,
+      balance: Number(updatedUser?.coins || 0),
+      balanceDollar: Number(updatedUser?.balanceDollar || 0),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error completing purchase.");
   }
-);
+});
 
 router.post("/transferCoins", async function (req, res) {
   try {

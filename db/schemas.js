@@ -87,7 +87,7 @@ var schemas = {
     discordId: String,
     discordName: String,
     discordUsername: String,
-    avatar: Boolean,
+    avatar: mongoose.Schema.Types.Mixed,
     banner: Boolean,
     profileBackground: Boolean,
     bio: {
@@ -138,6 +138,7 @@ var schemas = {
       deathMessage: String,
       vanityUrl: { type: String, default: "" },
       backgroundRepeatMode: { type: String, default: "repeat" },
+      equippedAvatarKey: { type: String, default: "" },
     },
     accounts: {
       discord: String,
@@ -169,6 +170,8 @@ var schemas = {
     customEmotes: [
       { type: mongoose.Schema.Types.ObjectId, ref: "CustomEmote" },
     ],
+    avatarsOwned: { type: [String], default: [] },
+    emoteGroupsOwned: { type: [String], default: [] },
     games: [{ type: mongoose.Schema.Types.ObjectId, ref: "Game" }],
     globalNotifs: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Notification" },
@@ -1116,6 +1119,7 @@ var schemas = {
     price: { type: Number, default: 0 },
     currency: { type: String, enum: ["coins", "dollar"], default: "dollar" },
     limit: { type: Number, default: 1 },
+    holderCnt: { type: Number, default: 0 },
     hidden: { type: Boolean, default: false, index: true },
     sortOrder: { type: Number, default: 0, index: true },
     createdAt: { type: Number, default: Date.now, index: true },

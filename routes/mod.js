@@ -1269,7 +1269,9 @@ router.post("/clearUserContent", async (req, res) => {
 
     switch (contentType) {
       case "avatar":
-        updateQuery = { $set: { avatar: false } };
+        updateQuery = {
+          $set: { avatar: false, "settings.equippedAvatarKey": "" },
+        };
         modActionName = "Clear Avatar";
         break;
 

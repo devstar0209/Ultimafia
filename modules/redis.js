@@ -159,7 +159,7 @@ async function cacheUserInfo(userId, reset) {
   if (!exists || reset) {
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points dailyChallengesCompleted dailyChallenges admin"
+        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned emoteGroupsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points dailyChallengesCompleted dailyChallenges admin"
       )
       .populate({
         path: "customEmotes",
@@ -178,15 +178,23 @@ async function cacheUserInfo(userId, reset) {
 
     user = user.toJSON();
 
-    // Fetch vanity URL
-    const vanityUrl = await models.VanityUrl.findOne({
-      userId: userId,
-    }).select("url -_id");
+    // Fetch vanity URL and the equipped catalog avatar, if any.
+    const [vanityUrl, equippedAvatar] = await Promise.all([
+      models.VanityUrl.findOne({
+        userId: userId,
+      }).select("url -_id"),
+      user.settings?.equippedAvatarKey
+        ? models.AvatarItem.findOne({ key: user.settings.equippedAvatarKey })
+            .select("imageUrl -_id")
+            .lean()
+        : null,
+    ]);
+    const avatarValue = equippedAvatar?.imageUrl || user.avatar || false;
 
     await client.setAsync(`user:${userId}:info:id`, userId);
     await client.setAsync(`user:${userId}:info:name`, user.name);
     await client.setAsync(`user:${userId}:info:admin`, user.admin || false);
-    await client.setAsync(`user:${userId}:info:avatar`, user.avatar || false);
+    await client.setAsync(`user:${userId}:info:avatar`, avatarValue);
     await client.setAsync(
       `user:${userId}:info:profileBackground`,
       user.profileBackground || false
@@ -222,6 +230,10 @@ async function cacheUserInfo(userId, reset) {
       `user:${userId}:info:itemsOwned`,
       JSON.stringify(user.itemsOwned)
     );
+    await client.setAsync(
+      `user:${userId}:info:emoteGroupsOwned`,
+      JSON.stringify(user.emoteGroupsOwned || [])
+    );
 
     var inGroups = await models.InGroup.find({ user: user._id }).populate(
       "group",
@@ -249,9 +261,16 @@ async function cacheUserInfo(userId, reset) {
   client.expire(`user:${userId}:info:blockedUsers`, 3600);
   client.expire(`user:${userId}:info:settings`, 3600);
   client.expire(`user:${userId}:info:itemsOwned`, 3600);
+  client.expire(`user:${userId}:info:emoteGroupsOwned`, 3600);
   client.expire(`user:${userId}:info:groups`, 3600);
 
   return true;
+}
+
+function parseCachedAvatar(value) {
+  if (!value || value === "false") return false;
+  if (value === "true") return true;
+  return value;
 }
 
 async function deleteUserInfo(userId) {
@@ -273,6 +292,7 @@ async function deleteUserInfo(userId) {
   await client.delAsync(`user:${userId}:info:blockedUsers`);
   await client.delAsync(`user:${userId}:info:settings`);
   await client.delAsync(`user:${userId}:info:itemsOwned`);
+  await client.delAsync(`user:${userId}:info:emoteGroupsOwned`);
   await client.delAsync(`user:${userId}:info:groups`);
 }
 
@@ -301,6 +321,7 @@ async function getUserInfo(userId) {
       `user:${userId}:info:blockedUsers`,
       `user:${userId}:info:settings`,
       `user:${userId}:info:itemsOwned`,
+      `user:${userId}:info:emoteGroupsOwned`,
       `user:${userId}:info:groups`,
       `user:${userId}:info:achievements`,
       `user:${userId}:info:vanityUrl`,
@@ -326,6 +347,7 @@ async function getUserInfo(userId) {
     blockedUsers,
     settings,
     itemsOwned,
+    emoteGroupsOwned,
     groups,
     achievements,
     vanityUrl,
@@ -335,7 +357,7 @@ async function getUserInfo(userId) {
   info.id = id;
   info.name = name;
   info.admin = admin === "true";
-  info.avatar = avatar === "true";
+  info.avatar = parseCachedAvatar(avatar);
   info.profileBackground = profileBackground === "true";
   info.nameChanged = nameChanged === "true";
   info.bdayChanged = bdayChanged === "true";
@@ -350,6 +372,7 @@ async function getUserInfo(userId) {
   info.blockedUsers = JSON.parse(blockedUsers || "[]");
   info.settings = JSON.parse(settings || "{}");
   info.itemsOwned = JSON.parse(itemsOwned || "{}");
+  info.emoteGroupsOwned = JSON.parse(emoteGroupsOwned || "[]");
   info.groups = JSON.parse(groups || "[]");
   info.achievements = achievements;
 
@@ -393,7 +416,9 @@ async function getBasicUserInfo(userId, delTemplate) {
   info.id = await client.getAsync(`user:${userId}:info:id`);
   info.name = await client.getAsync(`user:${userId}:info:name`);
   info.admin = (await client.getAsync(`user:${userId}:info:admin`)) == "true";
-  info.avatar = (await client.getAsync(`user:${userId}:info:avatar`)) == "true";
+  info.avatar = parseCachedAvatar(
+    await client.getAsync(`user:${userId}:info:avatar`)
+  );
   info.status = await client.getAsync(`user:${userId}:info:status`);
   info.groups = JSON.parse(await client.getAsync(`user:${userId}:info:groups`));
 
