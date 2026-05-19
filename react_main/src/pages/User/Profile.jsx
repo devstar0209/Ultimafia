@@ -199,7 +199,7 @@ export default function Profile() {
   const [pendingConfirmationTrades, setPendingConfirmationTrades] = useState([]);
   const [profileRefetchKey, setProfileRefetchKey] = useState(0);
   const [trophies, setTrophies] = useState([]);
-  const [karmaInfo, setKarmaInfo] = useState({});
+  const [karmaInfo, setKarmaInfo] = useState(null);
   const [settings, setSettings] = useState({});
   const [avatarSelectionOpen, setAvatarSelectionOpen] = useState(false);
   const [avatarShopItems, setAvatarShopItems] = useState([]);
@@ -341,6 +341,29 @@ export default function Profile() {
       setSetupsMaxPage(1);
       setSetupsLoading(false);
       setStats();
+      setPurchasedItems([]);
+      setArchivedGames([]);
+      setStamps([]);
+      setHiddenStamps([]);
+      setLockedCountsByRoleKey({});
+      setPendingConfirmationTrades([]);
+      setTrophies([]);
+      setKarmaInfo(null);
+      setGroups([]);
+      setFriendRequests([]);
+      setLove({});
+      setCurrentUserLove({});
+      setSaved(false);
+      setIsFriend(false);
+      setIsFriendRequested(false);
+      setIsLove(false);
+      setIsMarried(false);
+      setStatus("offline");
+      setInGame(null);
+      setProfileFamily(null);
+      setPokeStatus({ status: "none" });
+      setPokesDisabled(false);
+      setIncomingPokes([]);
 
       axios
         .get(`/api/user/${userId}/profile`)
@@ -356,31 +379,17 @@ export default function Profile() {
           setPronouns(
             filterProfanity(res.data.pronouns, user.settings, "\\*") || ""
           );
-          setIsFriend(res.data.isFriend);
-          setIsFriendRequested(res.data.isFriendRequested);
-          setIsLove(res.data.isLove);
-          setIsMarried(res.data.isMarried);
           setSettings(res.data.settings);
-          setArchivedGames(res.data.archivedGames);
           // setMaxFriendsPage(res.data.maxFriendsPage);
-          setFriendRequests(res.data.friendRequests);
           setFriendsPage(1);
           setKudos(res.data.kudos);
           setCoinBalance(res.data.coins || 0);
           setPointsHistoryPage(0);
-          setPurchasedItems(
-            Array.isArray(res.data.purchasedItems) ? res.data.purchasedItems : []
-          );
-          setKarmaInfo(res.data.karmaInfo);
-          setGroups(res.data.groups);
-          setStatus(res.data.status || "offline");
+          setStatus("offline");
           setLastActive(res.data.lastActive);
-          setInGame(res.data.inGame);
+          setInGame(null);
           setMediaUrl("");
           setAutoplay(false);
-          setSaved(res.data.saved);
-          setLove(res.data.love);
-          setCurrentUserLove(res.data.currentLove);
           setAchievements(res.data.achievements);
           setFavoriteRoles(
             Array.isArray(res.data.favoriteRoles) ? res.data.favoriteRoles : []
@@ -390,19 +399,13 @@ export default function Profile() {
               ? res.data.roleIconCredits
               : []
           );
-          setTrophies(res.data.trophies || []);
-          setStamps(res.data.stamps || []);
-          setHiddenStamps(res.data.hiddenStamps || []);
-          setLockedCountsByRoleKey(res.data.lockedCountsByRoleKey || {});
-          setPendingConfirmationTrades(
-            res.data.pendingConfirmationTrades || []
-          );
-          setProfileFamily(res.data.family || null);
           setJoined(res.data.joined || null);
-          setPokeStatus(res.data.pokeStatus || { status: "none" });
-          setPokesDisabled(res.data.pokesDisabled || false);
-          setIncomingPokes(res.data.incomingPokes || []);
           setFriendsPage(1);
+          loadPurchasedItems(resolvedId);
+          loadArchivedGames(resolvedId);
+          loadScrapbook(resolvedId);
+          loadTrophies(resolvedId);
+          loadSocialProfile(resolvedId);
           loadRecentGames(resolvedId, 1);
           loadSetups(resolvedId, 1);
           loadStats(resolvedId);
@@ -987,6 +990,97 @@ export default function Profile() {
       .get(`/api/user/${id}/stats`)
       .then((res) => {
         setStats(res.data?.stats || undefined);
+      })
+      .catch(errorAlert);
+  }
+
+  function loadPurchasedItems(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/purchasedItems`)
+      .then((res) => {
+        setPurchasedItems(
+          Array.isArray(res.data?.purchasedItems)
+            ? res.data.purchasedItems
+            : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadArchivedGames(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/archivedGames`)
+      .then((res) => {
+        setArchivedGames(
+          Array.isArray(res.data?.archivedGames) ? res.data.archivedGames : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadScrapbook(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/scrapbook`)
+      .then((res) => {
+        setStamps(Array.isArray(res.data?.stamps) ? res.data.stamps : []);
+        setHiddenStamps(
+          Array.isArray(res.data?.hiddenStamps) ? res.data.hiddenStamps : []
+        );
+        setLockedCountsByRoleKey(res.data?.lockedCountsByRoleKey || {});
+        setPendingConfirmationTrades(
+          Array.isArray(res.data?.pendingConfirmationTrades)
+            ? res.data.pendingConfirmationTrades
+            : []
+        );
+      })
+      .catch(errorAlert);
+  }
+
+  function loadTrophies(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/trophies`)
+      .then((res) => {
+        setTrophies(Array.isArray(res.data?.trophies) ? res.data.trophies : []);
+      })
+      .catch(errorAlert);
+  }
+
+  function loadSocialProfile(id) {
+    if (!id) return;
+
+    axios
+      .get(`/api/user/${id}/social`)
+      .then((res) => {
+        setGroups(Array.isArray(res.data?.groups) ? res.data.groups : []);
+        setKarmaInfo(res.data?.karmaInfo || null);
+        setFriendRequests(
+          Array.isArray(res.data?.friendRequests)
+            ? res.data.friendRequests
+            : []
+        );
+        setLove(res.data?.love || {});
+        setCurrentUserLove(res.data?.currentLove || {});
+        setSaved(Boolean(res.data?.saved));
+        setIsFriend(Boolean(res.data?.isFriend));
+        setIsFriendRequested(Boolean(res.data?.isFriendRequested));
+        setIsLove(Boolean(res.data?.isLove));
+        setIsMarried(Boolean(res.data?.isMarried));
+        setStatus(res.data?.status || "offline");
+        setInGame(res.data?.inGame || null);
+        setProfileFamily(res.data?.family || null);
+        setPokeStatus(res.data?.pokeStatus || { status: "none" });
+        setPokesDisabled(Boolean(res.data?.pokesDisabled));
+        setIncomingPokes(
+          Array.isArray(res.data?.incomingPokes) ? res.data.incomingPokes : []
+        );
       })
       .catch(errorAlert);
   }
