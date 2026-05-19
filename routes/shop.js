@@ -167,13 +167,27 @@ async function getAvatarItemCount() {
   });
 }
 
-async function getEmoteGroupItems() {
-  const emoteGroups = await models.EmoteGroup.find({
+async function getEmoteGroupItems(options = {}) {
+  const query = {
     $or: [{ hidden: false }, { hidden: { $exists: false } }],
-  })
-    .sort("sortOrder")
-    .lean();
+  };
+  const page = Number(options.page || 0);
+  const pageSize = Number(options.pageSize || 0);
+  const shouldPaginate = page > 0 && pageSize > 0;
+  const findQuery = models.EmoteGroup.find(query).sort("sortOrder");
+
+  if (shouldPaginate) {
+    findQuery.skip((page - 1) * pageSize).limit(pageSize);
+  }
+
+  const emoteGroups = await findQuery.lean();
   return emoteGroups.map(buildRuntimeShopItem);
+}
+
+async function getEmoteGroupItemCount() {
+  return models.EmoteGroup.countDocuments({
+    $or: [{ hidden: false }, { hidden: { $exists: false } }],
+  });
 }
 
 function invalidateShopItemsCache() {
@@ -287,9 +301,14 @@ router.get("/emotes", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     const userId = await routeUtils.verifyLoggedIn(req, true);
+    const hasPagination =
+      req.query?.page !== undefined || req.query?.pageSize !== undefined;
+    const page = Math.max(1, Number(req.query?.page || 1));
+    const pageSize = Math.min(50, Math.max(1, Number(req.query?.pageSize || 4)));
 
-    const [emoteItems, user] = await Promise.all([
-      getEmoteGroupItems(),
+    const [emoteItems, totalEmoteItems, user] = await Promise.all([
+      getEmoteGroupItems(hasPagination ? { page, pageSize } : {}),
+      hasPagination ? getEmoteGroupItemCount() : null,
       userId
         ? models.User.findOne({ id: userId, deleted: false })
             .select("emoteGroupsOwned coins balanceDollar -_id")
@@ -312,6 +331,16 @@ router.get("/emotes", async function (req, res) {
       }),
       balance: Number(user?.coins || 0),
       balanceDollar: Number(user?.balanceDollar || 0),
+      ...(hasPagination
+        ? {
+            pagination: {
+              page,
+              pageSize,
+              total: totalEmoteItems,
+              totalPages: Math.max(1, Math.ceil(totalEmoteItems / pageSize)),
+            },
+          }
+        : {}),
     });
   } catch (e) {
     logger.error(e);
