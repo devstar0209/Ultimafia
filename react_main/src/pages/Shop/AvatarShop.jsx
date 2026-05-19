@@ -119,7 +119,7 @@ export default function AvatarShop() {
     if (!avatar) return;
     setIsBuyingAvatar(true);
     axios
-      .post("/api/shop/purchase", { key: avatar.key })
+      .post("/api/shop/purchaseAvatar", { key: avatar.key })
       .then((res) => {
         siteInfo.showAlert("Avatar purchased.", "success");
 
@@ -128,13 +128,22 @@ export default function AvatarShop() {
           balance: res.data.balance,
           balanceDollar: res.data.balanceDollar,
           avatarItems: prev.avatarItems.map((item) =>
-            item.key === avatar.key ? { ...item, owned: true } : item
+            item.key === avatar.key
+              ? {
+                  ...item,
+                  owned: true,
+                  holderCnt: res.data.holderCnt ?? Number(item.holderCnt || 0) + 1,
+                }
+              : item
           ),
         }));
         user.set((prev) => ({
           ...prev,
           coins: res.data.balance,
           balanceDollar: res.data.balanceDollar,
+          avatarsOwned: Array.from(
+            new Set([...(prev.avatarsOwned || []), avatar.key])
+          ),
         }));
 
         // Auto-equip the newly purchased avatar
@@ -259,7 +268,7 @@ export default function AvatarShop() {
 
                   <Stack direction="column" spacing={1} sx={{ mt: 2 }}>
                     <Typography variant="body2" color="text.secondary">
-                      {`${avatar.holderCnt}/${avatar.limit ?? "∞"}`}
+                      {`${avatar.holderCnt ?? 0}/${avatar.limit ?? "∞"}`}
                     </Typography>
                     {isEquipped ? (
                       <Button
@@ -278,7 +287,7 @@ export default function AvatarShop() {
                       >
                         Equip
                       </Button>
-                    ) : avatar.holderCnt == avatar.limit ? (
+                    ) : avatar.holderCnt && avatar.limit && avatar.holderCnt >= avatar.limit ? (
                       <Button variant="outlined" disabled fullWidth>
                         Sold Out
                       </Button>
@@ -391,7 +400,7 @@ export default function AvatarShop() {
             disabled={
               !avatarToBuy ||
               isBuyingAvatar ||
-              (avatarToBuy?.holderCnt == avatarToBuy.limit)
+              (avatarToBuy?.holderCnt && avatarToBuy.limit && avatarToBuy.holderCnt >= avatarToBuy.limit)
             }
           >
             {isBuyingAvatar ? "Buying..." : "Buy Avatar"}

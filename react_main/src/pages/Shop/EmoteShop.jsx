@@ -105,7 +105,7 @@ export default function EmoteShop() {
     setBuyStatus("buying");
     setBuyError("");
     axios
-      .post("/api/shop/purchase", { key: group.key })
+      .post("/api/shop/purchaseEmoteGroup", { key: group.key })
       .then((res) => {
         setShopInfo((prev) => {
           const updatedEmoteGroups = (prev.emoteItems || prev.emoteGroups || []).map((item) =>

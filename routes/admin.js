@@ -848,6 +848,7 @@ router.post("/avatars", async function (req, res) {
       price,
       currency,
       limit,
+      holderCnt: 0,
       hidden,
       sortOrder: Number(lastItem?.sortOrder || 0) + 1,
       updatedAt: Date.now(),
