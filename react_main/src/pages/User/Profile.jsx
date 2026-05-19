@@ -181,6 +181,7 @@ export default function Profile() {
   const [isMarried, setIsMarried] = useState(false);
   const [kudos, setKudos] = useState(0);
   const [pointsByGameCatalog, setPointsByGameCatalog] = useState([]);
+  const [gamePointsLoading, setGamePointsLoading] = useState(false);
   const [pointsHistory, setPointsHistory] = useState([]);
   const [pointsHistoryLoading, setPointsHistoryLoading] = useState(false);
   const [pointsHistoryPage, setPointsHistoryPage] = useState(0);
@@ -329,6 +330,8 @@ export default function Profile() {
     if (userId) {
       setProfileLoaded(false);
       setCanonicalUserId(null);
+      setPointsByGameCatalog([]);
+      setGamePointsLoading(false);
 
       axios
         .get(`/api/user/${userId}/profile`)
@@ -362,11 +365,6 @@ export default function Profile() {
           setStats(res.data.stats);
           setKudos(res.data.kudos);
           setCoinBalance(res.data.coins || 0);
-          setPointsByGameCatalog(
-            Array.isArray(res.data.pointsByGameCatalog)
-              ? res.data.pointsByGameCatalog
-              : []
-          );
           setPointsHistoryPage(0);
           setPurchasedItems(
             Array.isArray(res.data.purchasedItems) ? res.data.purchasedItems : []
@@ -423,6 +421,35 @@ export default function Profile() {
         });
     }
   }, [userId, profileRefetchKey]);
+
+  useEffect(() => {
+    if (!profileLoaded || !profileUserId) return;
+
+    let active = true;
+    setGamePointsLoading(true);
+
+    axios
+      .get(`/api/user/${profileUserId}/gamePoints`)
+      .then((res) => {
+        if (!active) return;
+
+        setPointsByGameCatalog(
+          Array.isArray(res.data?.pointsByGameCatalog)
+            ? res.data.pointsByGameCatalog
+            : []
+        );
+      })
+      .catch((e) => {
+        if (active) errorAlertRef.current(e);
+      })
+      .finally(() => {
+        if (active) setGamePointsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profileLoaded, profileUserId]);
 
   const refetchProfile = () => setProfileRefetchKey((k) => k + 1);
 
@@ -1805,7 +1832,9 @@ export default function Profile() {
                 </Button>
               </Box>
               <div className="content">
-                {displayedPointsByGameCatalog.length > 0 ? (
+                {gamePointsLoading ? (
+                  <Loading small />
+                ) : displayedPointsByGameCatalog.length > 0 ? (
                   <Grid container spacing={1}>
                     {displayedPointsByGameCatalog.map((item) => (
                       <Grid item xs={12} sm={6} md={3} key={item.key}>

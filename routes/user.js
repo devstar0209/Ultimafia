@@ -113,15 +113,6 @@ async function buildPointCatalogBalances(pointsByGameCatalog) {
     );
 }
 
-function formatShopItemFallbackName(key) {
-  return String(key || "")
-    .replace(/^avatar-/, "Avatar ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase())
-    .trim();
-}
-
 async function resolveAvatarImageUrl(user = {}) {
   const avatarKey = String(user.settings?.equippedAvatarKey || "").trim();
   if (!avatarKey) return "";
@@ -132,43 +123,52 @@ async function resolveAvatarImageUrl(user = {}) {
   return avatarItem?.imageUrl || "";
 }
 
-async function buildPurchasedItems(itemsOwned) {
+function isPurchasedItemsShopKey(key) {
+  const itemKey = String(key || "");
+  return !itemKey.startsWith("avatar-") && !itemKey.startsWith("emote-");
+}
+
+function getPurchasedItemsCount(key, count, user = {}) {
+  if (key === "nameChange" && !user.nameChanged) {
+    return Math.max(0, count - 1);
+  }
+
+  return count;
+}
+
+async function buildPurchasedItems(itemsOwned, user = {}) {
   const ownedEntries = Object.entries(itemsOwned || {})
-    .map(([key, count]) => ({ key, count: Number(count || 0) }))
+    .filter(([key]) => isPurchasedItemsShopKey(key))
+    .map(([key, count]) => ({
+      key,
+      count: getPurchasedItemsCount(key, Number(count || 0), user),
+    }))
     .filter((item) => item.count > 0);
 
   if (ownedEntries.length === 0) return [];
 
   const ownedKeys = ownedEntries.map((item) => item.key);
-  const [shopItems, avatarItems, emoteGroups] = await Promise.all([
-    models.ShopItem.find({ key: { $in: ownedKeys } })
-      .select("key name sortOrder hidden -_id")
-      .lean(),
-    models.AvatarItem.find({ key: { $in: ownedKeys } })
-      .select("key name sortOrder hidden -_id")
-      .lean(),
-    models.EmoteGroup.find({ key: { $in: ownedKeys } })
-      .select("key name sortOrder hidden -_id")
-      .lean(),
-  ]);
+  const shopItems = await models.ShopItem.find({ key: { $in: ownedKeys } })
+    .select("key name sortOrder hidden -_id")
+    .lean();
 
   const itemMap = new Map(
-    [...shopItems, ...avatarItems, ...emoteGroups].map((item) => [
-      item.key,
-      item,
-    ])
+    shopItems.map((item) => [item.key, item])
   );
 
   return ownedEntries
     .map((item) => {
       const shopItem = itemMap.get(item.key);
+      if (!shopItem) return null;
+
       return {
         key: item.key,
-        name: shopItem?.name || formatShopItemFallbackName(item.key),
+        name: shopItem.name || item.key,
         count: item.count,
         sortOrder: Number(shopItem?.sortOrder ?? 9999),
       };
     })
+    .filter(Boolean)
     .sort(
       (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
     );
@@ -402,6 +402,39 @@ router.post("/online", async function (req, res) {
   }
 });
 
+router.get("/:id/gamePoints", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await resolveUserId(String(req.params.id));
+
+    if (!userId) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("pointsByGameCatalog -_id")
+      .lean();
+
+    if (!user) {
+      res.status(404);
+      res.send("User not found.");
+      return;
+    }
+
+    res.send({
+      pointsByGameCatalog: await buildPointCatalogBalances(
+        user.pointsByGameCatalog
+      ),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Unable to load game points.");
+  }
+});
+
 router.get("/:id/profile", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
@@ -452,7 +485,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned avatarsOwned emoteGroupsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined nameChanged favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -485,23 +518,9 @@ router.get("/:id/profile", async function (req, res) {
 
     user = user.toJSON();
     user.avatar = (await resolveAvatarImageUrl(user)) || user.avatar;
-    user.pointsByGameCatalog = await buildPointCatalogBalances(
-      user.pointsByGameCatalog
-    );
-    const itemsOwnedForDisplay = { ...(user.itemsOwned || {}) };
-    for (const avatarKey of user.avatarsOwned || []) {
-      itemsOwnedForDisplay[avatarKey] = Math.max(
-        1,
-        Number(itemsOwnedForDisplay[avatarKey] || 0)
-      );
-    }
-    for (const emoteGroupKey of user.emoteGroupsOwned || []) {
-      itemsOwnedForDisplay[emoteGroupKey] = 1;
-    }
-    user.purchasedItems = await buildPurchasedItems(itemsOwnedForDisplay);
+    user.purchasedItems = await buildPurchasedItems(user.itemsOwned, user);
     delete user.itemsOwned;
-    delete user.avatarsOwned;
-    delete user.emoteGroupsOwned;
+    delete user.nameChanged;
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;
