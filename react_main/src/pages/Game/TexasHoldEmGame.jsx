@@ -16,6 +16,7 @@ import {
 import { GameContext } from "../../Contexts";
 import { cardGameAudioConfig } from "../../audio/audioConfigs";
 import { SideMenu } from "./Game";
+import { Avatar } from "../User/User";
 
 import "css/game.css";
 import "css/gameCardGames.css";
@@ -180,6 +181,10 @@ function getSeatRails(players, self) {
 
 function getCurrentTurnPlayer(players, extraInfo) {
   return players.find((player) => player.userId === extraInfo.whoseTurnIsIt);
+}
+
+function getPlayerDisplayName(player, self) {
+  return player.playerId === self ? "You" : player.playerName;
 }
 
 function getBettingMeetings(game) {
@@ -535,13 +540,14 @@ function TexasTable() {
 
   const activePlayers = players.filter((player) => !player.Folded);
   const largestBet = Math.max(0, ...players.map((player) => Number(player.Bets || 0)));
+  const lastBet = extraInfo.LastBet ?? largestBet;
   const selfPlayer = players.find((player) => player.playerId === game.self);
   const seatRails = getSeatRails(players, game.self);
 
   return (
     <section className="texas-table-stage">
       <div className="texas-table-statusbar">
-        <TexasMetric label="Phase" value={extraInfo.Phase || state.name} />
+        <TexasMetric label="Active" value={`${activePlayers.length}/${players.length}`} />
         <TexasMetric label="Round" value={extraInfo.RoundNumber ?? "-"} />
         <TexasMetric label="Pot" value={<ChipAmount value={extraInfo.ThePot} />} />
         <TexasMetric label="To Call" value={<ChipAmount value={largestBet} />} />
@@ -561,9 +567,9 @@ function TexasTable() {
 
         <div className="texas-table-center">
           <div className="texas-pot-stack">
-            <span className="texas-pot-label">Pot</span>
+            <span className="texas-pot-label">Bet</span>
             <strong>
-              <ChipAmount value={extraInfo.ThePot} />
+              <ChipAmount value={lastBet} />
             </strong>
           </div>
           <div className="texas-community-board" aria-label="Community cards">
@@ -604,7 +610,6 @@ function TexasTable() {
           </div>
         </div>
         <div className="texas-table-quickstats">
-          <TexasMetric label="Active" value={`${activePlayers.length}/${players.length}`} />
           <TexasMetric
             label="My Stack"
             value={<ChipAmount value={selfPlayer?.Chips} />}
@@ -625,6 +630,10 @@ function TexasMetric({ label, value }) {
 }
 
 function TexasSeatChip({ player, isCurrentPlayer, isTurn }) {
+  const game = useContext(GameContext);
+  const gamePlayer = game.players?.[player.playerId] || {};
+  const displayName = getPlayerDisplayName(player, game.self);
+
   return (
     <button
       type="button"
@@ -633,9 +642,16 @@ function TexasSeatChip({ player, isCurrentPlayer, isTurn }) {
       } ${player.Folded ? "is-folded" : ""}`}
       onClick={() => window.open(`/user/${player.userId}`, "_blank")}
     >
-      <span className="texas-seat-name">{player.playerName}</span>
-      <span className="texas-seat-stack">
-        <ChipAmount value={player.Chips} />
+      <span className="texas-seat-avatar">
+        <Avatar
+          hasImage={gamePlayer.avatar}
+          id={gamePlayer.userId || player.userId}
+          name={player.playerName}
+          mediumlarge
+        />
+      </span>
+      <span className="texas-seat-name" title={player.playerName}>
+        {displayName}
       </span>
     </button>
   );
@@ -719,7 +735,7 @@ function TexasTableRoster() {
             <TexasPlayerRow
               key={player.userId || player.playerName}
               userId={player.userId}
-              playerName={player.playerName}
+              playerName={getPlayerDisplayName(player, game.self)}
               CardsInHand={player.CardsInHand}
               Chips={player.Chips}
               Bets={player.Bets}

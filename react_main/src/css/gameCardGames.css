@@ -359,7 +359,6 @@
 .game .texas-side-chat {
   min-height: 250px;
   flex: 1 1 0;
-  max-height: min(42vh, 420px);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -642,13 +641,14 @@
 
 .game .texas-seat-chip {
   position: relative;
-  min-width: 118px;
-  max-width: 170px;
+  width: 96px;
+  min-height: 92px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-rows: auto auto;
+  gap: 6px;
   align-items: center;
-  padding: 7px 9px;
+  justify-items: center;
+  padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(8, 13, 17, 0.72);
@@ -689,22 +689,19 @@
   opacity: 0.48;
 }
 
-.game .texas-seat-name,
-.game .texas-seat-stack {
+.game .texas-seat-avatar {
+  display: inline-flex;
+}
+
+.game .texas-seat-name {
+  max-width: 100%;
   overflow: hidden;
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.game .texas-seat-name {
   font-weight: 800;
-}
-
-.game .texas-seat-stack {
-  color: #f0d68b;
   font-size: 0.82rem;
-  font-weight: 800;
+  text-align: center;
 }
 
 .game .texas-table-footer {
@@ -732,8 +729,8 @@
 }
 
 .game .texas-table-quickstats {
-  min-width: 190px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 110px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .game .texas-info-panel {
@@ -1078,8 +1075,7 @@
   }
 
   .game .texas-seat-chip {
-    min-width: 104px;
-    max-width: 46%;
+    width: 92px;
   }
 
   .game .texas-community-board {

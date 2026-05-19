@@ -751,6 +751,7 @@ module.exports = class TexasHoldEmGame extends Game {
       whoseTurnIsIt:
         this.randomizedPlayersCopy?.[this.currentIndex]?.user.id ?? 0,
       ThePot: this.ThePot,
+      LastBet: this.lastAmountBid,
       RoundNumber: this.RoundNumber,
       Phase: this.Phase,
       CommunityCards: this.CommunityCards,
