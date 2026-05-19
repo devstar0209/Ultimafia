@@ -779,7 +779,7 @@ router.get("/avatars", async function (req, res) {
         .sort("sortOrder")
         .skip((page - 1) * pageSize)
         .limit(pageSize)
-        .select("_id key name imageUrl price currency limit hidden sortOrder updatedAt -_id")
+        .select("_id key name imageUrl price currency limit holderCnt hidden sortOrder updatedAt -_id")
         .lean()
     ]);
 
@@ -867,6 +867,7 @@ router.post("/avatars", async function (req, res) {
         price: Number(created.price || 0),
         currency: created.currency,
         limit: created.limit == null ? null : Number(created.limit),
+        holderCnt: created.holderCnt,
         hidden: Boolean(created.hidden),
         sortOrder: Number(created.sortOrder || 0)
       },
@@ -918,7 +919,7 @@ router.patch("/avatars/:key", async function (req, res) {
 
     
     const updated = await models.AvatarItem.findOneAndUpdate({ key }, { $set: updates }, { new: true })
-      .select("key name desc price currency limit hidden sortOrder")
+      .select("key name desc price currency limit holderCnt hidden sortOrder")
       .lean();
     if (!updated) {
       res.status(404).send("Avatar item not found.");
@@ -936,6 +937,7 @@ router.patch("/avatars/:key", async function (req, res) {
         price: Number(updated.price || 0),
         currency: updated.currency,
         limit: updated.limit == null ? null : Number(updated.limit),
+        remaining: updated.holderCnt,
         hidden: Boolean(updated.hidden),
         sortOrder: Number(updated.sortOrder || 0),
       },

@@ -258,6 +258,9 @@ export default function AvatarShop() {
                   </Stack>
 
                   <Stack direction="column" spacing={1} sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {`${avatar.holderCnt}/${avatar.limit ?? "∞"}`}
+                    </Typography>
                     {isEquipped ? (
                       <Button
                         variant={isEquipped ? "contained" : "outlined"}
@@ -274,6 +277,10 @@ export default function AvatarShop() {
                         fullWidth
                       >
                         Equip
+                      </Button>
+                    ) : avatar.holderCnt == avatar.limit ? (
+                      <Button variant="outlined" disabled fullWidth>
+                        Sold Out
                       </Button>
                     ) : (
                       <Button
@@ -381,7 +388,11 @@ export default function AvatarShop() {
           <Button
             variant="contained"
             onClick={confirmBuyAvatar}
-            disabled={!avatarToBuy || isBuyingAvatar}
+            disabled={
+              !avatarToBuy ||
+              isBuyingAvatar ||
+              (avatarToBuy?.holderCnt == avatarToBuy.limit)
+            }
           >
             {isBuyingAvatar ? "Buying..." : "Buy Avatar"}
           </Button>
