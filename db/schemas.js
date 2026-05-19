@@ -171,6 +171,7 @@ var schemas = {
       { type: mongoose.Schema.Types.ObjectId, ref: "CustomEmote" },
     ],
     avatarsOwned: { type: [String], default: [] },
+    emoteGroupsOwned: { type: [String], default: [] },
     games: [{ type: mongoose.Schema.Types.ObjectId, ref: "Game" }],
     globalNotifs: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Notification" },

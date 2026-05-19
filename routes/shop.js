@@ -1,11 +1,9 @@
 const express = require("express");
 const fs = require("fs");
-const path = require("path");
 const routeUtils = require("./utils");
 const redis = require("../modules/redis");
 const models = require("../db/models");
-const constants = require("../data/constants");
-const customEmoteUtils = require("../lib/Utils");
+const utils = require("../lib/Utils");
 const logger = require("../modules/logging")(".");
 const shortid = require("shortid");
 const router = express.Router();
@@ -76,26 +74,8 @@ function getEmoteNameFromAssetId(assetId, groupKey = "") {
     .toLowerCase();
 }
 
-function getEmoteAssetPath(assetId) {
-  return path.join(
-    process.env.UPLOAD_PATH || "uploads",
-    "store",
-    "emotes",
-    `${assetId}.webp`
-  );
-}
-
-function getEmoteGroupIconPath(groupKey) {
-  return path.join(
-    process.env.UPLOAD_PATH || "uploads",
-    "store",
-    "emote-groups",
-    `${groupKey}.webp`
-  );
-}
-
 function getEmoteGroupAssetIds(groupKey) {
-  const emoteDir = path.join(process.env.UPLOAD_PATH || "uploads", "store", "emotes");
+  const emoteDir = utils.resolveUploadPath(`${utils.EMOTES_UPLOAD_PATH}/${groupKey}`);
   if (!fs.existsSync(emoteDir)) return [];
 
   return fs
@@ -109,17 +89,21 @@ function buildEmoteGroupAssets(groupKey) {
   return getEmoteGroupAssetIds(groupKey).map((assetId) => ({
     id: assetId,
     name: getEmoteNameFromAssetId(assetId, groupKey),
-    imageUrl: buildEmoteImageUrl(assetId),
+    imageUrl: utils.toPublicUrl(`${utils.EMOTES_UPLOAD_PATH}/${groupKey}`, assetId),
   }));
 }
 
 async function validateEmoteGroupPurchase(userId, item) {
   const user = await models.User.findOne({ id: userId, deleted: false })
-    .select("_id customEmotes")
+    .select("emoteGroupsOwned")
     .lean();
   if (!user) throw new Error("User not found.");
 
-  if (!fs.existsSync(getEmoteGroupIconPath(item.key))) {
+  if ((user.emoteGroupsOwned || []).includes(item.key)) {
+    throw new Error("You already own this emote group.");
+  }
+
+  if (!item.imageUrl) {
     throw new Error("Emote group icon is unavailable.");
   }
 
@@ -132,66 +116,16 @@ async function validateEmoteGroupPurchase(userId, item) {
     if (!asset.name || asset.name.includes(":") || asset.name.includes(" ")) {
       throw new Error("Emote group contains an invalid emote name.");
     }
-
-    const existingSameName = await models.CustomEmote.findOne({
-      creator: user._id,
-      name: asset.name,
-      deleted: false,
-    })
-      .select("id")
-      .lean();
-    if (existingSameName && existingSameName.id !== asset.id) {
-      throw new Error(`You already have an emote named :${asset.name}:.`);
-    }
   }
 
-  return { userMongoId: user._id, emoteAssets: assets };
+  return {};
 }
 
-async function grantPurchasedEmoteGroup(userId, item, context = {}) {
-  const userMongoId = context.userMongoId;
-  const extension = "webp";
-  const assets = context.emoteAssets || buildEmoteGroupAssets(item.key);
-  const customEmotesByToken = {};
-  const customEmoteIds = [];
-
-  for (const asset of assets) {
-    const targetPath = customEmoteUtils.getCustomEmoteFilepath(
-      userId,
-      asset.id,
-      extension
-    );
-
-    const customEmote = await models.CustomEmote.findOneAndUpdate(
-      { creator: userMongoId, id: asset.id },
-      {
-        $set: {
-          id: asset.id,
-          name: asset.name,
-          extension,
-          creator: userMongoId,
-          deleted: false,
-        },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).exec();
-
-    customEmoteIds.push(customEmote._id);
-    customEmotesByToken[`:${asset.name}:`] = {
-      userId,
-      id: asset.id,
-      extension,
-      name: asset.name,
-      path: targetPath,
-    };
-  }
-
+async function grantPurchasedEmoteGroup(userId, item) {
   await models.User.updateOne(
-    userMongoId ? { _id: userMongoId } : { id: userId },
-    { $addToSet: { customEmotes: { $each: customEmoteIds } } }
+    { id: userId },
+    { $addToSet: { emoteGroupsOwned: item.key } }
   ).exec();
-
-  context.customEmote = customEmotesByToken;
 }
 
 async function validateAvatarPurchase(userId, item) {
@@ -387,14 +321,6 @@ function invalidateShopItemsCache() {
   shopItemsCacheTime = 0;
 }
 
-function buildEmoteImageUrl(emoteKey) {
-  return `/uploads/store/emotes/${emoteKey}.webp`;
-}
-
-function buildEmoteGroupIconUrl(groupKey) {
-  return `/uploads/store/emote-groups/${groupKey}.webp`;
-}
-
 function isAvatarItem(item = {}) {
   return String(item.key || "").startsWith("avatar-");
 }
@@ -493,12 +419,32 @@ router.get("/avatars", async function (req, res) {
 router.get("/emotes", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
+    const userId = await routeUtils.verifyLoggedIn(req, true);
 
-    const [emoteItems] =
-      await Promise.all([getEmoteItems()]);
+    const [emoteItems, user] = await Promise.all([
+      getEmoteGroupItems(),
+      userId
+        ? models.User.findOne({ id: userId, deleted: false })
+            .select("emoteGroupsOwned coins balanceDollar -_id")
+            .lean()
+        : null,
+    ]);
+    const emoteGroupsOwned = new Set(user?.emoteGroupsOwned || []);
 
     res.send({
-      emoteItems: emoteItems
+      emoteItems: emoteItems.map((group) => {
+        const emotes = buildEmoteGroupAssets(group.key);
+
+        return {
+          ...group,
+          iconUrl: group.imageUrl || "",
+          emotes,
+          owned: emoteGroupsOwned.has(group.key),
+          available: Boolean(group.imageUrl && emotes.length),
+        };
+      }),
+      balance: Number(user?.coins || 0),
+      balanceDollar: Number(user?.balanceDollar || 0),
     });
   } catch (e) {
     logger.error(e);
@@ -536,7 +482,7 @@ router.post(
       }
 
       var user = await models.User.findOne({ id: userId }).select(
-        "coins balanceDollar itemsOwned avatarsOwned"
+        "coins balanceDollar itemsOwned avatarsOwned emoteGroupsOwned"
       );
       const currentBalance = Number(user?.[purchase.balanceField] || 0);
 
@@ -559,6 +505,14 @@ router.post(
         res.send("You already own this.");
         return;
       }
+      if (
+        purchaseKind === "emoteGroup" &&
+        (user.emoteGroupsOwned || []).includes(item.key)
+      ) {
+        res.status(500);
+        res.send("You already own this.");
+        return;
+      }
 
       var context;
       if (item.validate) {
@@ -571,9 +525,10 @@ router.post(
         }
       }
 
-      let userChanges = {
-        [`itemsOwned.${item.key}`]: 1,
-      };
+      let userChanges = {};
+      if (purchaseKind !== "emoteGroup") {
+        userChanges[`itemsOwned.${item.key}`] = 1;
+      }
       userChanges[purchase.balanceField] = -1 * purchase.price;
 
       for (let k in item.propagateItemUpdates) {
@@ -595,10 +550,6 @@ router.post(
       }
 
       await item.onBuy(userId, context);
-      if (context) {
-        delete context.userMongoId;
-        delete context.emoteAssets;
-      }
 
       await redis.cacheUserInfo(userId, true);
       const updatedUser = await models.User.findOne({ id: userId })

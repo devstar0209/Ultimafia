@@ -159,7 +159,7 @@ async function cacheUserInfo(userId, reset) {
   if (!exists || reset) {
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points dailyChallengesCompleted dailyChallenges admin"
+        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned emoteGroupsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points dailyChallengesCompleted dailyChallenges admin"
       )
       .populate({
         path: "customEmotes",
@@ -230,6 +230,10 @@ async function cacheUserInfo(userId, reset) {
       `user:${userId}:info:itemsOwned`,
       JSON.stringify(user.itemsOwned)
     );
+    await client.setAsync(
+      `user:${userId}:info:emoteGroupsOwned`,
+      JSON.stringify(user.emoteGroupsOwned || [])
+    );
 
     var inGroups = await models.InGroup.find({ user: user._id }).populate(
       "group",
@@ -257,6 +261,7 @@ async function cacheUserInfo(userId, reset) {
   client.expire(`user:${userId}:info:blockedUsers`, 3600);
   client.expire(`user:${userId}:info:settings`, 3600);
   client.expire(`user:${userId}:info:itemsOwned`, 3600);
+  client.expire(`user:${userId}:info:emoteGroupsOwned`, 3600);
   client.expire(`user:${userId}:info:groups`, 3600);
 
   return true;
@@ -287,6 +292,7 @@ async function deleteUserInfo(userId) {
   await client.delAsync(`user:${userId}:info:blockedUsers`);
   await client.delAsync(`user:${userId}:info:settings`);
   await client.delAsync(`user:${userId}:info:itemsOwned`);
+  await client.delAsync(`user:${userId}:info:emoteGroupsOwned`);
   await client.delAsync(`user:${userId}:info:groups`);
 }
 
@@ -315,6 +321,7 @@ async function getUserInfo(userId) {
       `user:${userId}:info:blockedUsers`,
       `user:${userId}:info:settings`,
       `user:${userId}:info:itemsOwned`,
+      `user:${userId}:info:emoteGroupsOwned`,
       `user:${userId}:info:groups`,
       `user:${userId}:info:achievements`,
       `user:${userId}:info:vanityUrl`,
@@ -340,6 +347,7 @@ async function getUserInfo(userId) {
     blockedUsers,
     settings,
     itemsOwned,
+    emoteGroupsOwned,
     groups,
     achievements,
     vanityUrl,
@@ -364,6 +372,7 @@ async function getUserInfo(userId) {
   info.blockedUsers = JSON.parse(blockedUsers || "[]");
   info.settings = JSON.parse(settings || "{}");
   info.itemsOwned = JSON.parse(itemsOwned || "{}");
+  info.emoteGroupsOwned = JSON.parse(emoteGroupsOwned || "[]");
   info.groups = JSON.parse(groups || "[]");
   info.achievements = achievements;
 

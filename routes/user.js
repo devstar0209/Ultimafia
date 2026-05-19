@@ -452,7 +452,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned avatarsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned avatarsOwned emoteGroupsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -495,9 +495,13 @@ router.get("/:id/profile", async function (req, res) {
         Number(itemsOwnedForDisplay[avatarKey] || 0)
       );
     }
+    for (const emoteGroupKey of user.emoteGroupsOwned || []) {
+      itemsOwnedForDisplay[emoteGroupKey] = 1;
+    }
     user.purchasedItems = await buildPurchasedItems(itemsOwnedForDisplay);
     delete user.itemsOwned;
     delete user.avatarsOwned;
+    delete user.emoteGroupsOwned;
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;

@@ -214,54 +214,6 @@ function removeEmoteGroupAssets(groupKey) {
   }
 }
 
-async function grantEmoteAssetsToGroupOwners(groupKey, assets = []) {
-  if (!assets.length) return;
-
-  const owners = await models.User.find({
-    [`itemsOwned.${groupKey}`]: { $gt: 0 },
-    deleted: false,
-  })
-    .select("id _id")
-    .lean();
-
-  for (const owner of owners) {
-    const customEmoteIds = [];
-    for (const asset of assets) {
-      const existingSameName = await models.CustomEmote.findOne({
-        creator: owner._id,
-        name: asset.name,
-        deleted: false,
-      })
-        .select("id")
-        .lean();
-      if (existingSameName && existingSameName.id !== asset.id) continue;
-
-      const customEmote = await models.CustomEmote.findOneAndUpdate(
-        { creator: owner._id, id: asset.id },
-        {
-          $set: {
-            id: asset.id,
-            name: asset.name,
-            extension: "webp",
-            creator: owner._id,
-            deleted: false,
-          },
-        },
-        { new: true, upsert: true }
-      );
-      customEmoteIds.push(customEmote._id);
-    }
-
-    if (customEmoteIds.length) {
-      await models.User.updateOne(
-        { _id: owner._id },
-        { $addToSet: { customEmotes: { $each: customEmoteIds } } }
-      ).exec();
-      await redis.cacheUserInfo(owner.id, true);
-    }
-  }
-}
-
 async function createBrandingModAction(userId, name, args = []) {
   await models.ModAction.create({
     id: shortid.generate(),

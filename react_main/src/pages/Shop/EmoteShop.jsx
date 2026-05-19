@@ -8,6 +8,12 @@ import { UserContext, SiteInfoContext } from "../../Contexts";
 import {
   Box,
   Button,
+  Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  LinearProgress,
   Typography,
   Card,
   CardContent,
@@ -51,6 +57,9 @@ export default function EmoteShop() {
     balanceDollar: 0,
   });
   const [loaded, setLoaded] = useState(false);
+  const [emoteGroupToBuy, setEmoteGroupToBuy] = useState(null);
+  const [buyStatus, setBuyStatus] = useState("idle");
+  const [buyError, setBuyError] = useState("");
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
@@ -73,50 +82,65 @@ export default function EmoteShop() {
     }
   }, [user.loaded]);
 
-  const emoteGroups = shopInfo.emoteItems;
+  const emoteGroups = shopInfo.emoteItems || shopInfo.emoteGroups || [];
+
+  function closeBuyEmoteModal() {
+    if (buyStatus === "buying") return;
+    setEmoteGroupToBuy(null);
+    setBuyStatus("idle");
+    setBuyError("");
+  }
 
   function onBuyItem(groupKey) {
     const group = emoteGroups.find((item) => item.key === groupKey);
     if (!group || !group.available) return;
+    setEmoteGroupToBuy(group);
+    setBuyStatus("idle");
+    setBuyError("");
+  }
 
-    const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${group.name} for ${formatItemPrice(group)}?`
-    );
-
-    if (!shouldBuy) return;
-
+  function confirmBuyEmoteGroup() {
+    const group = emoteGroupToBuy;
+    if (!group || buyStatus === "buying") return;
+    setBuyStatus("buying");
+    setBuyError("");
     axios
       .post("/api/shop/purchase", { key: group.key })
       .then((res) => {
-        siteInfo.showAlert("Emote group purchased.", "success");
+        setShopInfo((prev) => {
+          const updatedEmoteGroups = (prev.emoteItems || prev.emoteGroups || []).map((item) =>
+            item.key === group.key ? { ...item, owned: true } : item
+          );
 
-        setShopInfo((prev) => ({
-          ...prev,
-          balance: res.data.balance,
-          balanceDollar: res.data.balanceDollar,
-          emoteGroups: (prev.emoteGroups || prev.emoteItems || []).map((item) =>
-            item.key === groupKey ? { ...item, owned: true } : item
-          ),
-        }));
+          return {
+            ...prev,
+            balance: res.data.balance,
+            balanceDollar: res.data.balanceDollar,
+            emoteItems: updatedEmoteGroups,
+            emoteGroups: updatedEmoteGroups,
+          };
+        });
 
         user.set((prev) => ({
           ...prev,
           coins: res.data.balance,
           balanceDollar: res.data.balanceDollar,
-          itemsOwned: {
-            ...(prev.itemsOwned || {}),
-            [groupKey]: Number(prev.itemsOwned?.[groupKey] || 0) + 1,
-          },
-          settings: {
-            ...(prev.settings || {}),
-            customEmotes: {
-              ...(prev.settings?.customEmotes || {}),
-              ...(res.data.customEmote || {}),
-            },
-          },
+          emoteGroupsOwned: Array.from(
+            new Set([...(prev.emoteGroupsOwned || []), group.key])
+          ),
         }));
+        setBuyStatus("success");
+        siteInfo.showAlert("Emote group purchased.", "success");
       })
-      .catch(errorAlert);
+      .catch((e) => {
+        const message =
+          e?.response?.data?.message ||
+          (typeof e?.response?.data === "string" ? e.response.data : "") ||
+          e?.message ||
+          "Unable to buy emote group.";
+        setBuyError(message);
+        setBuyStatus("failed");
+      });
   }
 
   if (user.loaded && !user.loggedIn) return <Navigate to="/play" />;
@@ -316,6 +340,115 @@ export default function EmoteShop() {
           </Stack>
         </Paper>
       )}
+
+      <Dialog
+        open={Boolean(emoteGroupToBuy)}
+        onClose={closeBuyEmoteModal}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Buy Emote Group</DialogTitle>
+        <DialogContent dividers>
+          {emoteGroupToBuy && (
+            <Stack direction="column" spacing={2}>
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <Box
+                  sx={{
+                    width: 72,
+                    height: 72,
+                    flex: "0 0 auto",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    backgroundImage: emoteGroupToBuy.iconUrl
+                      ? `url(${emoteGroupToBuy.iconUrl}?t=${siteInfo.cacheVal || ""})`
+                      : "none",
+                    backgroundSize: "contain",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }}
+                />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h6" sx={{ overflowWrap: "anywhere" }}>
+                    {emoteGroupToBuy.name || "Emote Group"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Adds every emote in this group to your chat emote list.
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Box
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 1.5,
+                  px: 2,
+                  py: 1.5,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Price
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                    {formatItemPrice(emoteGroupToBuy)}
+                  </Typography>
+                  <Box
+                    component="i"
+                    className={
+                      isDollarBalanceItem(emoteGroupToBuy)
+                        ? "fas fa-wallet"
+                        : "fas fa-coins"
+                    }
+                    aria-hidden="true"
+                    sx={{
+                      fontSize: 16,
+                      color: isDollarBalanceItem(emoteGroupToBuy)
+                        ? "success.main"
+                        : "#f5c542",
+                    }}
+                  />
+                </Stack>
+              </Box>
+
+              {buyStatus === "buying" && (
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Buying... purchase in progress.
+                  </Typography>
+                  <LinearProgress />
+                </Box>
+              )}
+
+              {buyStatus === "success" && (
+                <Alert severity="success">
+                  Purchase complete. This emote group is now available in chat.
+                </Alert>
+              )}
+
+              {buyStatus === "failed" && (
+                <Alert severity="error">
+                  Purchase failed. {buyError}
+                </Alert>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeBuyEmoteModal} disabled={buyStatus === "buying"}>
+            {buyStatus === "success" || buyStatus === "failed" ? "Close" : "Cancel"}
+          </Button>
+          {buyStatus !== "success" && (
+            <Button
+              variant="contained"
+              onClick={confirmBuyEmoteGroup}
+              disabled={!emoteGroupToBuy || buyStatus === "buying"}
+            >
+              {buyStatus === "buying" ? "Buying..." : "Buy Emotes"}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
