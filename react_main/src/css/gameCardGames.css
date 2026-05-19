@@ -298,3 +298,513 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+.game .texas-holdem-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.game .texas-holdem-game .main {
+  min-height: 0;
+}
+
+.game .texas-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game .texas-chat-dock {
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .texas-chat-dock .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .texas-table-stage {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(14, 20, 24, 0.96), rgba(27, 33, 38, 0.96)),
+    var(--scheme-color);
+  color: #f7f3e8;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .texas-table-stage-pregame {
+  min-height: 320px;
+}
+
+.game .texas-table-statusbar,
+.game .texas-table-footer,
+.game .texas-table-quickstats,
+.game .texas-info-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.game .texas-table-statusbar {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.game .texas-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .texas-metric span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(247, 243, 232, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .texas-metric strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .texas-table-felt {
+  position: relative;
+  min-height: 300px;
+  display: grid;
+  grid-template-rows: minmax(58px, auto) 1fr minmax(58px, auto);
+  gap: 10px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(240, 214, 139, 0.28);
+  border-radius: 50% / 32%;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(66, 118, 92, 0.95), rgba(20, 72, 58, 0.98) 58%, rgba(11, 45, 39, 1) 100%),
+    #16483d;
+  box-shadow:
+    inset 0 0 0 10px rgba(102, 61, 34, 0.62),
+    inset 0 0 36px rgba(0, 0, 0, 0.45);
+}
+
+.game .texas-table-felt::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50% / 34%;
+}
+
+.game .texas-seat-rail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.game .texas-table-center {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.game .texas-table-kicker {
+  color: #f0d68b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .texas-table-title {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.game .texas-table-subtitle {
+  max-width: 34rem;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .texas-pot-stack {
+  min-width: 104px;
+  padding: 9px 14px;
+  border: 1px solid rgba(240, 214, 139, 0.55);
+  border-radius: 999px;
+  background: rgba(11, 17, 22, 0.74);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.26);
+}
+
+.game .texas-pot-label {
+  display: block;
+  color: #f0d68b;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.game .texas-pot-stack strong {
+  display: block;
+  margin-top: 3px;
+  color: #ffffff;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.game .texas-community-board,
+.game .texas-hand-cards,
+.game .texas-info-cards,
+.game .texas-player-cards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.game .texas-community-board {
+  min-height: 74px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.game .texas-playing-card {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.22));
+}
+
+.game .texas-playing-card:hover {
+  transform: translateY(-2px);
+  box-shadow: none;
+}
+
+.game .texas-turn-line {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .texas-seat-chip {
+  min-width: 118px;
+  max-width: 170px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(8, 13, 17, 0.72);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.game .texas-seat-chip.is-turn {
+  border-color: #f0d68b;
+  box-shadow: 0 0 0 2px rgba(240, 214, 139, 0.16);
+}
+
+.game .texas-seat-chip.is-self {
+  background: rgba(24, 82, 92, 0.78);
+}
+
+.game .texas-seat-chip.is-folded {
+  opacity: 0.48;
+}
+
+.game .texas-seat-name,
+.game .texas-seat-stack {
+  overflow: hidden;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .texas-seat-name {
+  font-weight: 800;
+}
+
+.game .texas-seat-stack {
+  color: #f0d68b;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.game .texas-table-footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.game .texas-hero-hand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .texas-hero-hand span,
+.game .texas-info-board > span {
+  color: rgba(247, 243, 232, 0.68);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .texas-table-quickstats {
+  min-width: 190px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game .texas-info-panel {
+  padding: 10px;
+  color: #f7f3e8;
+}
+
+.game .texas-info-board {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.game .texas-muted {
+  color: rgba(247, 243, 232, 0.58);
+  font-size: 0.9rem;
+}
+
+.game .texas-direct-actions {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.game .texas-direct-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.game .texas-action-button {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 800;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.game .texas-action-button:not(:disabled):hover {
+  border-color: rgba(240, 214, 139, 0.58);
+  background: rgba(240, 214, 139, 0.14);
+  transform: translateY(-1px);
+}
+
+.game .texas-action-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.game .texas-action-button.is-selected {
+  border-color: #f0d68b;
+  background: rgba(240, 214, 139, 0.18);
+  color: #f0d68b;
+}
+
+.game .texas-action-fold {
+  background: rgba(176, 54, 54, 0.16);
+}
+
+.game .texas-action-call,
+.game .texas-action-check {
+  background: rgba(31, 119, 84, 0.2);
+}
+
+.game .texas-action-all-in {
+  background: rgba(34, 92, 154, 0.22);
+}
+
+.game .texas-action-button strong {
+  color: #f0d68b;
+  font-size: 0.9rem;
+}
+
+.game .texas-action-submitted {
+  color: rgba(247, 243, 232, 0.68);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.game .texas-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .texas-player-row {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.game .texas-player-row.is-turn {
+  border-color: rgba(240, 214, 139, 0.7);
+  box-shadow: 0 0 0 1px rgba(240, 214, 139, 0.15);
+}
+
+.game .texas-player-row.is-self {
+  background: rgba(24, 82, 92, 0.2);
+}
+
+.game .texas-player-row.is-folded {
+  opacity: 0.58;
+}
+
+.game .texas-player-name {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(10, 15, 19, 0.7);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .texas-player-ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: rgba(247, 243, 232, 0.72);
+  font-size: 0.86rem;
+}
+
+.game .texas-player-ledger strong,
+.game .texas-player-ledger em {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(240, 214, 139, 0.14);
+  color: #f0d68b;
+  font-style: normal;
+}
+
+.game .texas-player-ledger em {
+  background: rgba(220, 74, 74, 0.18);
+  color: #ffaaa5;
+}
+
+@media (max-width: 900px) {
+  .game .texas-table-statusbar,
+  .game .texas-table-footer,
+  .game .texas-table-quickstats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .texas-table-felt {
+    min-height: 360px;
+    border-radius: 28px;
+  }
+
+  .game .texas-hero-hand {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .game .texas-table-stage {
+    padding: 8px;
+    border-radius: 0;
+  }
+
+  .game .texas-table-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .texas-table-felt {
+    min-height: 330px;
+    padding: 14px 10px;
+  }
+
+  .game .texas-seat-chip {
+    min-width: 104px;
+    max-width: 46%;
+  }
+
+  .game .texas-community-board {
+    gap: 4px;
+    padding: 7px;
+  }
+
+  .game .texas-playing-card {
+    transform: scale(0.92);
+    margin: -2px;
+  }
+
+  .game .texas-playing-card:hover {
+    transform: scale(0.92) translateY(-2px);
+  }
+}
