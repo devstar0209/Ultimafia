@@ -354,11 +354,15 @@ export function iconUsername(text, players) {
         if (matchedPlayer) {
           if (matchedPlayer.avatar) {
             replaced = true;
+            const avatarUrl =
+              typeof matchedPlayer.avatar === "string"
+                ? matchedPlayer.avatar
+                : `/uploads/${matchedPlayer.userId}_avatar.webp`;
 
             words[j] = (
               <InlineAvatar
-              url={`url(/uploads/${matchedPlayer.userId}_avatar.webp)`}
-              username={matchedPlayer.name}
+                url={`url(${avatarUrl})`}
+                username={matchedPlayer.name}
               />
             );
           } else {

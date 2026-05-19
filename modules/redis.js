@@ -178,15 +178,23 @@ async function cacheUserInfo(userId, reset) {
 
     user = user.toJSON();
 
-    // Fetch vanity URL
-    const vanityUrl = await models.VanityUrl.findOne({
-      userId: userId,
-    }).select("url -_id");
+    // Fetch vanity URL and the equipped catalog avatar, if any.
+    const [vanityUrl, equippedAvatar] = await Promise.all([
+      models.VanityUrl.findOne({
+        userId: userId,
+      }).select("url -_id"),
+      user.settings?.equippedAvatarKey
+        ? models.AvatarItem.findOne({ key: user.settings.equippedAvatarKey })
+            .select("imageUrl -_id")
+            .lean()
+        : null,
+    ]);
+    const avatarValue = equippedAvatar?.imageUrl || user.avatar || false;
 
     await client.setAsync(`user:${userId}:info:id`, userId);
     await client.setAsync(`user:${userId}:info:name`, user.name);
     await client.setAsync(`user:${userId}:info:admin`, user.admin || false);
-    await client.setAsync(`user:${userId}:info:avatar`, user.avatar || false);
+    await client.setAsync(`user:${userId}:info:avatar`, avatarValue);
     await client.setAsync(
       `user:${userId}:info:profileBackground`,
       user.profileBackground || false
@@ -252,6 +260,12 @@ async function cacheUserInfo(userId, reset) {
   client.expire(`user:${userId}:info:groups`, 3600);
 
   return true;
+}
+
+function parseCachedAvatar(value) {
+  if (!value || value === "false") return false;
+  if (value === "true") return true;
+  return value;
 }
 
 async function deleteUserInfo(userId) {
@@ -335,7 +349,7 @@ async function getUserInfo(userId) {
   info.id = id;
   info.name = name;
   info.admin = admin === "true";
-  info.avatar = avatar === "true";
+  info.avatar = parseCachedAvatar(avatar);
   info.profileBackground = profileBackground === "true";
   info.nameChanged = nameChanged === "true";
   info.bdayChanged = bdayChanged === "true";
@@ -393,7 +407,9 @@ async function getBasicUserInfo(userId, delTemplate) {
   info.id = await client.getAsync(`user:${userId}:info:id`);
   info.name = await client.getAsync(`user:${userId}:info:name`);
   info.admin = (await client.getAsync(`user:${userId}:info:admin`)) == "true";
-  info.avatar = (await client.getAsync(`user:${userId}:info:avatar`)) == "true";
+  info.avatar = parseCachedAvatar(
+    await client.getAsync(`user:${userId}:info:avatar`)
+  );
   info.status = await client.getAsync(`user:${userId}:info:status`);
   info.groups = JSON.parse(await client.getAsync(`user:${userId}:info:groups`));
 

@@ -385,7 +385,7 @@ router.get("/overview", async function (req, res) {
       models.User.countDocuments({
         deleted: false,
         $or: [
-          { avatar: true },
+          { avatar: { $nin: [false, null, ""] } },
           { banner: true },
           { profileBackground: true },
         ],

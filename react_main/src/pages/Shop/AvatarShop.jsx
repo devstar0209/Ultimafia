@@ -84,14 +84,20 @@ export default function AvatarShop() {
         setShopInfo((prev) => ({
           ...prev,
           equippedAvatarKey,
+          avatarItems: prev.avatarItems.map((item) => ({
+            ...item,
+            equipped: item.key === equippedAvatarKey,
+          })),
         }));
         user.set((prev) => ({
           ...prev,
+          avatar: res.data.avatar || prev.avatar,
           settings: {
             ...(prev.settings || {}),
             equippedAvatarKey,
           },
         }));
+        siteInfo.clearCache();
         siteInfo.showAlert("Avatar equipped.", "success");
       })
       .catch(errorAlert);
@@ -139,14 +145,20 @@ export default function AvatarShop() {
         setShopInfo((prev) => ({
           ...prev,
           equippedAvatarKey,
+          avatarItems: prev.avatarItems.map((item) => ({
+            ...item,
+            equipped: item.key === equippedAvatarKey,
+          })),
         }));
         user.set((prev) => ({
           ...prev,
+          avatar: res.data.avatar || prev.avatar,
           settings: {
             ...(prev.settings || {}),
             equippedAvatarKey,
           },
         }));
+        siteInfo.clearCache();
         siteInfo.showAlert("Avatar equipped.", "success");
         setAvatarToBuy(null);
       })
@@ -167,6 +179,7 @@ export default function AvatarShop() {
           const equippedAvatarKey =
             shopInfo.equippedAvatarKey || user.settings?.equippedAvatarKey;
           const isEquipped = equippedAvatarKey === avatar.key;
+          const isOwned = Boolean(avatar.owned);
           return (
             <Grid2
               key={avatar.key}
@@ -253,6 +266,14 @@ export default function AvatarShop() {
                         fullWidth
                       >
                         Equipped
+                      </Button>
+                    ) : isOwned ? (
+                      <Button
+                        variant="outlined"
+                        onClick={() => onEquipAvatar(avatar.key)}
+                        fullWidth
+                      >
+                        Equip
                       </Button>
                     ) : (
                       <Button

@@ -483,7 +483,7 @@ export default function Profile() {
   function openAvatarSelectionDialog() {
     setAvatarShopLoading(true);
     axios
-      .get("/api/shop/info")
+      .get("/api/shop/avatars")
       .then((res) => {
         setAvatarShopItems(res.data.avatarItems || []);
         setAvatarSelectionOpen(true);
@@ -511,7 +511,7 @@ export default function Profile() {
     axios
       .post("/api/user/avatar/equip", { avatarKey })
       .then((res) => {
-        setAvatar(true);
+        setAvatar(res.data.avatar || true);
         setSettings((prev) => ({ ...prev, equippedAvatarKey: avatarKey }));
         siteInfo.clearCache();
         siteInfo.showAlert("Avatar selected.", "success");

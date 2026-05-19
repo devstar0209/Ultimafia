@@ -88,8 +88,16 @@ export function PlayerCircle({
           const isEligible = eligibleTargets.has(player.id);
           const isSelf = player.id === selfId;
 
-          const avatarUrl = player.avatar && player.userId
-            ? `/uploads/${player.userId}_avatar.webp?t=${siteInfo.cacheVal}`
+          const baseAvatarUrl =
+            player.avatar && typeof player.avatar === "string"
+              ? player.avatar
+              : player.avatar && player.userId
+              ? `/uploads/${player.userId}_avatar.webp`
+              : null;
+          const avatarUrl = baseAvatarUrl
+            ? `${baseAvatarUrl}${
+                baseAvatarUrl.includes("?") ? "&" : "?"
+              }t=${siteInfo.cacheVal}`
             : null;
           const avatarContent = avatarUrl
             ? <img src={avatarUrl} alt={player.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />

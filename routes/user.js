@@ -1,6 +1,5 @@
 const express = require("express");
 const bluebird = require("bluebird");
-const fs = require("fs");
 const fbAdmin = require("firebase-admin");
 const formidable = bluebird.promisifyAll(require("formidable"), {
   multiArgs: true,
@@ -123,6 +122,16 @@ function formatShopItemFallbackName(key) {
     .trim();
 }
 
+async function resolveAvatarImageUrl(user = {}) {
+  const avatarKey = String(user.settings?.equippedAvatarKey || "").trim();
+  if (!avatarKey) return "";
+
+  const avatarItem = await models.AvatarItem.findOne({ key: avatarKey })
+    .select("imageUrl -_id")
+    .lean();
+  return avatarItem?.imageUrl || "";
+}
+
 async function buildPurchasedItems(itemsOwned) {
   const ownedEntries = Object.entries(itemsOwned || {})
     .map(([key, count]) => ({ key, count: Number(count || 0) }))
@@ -130,14 +139,24 @@ async function buildPurchasedItems(itemsOwned) {
 
   if (ownedEntries.length === 0) return [];
 
+  const ownedKeys = ownedEntries.map((item) => item.key);
+  const [shopItems, avatarItems, emoteGroups] = await Promise.all([
+    models.ShopItem.find({ key: { $in: ownedKeys } })
+      .select("key name sortOrder hidden -_id")
+      .lean(),
+    models.AvatarItem.find({ key: { $in: ownedKeys } })
+      .select("key name sortOrder hidden -_id")
+      .lean(),
+    models.EmoteGroup.find({ key: { $in: ownedKeys } })
+      .select("key name sortOrder hidden -_id")
+      .lean(),
+  ]);
+
   const itemMap = new Map(
-    (
-      await models.ShopItem.find({
-        key: { $in: ownedEntries.map((item) => item.key) },
-      })
-        .select("key name sortOrder hidden -_id")
-        .lean()
-    ).map((item) => [item.key, item])
+    [...shopItems, ...avatarItems, ...emoteGroups].map((item) => [
+      item.key,
+      item,
+    ])
   );
 
   return ownedEntries
@@ -433,7 +452,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative pointsByGameCatalog championshipPoints coins balanceDollar itemsOwned avatarsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -465,11 +484,20 @@ router.get("/:id/profile", async function (req, res) {
     }
 
     user = user.toJSON();
+    user.avatar = (await resolveAvatarImageUrl(user)) || user.avatar;
     user.pointsByGameCatalog = await buildPointCatalogBalances(
       user.pointsByGameCatalog
     );
-    user.purchasedItems = await buildPurchasedItems(user.itemsOwned);
+    const itemsOwnedForDisplay = { ...(user.itemsOwned || {}) };
+    for (const avatarKey of user.avatarsOwned || []) {
+      itemsOwnedForDisplay[avatarKey] = Math.max(
+        1,
+        Number(itemsOwnedForDisplay[avatarKey] || 0)
+      );
+    }
+    user.purchasedItems = await buildPurchasedItems(itemsOwnedForDisplay);
     delete user.itemsOwned;
+    delete user.avatarsOwned;
     user.groups = (await redis.getBasicUserInfo(userId)).groups;
     user.maxFriendsPage =
       Math.ceil(user.numFriends / constants.friendsPerPage) || 1;
@@ -2057,7 +2085,7 @@ router.post("/avatar/equip", async function (req, res) {
     }
 
     const user = await models.User.findOne({ id: userId, deleted: false }).select(
-      "itemsOwned settings -_id"
+      "itemsOwned avatarsOwned settings -_id"
     );
     if (!user) {
       res.status(404);
@@ -2065,21 +2093,39 @@ router.post("/avatar/equip", async function (req, res) {
       return;
     }
 
-    if (!fs.existsSync(`${process.env.UPLOAD_PATH}`))
-      fs.mkdirSync(`${process.env.UPLOAD_PATH}`);
+    const ownsAvatar =
+      (user.avatarsOwned || []).includes(avatarKey) ||
+      Number(user.itemsOwned?.[avatarKey] || 0) > 0;
+    if (!ownsAvatar) {
+      res.status(400);
+      res.send("You do not own this avatar.");
+      return;
+    }
+
+    const avatarItem = await models.AvatarItem.findOne({ key: avatarKey })
+      .select("key imageUrl -_id")
+      .lean();
+    if (!avatarItem?.imageUrl) {
+      res.status(400);
+      res.send("Avatar image is unavailable.");
+      return;
+    }
 
     await models.User.updateOne(
       { id: userId },
       {
         $set: {
-          avatar: true,
+          avatar: avatarItem.imageUrl,
           "settings.equippedAvatarKey": avatarKey,
+        },
+        $addToSet: {
+          avatarsOwned: avatarKey,
         },
       }
     );
     await redis.cacheUserInfo(userId, true);
 
-    res.send({ ok: true, avatarKey });
+    res.send({ ok: true, avatarKey, avatar: avatarItem.imageUrl });
   } catch (e) {
     logger.error(e);
     res.status(500);

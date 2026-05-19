@@ -29,6 +29,21 @@ const vimeoRegex = /^https?:\/\/(www\.)?vimeo\.com\/(\d+)/;
 const invidiousRegex =
   /^https?:\/\/(www\.)?(invidious\.io|yewtu\.be|invidious\.flokinet\.to|invidious\.nixnet\.xyz|invidious\.privacydev\.net|invidious\.kavin\.rocks|invidious\.tux\.pizza|invidious\.projectsegfau\.lt|invidious\.riverside\.rocks|invidious\.busa\.co|invidious\.tinfoil-hat\.net|invidious\.jotoma\.de|invidious\.fdn\.fr|invidious\.mastodon\.host|invidious\.lelux\.fi|invidious\.mint\.lgbt|invidious\.fdn\.fr|invidious\.lelux\.fi|invidious\.mint\.lgbt|invidious\.nixnet\.xyz|invidious\.privacydev\.net|invidious\.kavin\.rocks|invidious\.tux\.pizza|invidious\.projectsegfau\.lt|invidious\.riverside\.rocks|invidious\.busa\.co|invidious\.tinfoil-hat\.net|invidious\.jotoma\.de|invidious\.fdn\.fr|invidious\.mastodon\.host|invidious\.lelux\.fi|invidious\.mint\.lgbt)\/watch\?v=([a-zA-Z0-9_-]{11})/;
 
+function getAvatarImageFromValue(value) {
+  if (typeof value !== "string" || value === "true" || value === "false") {
+    return "";
+  }
+  if (value.includes("decks") && !value.startsWith("/uploads")) {
+    return `/uploads${value}`;
+  }
+  return value;
+}
+
+function withCacheBust(url, cacheVal) {
+  if (!url || !cacheVal) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}t=${cacheVal}`;
+}
+
 export function YouTubeEmbed(props) {
   const embedId = props.embedId;
   var autoplay = "";
@@ -351,7 +366,15 @@ export function Avatar(props) {
     style.transform = "translateX(5px) translateY(5px)";
   }
 
-  if (hasImage && !imageUrl && id && avatarId) {
+  const avatarImageUrl = imageUrl || getAvatarImageFromValue(hasImage);
+
+  if (avatarImageUrl) {
+    style.backgroundImage = `url(${withCacheBust(
+      avatarImageUrl,
+      siteInfo.cacheVal
+    )})`;
+    style.backgroundColor = "#00000000";
+  } else if (hasImage && !imageUrl && id && avatarId) {
     if (id === avatarId) {
       if (!deckProfile) {
         style.backgroundImage = `url(/uploads/${id}_avatar.webp?t=${siteInfo.cacheVal})`;
@@ -361,8 +384,6 @@ export function Avatar(props) {
     }
   } else if (hasImage && !imageUrl && id) {
     style.backgroundImage = `url(/uploads/${id}_avatar.webp?t=${siteInfo.cacheVal})`;
-  } else if (hasImage && imageUrl) {
-    style.backgroundImage = `url(${imageUrl})`;
   } else if (name) {
     var rand = 0;
 
@@ -376,7 +397,7 @@ export function Avatar(props) {
 
     style.backgroundColor = colors[Math.floor(rand * colors.length)];
   }
-  if (typeof hasImage == "string") {
+  if (!avatarImageUrl && typeof hasImage == "string") {
     if (hasImage.includes("decks")) {
       style.backgroundImage = `url(/uploads${hasImage}?t=${siteInfo.cacheVal})`;
       style.backgroundColor = "#00000000";
