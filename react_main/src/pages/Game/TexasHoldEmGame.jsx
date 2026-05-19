@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useContext } from "react";
+import React, { useRef, useEffect, useContext, useState } from "react";
 
 import {
   useSocketListeners,
@@ -95,16 +95,17 @@ export default function TexasHoldEmGame() {
           centerPanelContent={
             <div className="texas-play-column">
               <TexasTable />
-              <div className="texas-chat-dock">
-                <TextMeetingLayout />
+              <div className="texas-action-dock">
+                {actionList}
               </div>
             </div>
           }
           rightPanelContent={
             <>
               <OptionsList />
-              <ThePot />
-              {actionList}
+              <div className="texas-side-chat">
+                <TextMeetingLayout />
+              </div>
               <Notes />
             </>
           }
@@ -115,7 +116,6 @@ export default function TexasHoldEmGame() {
           innerRightContent={
             <>
               <OptionsList />
-              <ThePot />
               {actionList}
             </>
           }
@@ -141,10 +141,41 @@ function formatChipCount(value) {
   return parsed.toLocaleString();
 }
 
+function PokerChipIcon() {
+  return <span className="texas-chip-icon" aria-hidden="true" />;
+}
+
+function ChipAmount({ value }) {
+  return (
+    <span className="texas-chip-amount">
+      <PokerChipIcon />
+      <span>{formatChipCount(value)}</span>
+    </span>
+  );
+}
+
 function getPlayers(extraInfo) {
   return Array.isArray(extraInfo.randomizedPlayers)
     ? extraInfo.randomizedPlayers
     : [];
+}
+
+function getSeatRails(players, self) {
+  const selfPlayer = players.find((player) => player.playerId === self);
+
+  if (!selfPlayer) {
+    const splitIndex = Math.ceil(players.length / 2);
+
+    return {
+      top: players.slice(0, splitIndex),
+      bottom: players.slice(splitIndex),
+    };
+  }
+
+  return {
+    top: players.filter((player) => player.playerId !== self),
+    bottom: [selfPlayer],
+  };
 }
 
 function getCurrentTurnPlayer(players, extraInfo) {
@@ -159,12 +190,24 @@ function getBettingMeetings(game) {
   return {
     moveMeeting: meetingList.find(
       (meeting) =>
-        meeting.name === "Move" || meeting.actionName === "Choose an Action?"
+        (meeting.name === "Move" || meeting.actionName === "Choose an Action?") &&
+        meeting.inputType === "custom"
     ),
     raiseMeeting: meetingList.find(
-      (meeting) => meeting.name === "Raise" || meeting.actionName === "Bet"
+      (meeting) =>
+        (meeting.name === "Raise" || meeting.actionName === "Bet") &&
+        meeting.inputType === "text"
     ),
   };
+}
+
+function getShowdownCardMeeting(game) {
+  const state = getViewedState(game);
+  const meetings = state?.meetings || {};
+
+  return Object.values(meetings).find(
+    (meeting) => meeting.inputType === "playingCardButtons"
+  );
 }
 
 function canUseMeeting(game, meeting) {
@@ -198,6 +241,7 @@ function PlayingCard({ value, hidden = false, blank = false, className = "" }) {
 function TexasBettingActions() {
   const game = useContext(GameContext);
   const { moveMeeting, raiseMeeting } = getBettingMeetings(game);
+  const showdownCardMeeting = getShowdownCardMeeting(game);
   const extraInfo = getExtraInfo(game);
   const players = getPlayers(extraInfo);
   const selfPlayer = players.find((player) => player.playerId === game.self);
@@ -211,7 +255,20 @@ function TexasBettingActions() {
   );
   const hasBettingActions = moveMeeting || raiseMeeting;
 
-  if (!hasBettingActions) return null;
+  if (!hasBettingActions) {
+    if (showdownCardMeeting) {
+      return (
+        <TexasShowdownCardActions
+          meeting={showdownCardMeeting}
+          canAct={canUseMeeting(game, showdownCardMeeting)}
+          socket={game.socket}
+          self={game.self}
+        />
+      );
+    }
+
+    return <ActionList title="Actions" hideIfEmpty />;
+  }
 
   return (
     <>
@@ -224,15 +281,168 @@ function TexasBettingActions() {
           self={game.self}
         />
       )}
-      <ActionList
-        title="Bet / Raise"
-        meetingFilter={(meeting) => meeting.id === raiseMeeting?.id}
-        actionStyle={{
-          color: extraInfo?.isTheFlyingDutchman ? "#718E77" : undefined,
-        }}
-        hideIfEmpty
-      />
+      {raiseMeeting && (
+        <TexasBetInput
+          meeting={raiseMeeting}
+          canAct={canUseMeeting(game, raiseMeeting)}
+          socket={game.socket}
+          self={game.self}
+          isTheFlyingDutchman={extraInfo?.isTheFlyingDutchman}
+        />
+      )}
     </>
+  );
+}
+
+function TexasShowdownCardActions({ meeting, canAct, socket, self }) {
+  const serverSelectedCards = Array.isArray(meeting.votes?.[self])
+    ? meeting.votes[self]
+    : [];
+  const requiredCards = meeting.multiMin || 5;
+  const maxCards = meeting.multiMax || requiredCards;
+  const serverSelectedKey = serverSelectedCards.join("|");
+  const [localSelectedCards, setLocalSelectedCards] =
+    useState(serverSelectedCards);
+  const selectedCards = localSelectedCards;
+  const selectedCardSet = new Set(selectedCards);
+  const hasSubmittedHand = selectedCards.length >= requiredCards;
+
+  useEffect(() => {
+    setLocalSelectedCards(serverSelectedKey ? serverSelectedKey.split("|") : []);
+  }, [meeting.id, serverSelectedKey]);
+
+  function toggleCard(card) {
+    if (!canAct) return;
+
+    const selected = selectedCardSet.has(card);
+    const voteType = selected ? "unvote" : "vote";
+
+    if (!selected && selectedCards.length >= maxCards) return;
+
+    setLocalSelectedCards((currentCards) =>
+      selected
+        ? currentCards.filter((selectedCard) => selectedCard !== card)
+        : [...currentCards, card]
+    );
+
+    socket.send(voteType, {
+      meetingId: meeting.id,
+      selection: card,
+    });
+  }
+
+  return (
+    <SideMenu
+      title="Choose 5 Cards"
+      content={
+        <div className="texas-showdown-actions">
+          <div className="texas-showdown-count">
+            {selectedCards.length}/{requiredCards} selected
+          </div>
+          <div className="texas-showdown-card-grid">
+            {(meeting.targets || []).map((card) => (
+              <button
+                key={card}
+                type="button"
+                className={`texas-showdown-card ${
+                  selectedCardSet.has(card) ? "is-selected" : ""
+                }`}
+                disabled={!canAct}
+                onClick={() => toggleCard(card)}
+              >
+                <span className="texas-showdown-card-frame">
+                  <PlayingCard value={card} />
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="texas-showdown-help">
+            {hasSubmittedHand
+              ? "Hand submitted. Waiting for showdown."
+              : `Select exactly ${requiredCards} cards to finish showdown.`}
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
+function TexasBetInput({ meeting, canAct, socket, self, isTheFlyingDutchman }) {
+  const [amount, setAmount] = useState("");
+  const textOptions = meeting.textOptions || {};
+  const minLength = textOptions.minLength || 0;
+  const previousBet = meeting.votes?.[self];
+  const disabled = meeting.finished || !canAct;
+
+  useEffect(() => {
+    setAmount("");
+  }, [meeting.id]);
+
+  function normalizeAmount(value) {
+    let nextAmount = value.replace(/\n/g, " ");
+
+    if (textOptions.numericOnly) {
+      nextAmount = nextAmount.replace(/[^0-9]/g, "");
+      if (nextAmount !== "" && nextAmount !== "0") {
+        nextAmount = parseInt(nextAmount, 10).toString();
+      }
+    }
+
+    if (textOptions.minNumber != null && nextAmount !== "") {
+      nextAmount = Math.max(
+        textOptions.minNumber,
+        parseInt(nextAmount, 10)
+      ).toString();
+    }
+
+    if (textOptions.maxNumber != null && nextAmount !== "") {
+      nextAmount = Math.min(
+        textOptions.maxNumber,
+        parseInt(nextAmount, 10)
+      ).toString();
+    }
+
+    return nextAmount.substring(0, textOptions.maxLength || 50);
+  }
+
+  function submitBet(event) {
+    event.preventDefault();
+
+    if (disabled || amount.length < minLength) return;
+
+    meeting.votes[self] = amount;
+    socket.send("vote", {
+      meetingId: meeting.id,
+      selection: amount,
+    });
+  }
+
+  return (
+    <form
+      className={`texas-bet-panel ${isTheFlyingDutchman ? "is-dutchman" : ""}`}
+      onSubmit={submitBet}
+    >
+      <input
+        className="texas-bet-input"
+        value={amount}
+        onChange={(event) => setAmount(normalizeAmount(event.target.value))}
+        disabled={disabled}
+        inputMode={textOptions.numericOnly ? "numeric" : "text"}
+        placeholder={textOptions.placeholder || "Amount"}
+      />
+      <button
+        type="submit"
+        className="texas-bet-submit"
+        disabled={disabled || amount.length < minLength}
+      >
+        Bet
+      </button>
+      {previousBet && (
+        <div className="texas-bet-submitted">
+          Current bet: <ChipAmount value={previousBet} />
+        </div>
+      )}
+    </form>
   );
 }
 
@@ -269,7 +479,9 @@ function TexasMoveActions({ meeting, canAct, callAmount, socket, self }) {
               >
                 <span>{getActionLabel(target, callAmount)}</span>
                 {target === "Call" && callAmount > 0 && (
-                  <strong>{formatChipCount(callAmount)}</strong>
+                  <strong>
+                    <ChipAmount value={callAmount} />
+                  </strong>
                 )}
               </button>
             ))}
@@ -312,7 +524,6 @@ function TexasTable() {
 
   const extraInfo = state.extraInfo || {};
   const players = getPlayers(extraInfo);
-  const currentTurnPlayer = getCurrentTurnPlayer(players, extraInfo);
   const communityCards = Array.isArray(extraInfo.CommunityCards)
     ? extraInfo.CommunityCards
     : [];
@@ -323,25 +534,22 @@ function TexasTable() {
   }
 
   const activePlayers = players.filter((player) => !player.Folded);
-  const totalChips = players.reduce(
-    (sum, player) => sum + Number(player.Chips || 0),
-    0
-  );
   const largestBet = Math.max(0, ...players.map((player) => Number(player.Bets || 0)));
   const selfPlayer = players.find((player) => player.playerId === game.self);
+  const seatRails = getSeatRails(players, game.self);
 
   return (
     <section className="texas-table-stage">
       <div className="texas-table-statusbar">
         <TexasMetric label="Phase" value={extraInfo.Phase || state.name} />
         <TexasMetric label="Round" value={extraInfo.RoundNumber ?? "-"} />
-        <TexasMetric label="Pot" value={formatChipCount(extraInfo.ThePot)} />
-        <TexasMetric label="To Call" value={formatChipCount(largestBet)} />
+        <TexasMetric label="Pot" value={<ChipAmount value={extraInfo.ThePot} />} />
+        <TexasMetric label="To Call" value={<ChipAmount value={largestBet} />} />
       </div>
 
       <div className="texas-table-felt">
         <div className="texas-seat-rail texas-seat-rail-top">
-          {players.slice(0, Math.ceil(players.length / 2)).map((player) => (
+          {seatRails.top.map((player) => (
             <TexasSeatChip
               key={player.userId || player.playerName}
               player={player}
@@ -354,7 +562,9 @@ function TexasTable() {
         <div className="texas-table-center">
           <div className="texas-pot-stack">
             <span className="texas-pot-label">Pot</span>
-            <strong>{formatChipCount(extraInfo.ThePot)}</strong>
+            <strong>
+              <ChipAmount value={extraInfo.ThePot} />
+            </strong>
           </div>
           <div className="texas-community-board" aria-label="Community cards">
             {visibleCards.map((card, index) => (
@@ -366,15 +576,10 @@ function TexasTable() {
               />
             ))}
           </div>
-          <div className="texas-turn-line">
-            {currentTurnPlayer
-              ? `${currentTurnPlayer.playerName} is on action`
-              : "Waiting for the next action"}
-          </div>
         </div>
 
         <div className="texas-seat-rail texas-seat-rail-bottom">
-          {players.slice(Math.ceil(players.length / 2)).map((player) => (
+          {seatRails.bottom.map((player) => (
             <TexasSeatChip
               key={player.userId || player.playerName}
               player={player}
@@ -400,7 +605,10 @@ function TexasTable() {
         </div>
         <div className="texas-table-quickstats">
           <TexasMetric label="Active" value={`${activePlayers.length}/${players.length}`} />
-          <TexasMetric label="Table Chips" value={formatChipCount(totalChips)} />
+          <TexasMetric
+            label="My Stack"
+            value={<ChipAmount value={selfPlayer?.Chips} />}
+          />
         </div>
       </div>
     </section>
@@ -426,7 +634,9 @@ function TexasSeatChip({ player, isCurrentPlayer, isTurn }) {
       onClick={() => window.open(`/user/${player.userId}`, "_blank")}
     >
       <span className="texas-seat-name">{player.playerName}</span>
-      <span className="texas-seat-stack">{formatChipCount(player.Chips)}</span>
+      <span className="texas-seat-stack">
+        <ChipAmount value={player.Chips} />
+      </span>
     </button>
   );
 }
@@ -449,7 +659,7 @@ export function ThePot() {
         <div className="texas-info-panel">
           <TexasMetric label="Phase" value={extraInfo.Phase || "-"} />
           <TexasMetric label="Round" value={extraInfo.RoundNumber ?? "-"} />
-          <TexasMetric label="Pot" value={formatChipCount(extraInfo.ThePot)} />
+          <TexasMetric label="Pot" value={<ChipAmount value={extraInfo.ThePot} />} />
           <TexasMetric
             label="Action"
             value={currentTurnPlayer?.playerName || "-"}
@@ -578,8 +788,14 @@ function TexasPlayerRow({
         )}
       </div>
       <div className="texas-player-ledger">
-        <span>{formatChipCount(Chips)} chips</span>
-        {Bets > 0 && <strong>{formatChipCount(Bets)} bet</strong>}
+        <span>
+          <ChipAmount value={Chips} />
+        </span>
+        {Bets > 0 && (
+          <strong>
+            <ChipAmount value={Bets} /> bet
+          </strong>
+        )}
         {Folded && <em>Folded</em>}
       </div>
     </div>

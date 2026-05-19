@@ -318,10 +318,32 @@
   gap: 12px;
 }
 
+.game .texas-action-dock {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.game .texas-action-dock .side-menu {
+  min-height: 0;
+}
+
+.game .texas-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .texas-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
 .game .texas-chat-dock {
   flex: 1;
-  min-height: 220px;
+  min-height: 170px;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
@@ -332,6 +354,51 @@
   min-height: 0;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.game .texas-side-chat {
+  min-height: 250px;
+  flex: 1 1 0;
+  max-height: min(42vh, 420px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .texas-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .texas-side-chat .meeting-tabs .MuiTabs-root {
+  min-width: 0;
+}
+
+.game .texas-side-chat .meeting-tabs .MuiTab-root {
+  max-width: 128px;
+}
+
+.game .texas-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .texas-side-chat .speech-display {
+  min-width: 0;
+}
+
+.game .texas-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .texas-side-chat .message .time {
+  min-width: 34px;
 }
 
 .game .texas-table-stage {
@@ -373,7 +440,7 @@
   background: rgba(255, 255, 255, 0.055);
 }
 
-.game .texas-metric span {
+.game .texas-metric > span {
   display: block;
   margin-bottom: 3px;
   color: rgba(247, 243, 232, 0.64);
@@ -383,7 +450,7 @@
   text-transform: uppercase;
 }
 
-.game .texas-metric strong {
+.game .texas-metric > strong {
   display: block;
   overflow: hidden;
   color: #ffffff;
@@ -391,6 +458,64 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.game .texas-chip-amount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.game .texas-chip-amount > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game .texas-chip-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  background-image: url("/src/images/items/chips.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.38));
+}
+
+@keyframes texas-active-seat-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      0 0 0 2px rgba(240, 214, 139, 0.14),
+      0 0 14px rgba(240, 214, 139, 0.22);
+  }
+
+  50% {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 3px rgba(240, 214, 139, 0.24),
+      0 0 24px rgba(240, 214, 139, 0.38);
+  }
+}
+
+@keyframes texas-active-row-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(240, 214, 139, 0.14),
+      0 0 12px rgba(240, 214, 139, 0.12);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(240, 214, 139, 0.22),
+      0 0 22px rgba(240, 214, 139, 0.26);
+  }
 }
 
 .game .texas-table-felt {
@@ -515,17 +640,8 @@
   box-shadow: none;
 }
 
-.game .texas-turn-line {
-  max-width: 100%;
-  overflow: hidden;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .game .texas-seat-chip {
+  position: relative;
   min-width: 118px;
   max-width: 170px;
   display: grid;
@@ -542,7 +658,27 @@
 
 .game .texas-seat-chip.is-turn {
   border-color: #f0d68b;
-  box-shadow: 0 0 0 2px rgba(240, 214, 139, 0.16);
+  animation: texas-active-seat-pulse 1.45s ease-in-out infinite;
+  box-shadow:
+    0 0 0 2px rgba(240, 214, 139, 0.16),
+    0 0 18px rgba(240, 214, 139, 0.28);
+}
+
+.game .texas-seat-chip.is-turn::after,
+.game .texas-player-row.is-turn::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(11, 17, 22, 0.9);
+  border-radius: 50%;
+  background: #f0d68b;
+  box-shadow: 0 0 12px rgba(240, 214, 139, 0.85);
+}
+
+.game .texas-seat-chip.is-turn::after {
+  top: -5px;
+  right: -5px;
 }
 
 .game .texas-seat-chip.is-self {
@@ -689,6 +825,149 @@
   text-align: center;
 }
 
+.game .texas-showdown-actions {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.game .texas-showdown-count {
+  color: rgba(247, 243, 232, 0.72);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.game .texas-showdown-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.game .texas-showdown-card {
+  width: 49px;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.game .texas-showdown-card-frame {
+  display: flex;
+  padding: 1px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.game .texas-showdown-card:not(:disabled):hover .texas-showdown-card-frame {
+  border-color: rgba(240, 214, 139, 0.45);
+  background: rgba(240, 214, 139, 0.1);
+}
+
+.game .texas-showdown-card.is-selected .texas-showdown-card-frame {
+  border-color: #f0d68b;
+  background: rgba(240, 214, 139, 0.18);
+  box-shadow: 0 0 0 2px rgba(240, 214, 139, 0.14);
+}
+
+.game .texas-showdown-card:focus-visible .texas-showdown-card-frame {
+  border-color: #f0d68b;
+}
+
+.game .texas-showdown-card:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.game .texas-showdown-card .texas-playing-card:hover {
+  transform: none;
+}
+
+.game .texas-showdown-help {
+  color: rgba(247, 243, 232, 0.6);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.game .texas-bet-panel {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .texas-bet-panel.is-dutchman {
+  color: #718e77;
+}
+
+.game .texas-bet-input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  outline: none;
+}
+
+.game .texas-bet-input:focus {
+  border-color: rgba(240, 214, 139, 0.7);
+  box-shadow: 0 0 0 2px rgba(240, 214, 139, 0.14);
+}
+
+.game .texas-bet-input:disabled {
+  opacity: 0.55;
+}
+
+.game .texas-bet-submit {
+  height: 42px;
+  min-width: 76px;
+  padding: 0 16px;
+  border: 1px solid rgba(240, 214, 139, 0.5);
+  border-radius: 8px;
+  background: rgba(240, 214, 139, 0.18);
+  color: #f0d68b;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.game .texas-bet-submit:not(:disabled):hover {
+  background: rgba(240, 214, 139, 0.26);
+}
+
+.game .texas-bet-submit:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.game .texas-bet-submitted {
+  grid-column: 1 / -1;
+  color: rgba(247, 243, 232, 0.68);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.game .texas-holdem-game .action .btn.btn-theme {
+  background-color: transparent !important;
+}
+
 .game .texas-roster {
   display: grid;
   gap: 8px;
@@ -696,6 +975,7 @@
 }
 
 .game .texas-player-row {
+  position: relative;
   display: grid;
   gap: 7px;
   padding: 9px;
@@ -706,7 +986,15 @@
 
 .game .texas-player-row.is-turn {
   border-color: rgba(240, 214, 139, 0.7);
-  box-shadow: 0 0 0 1px rgba(240, 214, 139, 0.15);
+  animation: texas-active-row-pulse 1.45s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(240, 214, 139, 0.15),
+    0 0 18px rgba(240, 214, 139, 0.18);
+}
+
+.game .texas-player-row.is-turn::after {
+  top: 7px;
+  right: 7px;
 }
 
 .game .texas-player-row.is-self {
