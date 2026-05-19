@@ -174,6 +174,46 @@ async function buildPurchasedItems(itemsOwned, user = {}) {
     );
 }
 
+async function getPublicCurrentGame(userId) {
+  const inGame = await redis.inGame(userId);
+  if (!inGame) return null;
+
+  let game = await redis.getGameInfo(inGame);
+  if (!game || game.settings?.private) return null;
+
+  const setup = await models.Setup.findOne({
+    id: game.settings.setup,
+  })
+    .select(
+      "id gameType name roles closed useRoleGroups roleGroupSizes count total -_id"
+    )
+    .lean();
+
+  if (!setup) return null;
+
+  return {
+    id: game.id,
+    setup: {
+      id: setup.id,
+      gameType: setup.gameType,
+      name: setup.name,
+      closed: setup.closed,
+      useRoleGroups: setup.useRoleGroups,
+      roleGroupSizes: setup.roleGroupSizes,
+      count: setup.count,
+      roles: setup.roles,
+      total: setup.total,
+    },
+    players: game.players.length,
+    status: game.status,
+    scheduled: game.settings.scheduled,
+    spectating: game.settings.spectating,
+    lobbyName: game.settings.lobbyName,
+    ranked: game.settings.ranked,
+    competitive: game.settings.competitive,
+  };
+}
+
 const mongo = require("mongodb");
 const ObjectID = mongo.ObjectID;
 
@@ -485,7 +525,7 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups games numFriends stats lastActive joined nameChanged favoriteRoles roleIconCredits _id"
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups numFriends stats lastActive joined nameChanged favoriteRoles roleIconCredits _id"
       )
       .populate({
         path: "setups",
@@ -493,20 +533,6 @@ router.get("/:id/profile", async function (req, res) {
           "id gameType name closed useRoleGroups roleGroupSizes count roles total -_id",
         options: {
           limit: constants.userSetupsPerPage,
-        },
-      })
-      .populate({
-        path: "games",
-        select:
-          "id setup lobby endTime private broken ranked competitive spectating anonymousGame users players winners -_id",
-        populate: {
-          path: "setup",
-          select:
-            "id gameType name closed useRoleGroups roleGroupSizes count roles total -_id",
-        },
-        options: {
-          sort: "-endTime",
-          limit: constants.userGamesPerPage,
         },
       });
 
@@ -528,21 +554,6 @@ router.get("/:id/profile", async function (req, res) {
     var userMongoId = user._id;
     delete user._id;
 
-    // Compute win/loss for each game
-    user.games = (user.games || []).map((game) => {
-      let won = null;
-      if (!game.broken && game.winners && game.winners.length > 0) {
-        const userIdx = (game.users || []).findIndex(
-          (u) => u && u.toString() === userMongoId.toString()
-        );
-        if (userIdx !== -1 && game.players && game.players[userIdx]) {
-          won = game.winners.includes(game.players[userIdx]);
-        }
-      }
-      const { users, players, winners, ...rest } = game;
-      return { ...rest, won };
-    });
-
     const totalSetups = await models.Setup.countDocuments({
       creator: userMongoId,
     });
@@ -552,14 +563,6 @@ router.get("/:id/profile", async function (req, res) {
         1
       ) || 1;
     user.totalSetups = totalSetups;
-
-    const totalGames = await models.Game.countDocuments({
-      users: userMongoId,
-    });
-    user.maxGamesPage =
-      Math.max(Math.ceil(totalGames / (constants.userGamesPerPage || 1)), 1) ||
-      1;
-    user.totalGames = totalGames;
 
     var allStats = dbStats.allStats();
     user.stats = user.stats || allStats;
@@ -785,46 +788,7 @@ router.get("/:id/profile", async function (req, res) {
       );
     } else user.friendRequests = [];
 
-    for (let game of user.games)
-      if (game.status == null) game.status = "Finished";
-
     var inGame = await redis.inGame(userId);
-    var game;
-
-    if (inGame) game = await redis.getGameInfo(inGame);
-
-    if (game && !game.settings.private) {
-      game.settings.setup = await models.Setup.findOne({
-        id: game.settings.setup,
-      }).select(
-        "id gameType name roles closed useRoleGroups roleGroupSizes count total -_id"
-      );
-      game.settings.setup = game.settings.setup.toJSON();
-
-      game = {
-        id: game.id,
-        setup: {
-          id: game.settings.setup.id,
-          gameType: game.settings.setup.gameType,
-          name: game.settings.setup.name,
-          closed: game.settings.setup.closed,
-          useRoleGroups: game.settings.setup.useRoleGroups,
-          roleGroupSizes: game.settings.setup.roleGroupSizes,
-          count: game.settings.setup.count,
-          roles: game.settings.setup.roles,
-          total: game.settings.setup.total,
-        },
-        players: game.players.length,
-        status: game.status,
-        scheduled: game.settings.scheduled,
-        spectating: game.settings.spectating,
-        lobbyName: game.settings.lobbyName,
-        ranked: game.settings.ranked,
-        competitive: game.settings.competitive,
-      };
-
-      user.games.unshift(game);
-    }
 
     user.love = await models.Love.findOne({ userId })
       .select("loveId type")
@@ -1352,6 +1316,11 @@ router.get("/:id/games", async function (req, res) {
         const { users, players, winners, ...rest } = game;
         return { ...rest, won, status: game.status || "Finished" };
       });
+    }
+
+    if (sanitizedPage === 1) {
+      const currentGame = await getPublicCurrentGame(userId);
+      if (currentGame) games.unshift(currentGame);
     }
 
     res.send({
