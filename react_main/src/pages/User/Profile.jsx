@@ -336,6 +336,10 @@ export default function Profile() {
       setRecentGamesPage(1);
       setRecentGamesMaxPage(1);
       setRecentGamesLoading(false);
+      setCreatedSetups([]);
+      setSetupsPage(1);
+      setSetupsMaxPage(1);
+      setSetupsLoading(false);
 
       axios
         .get(`/api/user/${userId}/profile`)
@@ -357,9 +361,6 @@ export default function Profile() {
           setIsMarried(res.data.isMarried);
           setSettings(res.data.settings);
           setArchivedGames(res.data.archivedGames);
-          setCreatedSetups(res.data.setups);
-          setSetupsPage(1);
-          setSetupsMaxPage(res.data.maxSetupsPage || 1);
           // setMaxFriendsPage(res.data.maxFriendsPage);
           setFriendRequests(res.data.friendRequests);
           setFriendsPage(1);
@@ -403,6 +404,7 @@ export default function Profile() {
           setIncomingPokes(res.data.incomingPokes || []);
           setFriendsPage(1);
           loadRecentGames(resolvedId, 1);
+          loadSetups(resolvedId, 1);
           loadFriends(resolvedId, "", 1);
 
           // Load current user's family info if viewing another user's profile

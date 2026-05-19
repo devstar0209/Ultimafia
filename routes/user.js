@@ -525,16 +525,8 @@ router.get("/:id/profile", async function (req, res) {
     var isSelf = reqUserId == userId;
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner setups numFriends stats lastActive joined nameChanged favoriteRoles roleIconCredits _id"
-      )
-      .populate({
-        path: "setups",
-        select:
-          "id gameType name closed useRoleGroups roleGroupSizes count roles total -_id",
-        options: {
-          limit: constants.userSetupsPerPage,
-        },
-      });
+        "id name avatar profileBackground settings accounts wins losses kudos karma points pointsNegative championshipPoints coins balanceDollar itemsOwned achievements bio pronouns banner numFriends stats lastActive joined nameChanged favoriteRoles roleIconCredits _id"
+      );
 
     if (!user) {
       res.status(500);
@@ -553,16 +545,6 @@ router.get("/:id/profile", async function (req, res) {
 
     var userMongoId = user._id;
     delete user._id;
-
-    const totalSetups = await models.Setup.countDocuments({
-      creator: userMongoId,
-    });
-    user.maxSetupsPage =
-      Math.max(
-        Math.ceil(totalSetups / (constants.userSetupsPerPage || 1)),
-        1
-      ) || 1;
-    user.totalSetups = totalSetups;
 
     var allStats = dbStats.allStats();
     user.stats = user.stats || allStats;
