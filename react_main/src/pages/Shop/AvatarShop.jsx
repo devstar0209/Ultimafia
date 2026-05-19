@@ -554,7 +554,6 @@ export default function AvatarShop() {
             right: 0,
             height: "100%",
             width: { xs: "100%", md: "52%" },
-            objectFit: "cover",
             opacity: { xs: 0.34, md: 0.88 },
             maskImage:
               "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.62) 32%, #000 100%)",
