@@ -610,6 +610,8 @@
 .game .texas-table-center {
   position: relative;
   z-index: 1;
+  grid-row: 2;
+  align-self: center;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -637,6 +639,7 @@
   color: rgba(255, 255, 255, 0.76);
 }
 
+.game .texas-community-board,
 .game .texas-hand-cards,
 .game .texas-info-cards,
 .game .texas-player-cards {
@@ -645,6 +648,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+.game .texas-community-board {
+  width: min(100%, 370px);
+  min-height: 74px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .game .texas-playing-card {
@@ -1138,6 +1149,11 @@
 
   .game .texas-seat-rail {
     padding-inline: 16px;
+  }
+
+  .game .texas-community-board {
+    gap: 4px;
+    padding: 7px;
   }
 
   .game .texas-playing-card {

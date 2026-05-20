@@ -104,7 +104,6 @@ export default function TexasHoldEmGame() {
           rightPanelContent={
             <>
               <OptionsList />
-              <CommunityCards />
               <div className="texas-side-chat">
                 <TextMeetingLayout />
               </div>
@@ -273,7 +272,11 @@ function TexasBettingActions() {
       );
     }
 
-    return <ActionList title="Actions" hideIfEmpty />;
+    if (game.stateViewing < 0) {
+      return <ActionList title="Actions" hideIfEmpty />;
+    }
+
+    return <TexasDisabledBettingActions callAmount={callAmount} />;
   }
 
   return (
@@ -297,6 +300,39 @@ function TexasBettingActions() {
         />
       )}
     </>
+  );
+}
+
+function TexasDisabledBettingActions({ callAmount }) {
+  const targets = callAmount > 0 ? ["Call", "Fold"] : ["Check", "Fold"];
+
+  return (
+    <SideMenu
+      title="Action"
+      content={
+        <div className="texas-direct-actions">
+          <div className="texas-direct-action-grid">
+            {targets.map((target) => (
+              <button
+                key={target}
+                type="button"
+                className={`texas-action-button texas-action-${target
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, "-")}`}
+                disabled
+              >
+                <span>{getActionLabel(target, callAmount)}</span>
+                {target === "Call" && callAmount > 0 && (
+                  <strong>
+                    <ChipAmount value={callAmount} />
+                  </strong>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      }
+    />
   );
 }
 
@@ -443,11 +479,7 @@ function TexasBetInput({ meeting, canAct, socket, self, isTheFlyingDutchman }) {
       >
         Bet
       </button>
-      {previousBet && (
-        <div className="texas-bet-submitted">
-          Current bet: <ChipAmount value={previousBet} />
-        </div>
-      )}
+      
     </form>
   );
 }
@@ -492,11 +524,6 @@ function TexasMoveActions({ meeting, canAct, callAmount, socket, self }) {
               </button>
             ))}
           </div>
-          {selectedAction && (
-            <div className="texas-action-submitted">
-              Selected {getActionLabel(selectedAction, callAmount)}
-            </div>
-          )}
         </div>
       }
     />
@@ -530,6 +557,15 @@ function TexasTable() {
 
   const extraInfo = state.extraInfo || {};
   const players = getPlayers(extraInfo);
+  const communityCards = Array.isArray(extraInfo.CommunityCards)
+    ? extraInfo.CommunityCards
+    : [];
+  const visibleCards = [...communityCards];
+
+  while (visibleCards.length < 5) {
+    visibleCards.push(null);
+  }
+
   const activePlayers = players.filter((player) => !player.Folded);
   const largestBet = Math.max(0, ...players.map((player) => Number(player.Bets || 0)));
   const lastBet = Number(extraInfo.LastBet || 0);
@@ -565,6 +601,19 @@ function TexasTable() {
               lastBetAnimationKey={lastBetAnimationKey}
             />
           ))}
+        </div>
+
+        <div className="texas-table-center">
+          <div className="texas-community-board" aria-label="Community cards">
+            {visibleCards.map((card, index) => (
+              <PlayingCard
+                key={`${card || "blank"}-${index}`}
+                value={card}
+                blank={!card}
+                className={card ? "is-dealt" : ""}
+              />
+            ))}
+          </div>
         </div>
 
         <div className="texas-seat-rail texas-seat-rail-bottom">
