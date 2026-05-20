@@ -128,8 +128,15 @@ module.exports = class Microphone extends Item {
               this.actor.hasHadTurn = true;
             }
             if (this.target == "All-In") {
+              const callAmount =
+                this.game.lastAmountBid - this.actor.AmountBidding;
+
               this.game.sendAlert(`${this.actor.name} goes All In!`);
-              this.game.addToPot(this.actor, "Bet", this.actor.Chips);
+              if (callAmount > 0 && this.actor.Chips <= callAmount) {
+                this.game.addToPot(this.actor, "Call");
+              } else {
+                this.game.addToPot(this.actor, "Bet", this.actor.Chips);
+              }
               this.actor.hasHadTurn = true;
             }
             if (this.target == "Fold") {
@@ -166,21 +173,16 @@ module.exports = class Microphone extends Item {
 
     this.MovesOptions = ["Check", "Fold"];
     this.MinRaise = 1;
-    if (this.game.lastAmountBid > 0) {
+    if (this.game.lastAmountBid > player.AmountBidding) {
       this.MovesOptions = ["Call", "Fold"];
       this.MinRaise = this.game.minimumBet;
     }
     if (player.Chips <= 0) {
       this.MovesOptions = ["Fold"];
-    }
-    /*
-    if (
-      this.game.lastAmountBid > player.Chips ||
-      this.game.minimumBet > player.Chips
-    ) {
+    } else {
       this.MovesOptions.push("All-In");
     }
-    */
+
     this.setupMeetings();
     /*
     this.meetings.Amount.textOptions.maxLength =

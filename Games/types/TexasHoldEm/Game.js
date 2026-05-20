@@ -7,6 +7,14 @@ const Winners = require("../../core/Winners");
 
 const Random = require("../../../lib/Random");
 
+const TEXAS_PHASES = {
+  PREFLOP: "Pre-Flop",
+  FLOP: "Flop",
+  TURN: "Turn",
+  RIVER: "River",
+  SHOWDOWN: "Showdown",
+};
+
 module.exports = class TexasHoldEmGame extends Game {
   constructor(options) {
     super(options);
@@ -27,7 +35,7 @@ module.exports = class TexasHoldEmGame extends Game {
       {
         name: "Showdown",
         length: options.settings.stateLengths["Showdown"],
-        skipChecks: [() => this.Phase != "Showdown"],
+        skipChecks: [() => this.Phase != TEXAS_PHASES.SHOWDOWN],
       },
     ];
 
@@ -144,13 +152,13 @@ module.exports = class TexasHoldEmGame extends Game {
       this.drawDiscardPile.shuffle();
       this.setupNextRoundTexas();
     }
-    this.startRoundRobin();
 
     super.start();
   }
 
   //Start: Randomizes player order, and gives the microphone to first one.
   setupNextRoundTexas() {
+    this.clearRoundItems();
     this.ThePot = parseInt(0);
     this.lastAmountBid = 0;
     this.lastBetAmount = 0;
@@ -168,68 +176,12 @@ module.exports = class TexasHoldEmGame extends Game {
         player.kill();
       }
     });
-    this.Phase = "First Bets";
-    if (this.RoundNumber == 0) {
-      this.Dealer = this.randomizedPlayersCopy[0];
-      this.SmallBlind = this.randomizedPlayersCopy[1];
-      this.BigBlind =
-        this.randomizedPlayersCopy[(1 + 1) % this.randomizedPlayersCopy.length];
-    } else {
-      for (let x = 1; x < this.randomizedPlayersCopy.length; x++) {
-        if (
-          this.randomizedPlayersCopy[
-            (this.randomizedPlayersCopy.indexOf(this.Dealer) + x) %
-              this.randomizedPlayersCopy.length
-          ].alive
-        ) {
-          this.Dealer =
-            this.randomizedPlayersCopy[
-              (this.randomizedPlayersCopy.indexOf(this.Dealer) + x) %
-                this.randomizedPlayersCopy.length
-            ];
-          for (let y = 1; y < this.randomizedPlayersCopy.length; y++) {
-            if (
-              this.randomizedPlayersCopy[
-                (this.randomizedPlayersCopy.indexOf(this.Dealer) + y) %
-                  this.randomizedPlayersCopy.length
-              ].alive
-            ) {
-              this.SmallBlind =
-                this.randomizedPlayersCopy[
-                  (this.randomizedPlayersCopy.indexOf(this.Dealer) + y) %
-                    this.randomizedPlayersCopy.length
-                ];
+    this.Phase = TEXAS_PHASES.PREFLOP;
 
-              for (let w = 1; w < this.randomizedPlayersCopy.length; w++) {
-                if (
-                  this.randomizedPlayersCopy[
-                    (this.randomizedPlayersCopy.indexOf(this.SmallBlind) + w) %
-                      this.randomizedPlayersCopy.length
-                  ].alive
-                ) {
-                  this.BigBlind =
-                    this.randomizedPlayersCopy[
-                      (this.randomizedPlayersCopy.indexOf(this.SmallBlind) +
-                        w) %
-                        this.randomizedPlayersCopy.length
-                    ];
-                  this.currentIndex =
-                    parseInt(
-                      this.randomizedPlayersCopy.indexOf(this.BigBlind)
-                    ) % this.randomizedPlayersCopy.length;
+    const activePlayers = this.getPlayersInHand();
+    if (activePlayers.length < 2) return;
 
-                  //Bidder
-                  break;
-                }
-              } //BigBlind
-
-              break;
-            } //SmallBlind
-          }
-          break;
-        } //Dealer
-      }
-    }
+    this.setDealerAndBlinds(activePlayers);
     this.sendAlert(
       `${this.SmallBlind.name} is The Small Blind and bets ${Math.ceil(
         this.minimumBet / 2.0
@@ -251,24 +203,148 @@ module.exports = class TexasHoldEmGame extends Game {
     this.lastBetAmount = this.minimumBet;
     this.lastBetter = this.BigBlind;
     this.dealCards(2);
+    this.assignNextBettingPlayer(
+      this.randomizedPlayersCopy.indexOf(this.BigBlind)
+    );
   }
 
   startRoundRobin() {
-    while (true) {
-      let nextPlayer = this.randomizedPlayersCopy[this.currentIndex];
-      if (nextPlayer.alive && nextPlayer.hasFolded != true) {
-        nextPlayer.howManySelected = false;
-        nextPlayer.whichFaceSelected = false;
-        nextPlayer.holdItem("Microphone");
-        return;
-      }
-    }
+    this.assignNextBettingPlayer(this.currentIndex - 1);
   }
 
   //Called each round, cycles between players.
   incrementCurrentIndex() {
     this.currentIndex =
       (this.currentIndex + 1) % this.randomizedPlayersCopy.length;
+  }
+
+  getPlayersInHand() {
+    return this.randomizedPlayersCopy.filter(
+      (player) => player.alive && player.hasFolded != true
+    );
+  }
+
+  getBettingPlayers() {
+    return this.getPlayersInHand().filter((player) => player.Chips > 0);
+  }
+
+  getNextActivePlayerAfter(player) {
+    const startIndex = this.randomizedPlayersCopy.indexOf(player);
+
+    if (startIndex < 0) return this.getPlayersInHand()[0];
+
+    for (let offset = 1; offset <= this.randomizedPlayersCopy.length; offset++) {
+      const nextPlayer =
+        this.randomizedPlayersCopy[
+          (startIndex + offset) % this.randomizedPlayersCopy.length
+        ];
+
+      if (nextPlayer.alive && nextPlayer.hasFolded != true) {
+        return nextPlayer;
+      }
+    }
+  }
+
+  setDealerAndBlinds(activePlayers) {
+    if (!this.Dealer) {
+      this.Dealer = activePlayers[0];
+    } else if (this.RoundNumber > 0) {
+      this.Dealer = this.getNextActivePlayerAfter(this.Dealer);
+    }
+
+    if (activePlayers.length === 2) {
+      this.SmallBlind = this.Dealer;
+      this.BigBlind = this.getNextActivePlayerAfter(this.Dealer);
+    } else {
+      this.SmallBlind = this.getNextActivePlayerAfter(this.Dealer);
+      this.BigBlind = this.getNextActivePlayerAfter(this.SmallBlind);
+    }
+  }
+
+  clearRoundItems() {
+    for (let player of this.randomizedPlayersCopy) {
+      player.dropItem("Microphone", true);
+      player.dropItem("ShowdownTime", true);
+    }
+  }
+
+  clearBettingItems() {
+    for (let player of this.randomizedPlayersCopy) {
+      player.dropItem("Microphone", true);
+    }
+  }
+
+  assignNextBettingPlayer(startIndex) {
+    const bettingPlayers = this.getBettingPlayers();
+
+    this.clearBettingItems();
+    if (bettingPlayers.length === 0) return;
+
+    for (let offset = 1; offset <= this.randomizedPlayersCopy.length; offset++) {
+      const nextIndex =
+        (startIndex + offset + this.randomizedPlayersCopy.length) %
+        this.randomizedPlayersCopy.length;
+      const nextPlayer = this.randomizedPlayersCopy[nextIndex];
+
+      if (
+        nextPlayer.alive &&
+        nextPlayer.hasFolded != true &&
+        nextPlayer.Chips > 0
+      ) {
+        this.currentIndex = nextIndex;
+        nextPlayer.holdItem("Microphone");
+        return;
+      }
+    }
+  }
+
+  resetBettingRound() {
+    this.lastAmountBid = 0;
+    this.lastBetAmount = 0;
+    this.lastBetter = null;
+    this.randomizedPlayers.forEach((player) => {
+      player.hasHadTurn = false;
+      player.AmountBidding = 0;
+    });
+  }
+
+  startPostflopBettingRound() {
+    this.currentIndex =
+      this.randomizedPlayersCopy.indexOf(this.Dealer) %
+      this.randomizedPlayersCopy.length;
+    this.assignNextBettingPlayer(this.currentIndex);
+  }
+
+  advanceTexasPhase() {
+    this.resetBettingRound();
+
+    if (this.Phase == TEXAS_PHASES.PREFLOP) {
+      this.Phase = TEXAS_PHASES.FLOP;
+      this.DrawCommunityCards(3);
+      this.startPostflopBettingRound();
+    } else if (this.Phase == TEXAS_PHASES.FLOP) {
+      this.Phase = TEXAS_PHASES.TURN;
+      this.DrawCommunityCards(1);
+      this.startPostflopBettingRound();
+    } else if (this.Phase == TEXAS_PHASES.TURN) {
+      this.Phase = TEXAS_PHASES.RIVER;
+      this.DrawCommunityCards(1);
+      this.startPostflopBettingRound();
+    } else if (this.Phase == TEXAS_PHASES.RIVER) {
+      this.Phase = TEXAS_PHASES.SHOWDOWN;
+      this.clearBettingItems();
+      this.randomizedPlayers.forEach((player) => {
+        if (player.alive != true) {
+          return;
+        }
+        if (player.hasFolded == true) {
+          return;
+        }
+        player.holdItem("ShowdownTime");
+        player.hasHadTurn = false;
+        player.AmountBidding = 0;
+      });
+    }
   }
 
   //After someone uses microphone, it passes it to the next player.
@@ -281,13 +357,11 @@ module.exports = class TexasHoldEmGame extends Game {
         (p) =>
           p.hasHadTurn != true && p.alive && p.hasFolded != true && p.Chips > 0
       );
-      let playersInGame = this.randomizedPlayersCopy.filter(
-        (p) => p.alive && p.hasFolded != true
-      );
+      let playersInGame = this.getPlayersInHand();
       if (playersInGame.length == 1) {
-        this.sendAlert(`The Round has Concluded`);
+        this.queueAlert(`The Round has Concluded`);
         this.RoundNumber++;
-        this.sendAlert(
+        this.queueAlert(
           `${playersInGame[0].name} has Won ${this.ThePot} from The Pot by not folding!`
         );
         playersInGame[0].Chips += parseInt(this.ThePot);
@@ -296,91 +370,9 @@ module.exports = class TexasHoldEmGame extends Game {
         this.discardCommunityCards();
         this.setupNextRoundTexas();
       } else if (tempPlayers.length > 0) {
-        playersInGame = playersInGame.filter((p) => p.Chips > 0);
-        while (playersInGame.length > 0) {
-          this.incrementCurrentIndex();
-
-          let nextPlayer = this.randomizedPlayersCopy[this.currentIndex];
-          if (
-            nextPlayer.alive &&
-            nextPlayer.hasFolded != true &&
-            nextPlayer.Chips > 0
-          ) {
-            nextPlayer.holdItem("Microphone");
-            break;
-          }
-        }
-      } else if (this.Phase == "First Bets") {
-        this.lastAmountBid = 0;
-        this.lastBetAmount = 0;
-        this.lastBetter = null;
-        this.Phase = "The Flop";
-        this.randomizedPlayers.forEach((player) => {
-          player.hasHadTurn = false;
-          player.AmountBidding = 0;
-        });
-        this.DrawCommunityCards(3);
-        this.currentIndex =
-          this.randomizedPlayersCopy.indexOf(this.Dealer) %
-          this.randomizedPlayersCopy.length;
-        playersInGame = playersInGame.filter((p) => p.Chips > 0);
-        while (playersInGame.length > 0) {
-          this.incrementCurrentIndex();
-
-          let nextPlayer = this.randomizedPlayersCopy[this.currentIndex];
-          if (
-            nextPlayer.alive &&
-            nextPlayer.hasFolded != true &&
-            nextPlayer.Chips > 0
-          ) {
-            nextPlayer.holdItem("Microphone");
-            break;
-          }
-        }
-      } else if (this.Phase == "The Flop" || this.Phase == "The Turn") {
-        this.lastAmountBid = 0;
-        this.lastBetAmount = 0;
-        this.lastBetter = null;
-        if (this.Phase == "The Flop") {
-          this.Phase = "The Turn";
-        } else {
-          this.Phase = "The River";
-        }
-        this.randomizedPlayers.forEach((player) => {
-          player.hasHadTurn = false;
-          player.AmountBidding = 0;
-        });
-        this.DrawCommunityCards(1);
-        this.currentIndex =
-          this.randomizedPlayersCopy.indexOf(this.Dealer) %
-          this.randomizedPlayersCopy.length;
-        playersInGame = playersInGame.filter((p) => p.Chips > 0);
-        while (playersInGame.length > 0) {
-          this.incrementCurrentIndex();
-
-          let nextPlayer = this.randomizedPlayersCopy[this.currentIndex];
-          if (
-            nextPlayer.alive &&
-            nextPlayer.hasFolded != true &&
-            nextPlayer.Chips > 0
-          ) {
-            nextPlayer.holdItem("Microphone");
-            break;
-          }
-        }
-      } else if (this.Phase == "The River") {
-        this.Phase = "Showdown";
-        this.randomizedPlayers.forEach((player) => {
-          if (player.alive != true) {
-            return;
-          }
-          if (player.hasFolded == true) {
-            return;
-          }
-          player.holdItem("ShowdownTime");
-          player.hasHadTurn = false;
-          player.AmountBidding = 0;
-        });
+        this.assignNextBettingPlayer(this.currentIndex);
+      } else {
+        this.advanceTexasPhase();
       }
     } else if (previousState == "Showdown") {
       this.AwardRoundWinner();
@@ -424,7 +416,7 @@ module.exports = class TexasHoldEmGame extends Game {
       if (player.ShowdownCards.length < 5) {
         return;
       }
-      this.sendAlert(`${player.name} uses ${player.ShowdownCards.join(", ")}!`);
+      this.queueAlert(`${player.name} uses ${player.ShowdownCards.join(", ")}!`);
       for (let card of player.ShowdownCards) {
         let tempCard = this.readCard(card);
         if (!counts[tempCard[0]]) {
@@ -566,9 +558,9 @@ module.exports = class TexasHoldEmGame extends Game {
         highest.push(player);
       }
     }
-    this.sendAlert(`The Round has Concluded`);
+    this.queueAlert(`The Round has Concluded`);
     for (let player of highest) {
-      this.sendAlert(
+      this.queueAlert(
         `${player.name} has Won ${Math.floor(
           this.ThePot / highest.length
         )} from The Pot with a ${player.ScoreType}!`
@@ -679,7 +671,7 @@ module.exports = class TexasHoldEmGame extends Game {
       player.AmountBidding += betAmount;
       this.ThePot += betAmount;
       this.recordLastBet(player, betAmount);
-      let activePlayers = this.players.filter((p) => p.alive && !p.hasFolded);
+      let activePlayers = this.getPlayersInHand();
       for (let person of activePlayers) {
         person.hasHadTurn = false;
       }

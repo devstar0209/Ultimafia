@@ -259,6 +259,10 @@ function TexasBettingActions() {
     largestBet - Number(selfPlayer?.Bets || 0)
   );
   const hasBettingActions = moveMeeting || raiseMeeting;
+  const moveTargets = Array.isArray(moveMeeting?.targets)
+    ? moveMeeting.targets
+    : [];
+  const showAllInWithRaise = raiseMeeting && moveTargets.includes("All-In");
 
   if (!hasBettingActions) {
     if (showdownCardMeeting) {
@@ -288,6 +292,7 @@ function TexasBettingActions() {
           callAmount={callAmount}
           socket={game.socket}
           self={game.self}
+          hiddenTargets={showAllInWithRaise ? ["All-In"] : []}
         />
       )}
       {raiseMeeting && (
@@ -297,6 +302,8 @@ function TexasBettingActions() {
           socket={game.socket}
           self={game.self}
           isTheFlyingDutchman={extraInfo?.isTheFlyingDutchman}
+          allInMeeting={showAllInWithRaise ? moveMeeting : null}
+          canAllIn={canUseMeeting(game, moveMeeting)}
         />
       )}
     </>
@@ -409,12 +416,20 @@ function TexasShowdownCardActions({ meeting, canAct, socket, self }) {
   );
 }
 
-function TexasBetInput({ meeting, canAct, socket, self, isTheFlyingDutchman }) {
+function TexasBetInput({
+  meeting,
+  canAct,
+  socket,
+  self,
+  isTheFlyingDutchman,
+  allInMeeting,
+  canAllIn,
+}) {
   const [amount, setAmount] = useState("");
   const textOptions = meeting.textOptions || {};
   const minLength = textOptions.minLength || 0;
-  const previousBet = meeting.votes?.[self];
   const disabled = meeting.finished || !canAct;
+  const allInSelected = allInMeeting?.votes?.[self] === "All-In";
 
   useEffect(() => {
     setAmount("");
@@ -459,6 +474,15 @@ function TexasBetInput({ meeting, canAct, socket, self, isTheFlyingDutchman }) {
     });
   }
 
+  function submitAllIn() {
+    if (!allInMeeting || !canAllIn) return;
+
+    socket.send("vote", {
+      meetingId: allInMeeting.id,
+      selection: "All-In",
+    });
+  }
+
   return (
     <form
       className={`texas-bet-panel ${isTheFlyingDutchman ? "is-dutchman" : ""}`}
@@ -479,14 +503,35 @@ function TexasBetInput({ meeting, canAct, socket, self, isTheFlyingDutchman }) {
       >
         Raise
       </button>
-      
+      {allInMeeting && (
+        <button
+          type="button"
+          className={`texas-bet-all-in ${allInSelected ? "is-selected" : ""}`}
+          disabled={!canAllIn}
+          onClick={submitAllIn}
+        >
+          All-In
+        </button>
+      )}
     </form>
   );
 }
 
-function TexasMoveActions({ meeting, canAct, callAmount, socket, self }) {
+function TexasMoveActions({
+  meeting,
+  canAct,
+  callAmount,
+  socket,
+  self,
+  hiddenTargets = [],
+}) {
   const selectedAction = meeting.votes?.[self];
-  const targets = Array.isArray(meeting.targets) ? meeting.targets : [];
+  const hiddenTargetSet = new Set(hiddenTargets);
+  const targets = Array.isArray(meeting.targets)
+    ? meeting.targets.filter((target) => !hiddenTargetSet.has(target))
+    : [];
+
+  if (targets.length === 0) return null;
 
   function submitAction(target) {
     if (!canAct) return;
@@ -567,7 +612,15 @@ function TexasTable() {
   }
 
   const activePlayers = players.filter((player) => !player.Folded);
-  const largestBet = Math.max(0, ...players.map((player) => Number(player.Bets || 0)));
+  const largestBet = Math.max(
+    0,
+    ...players.map((player) => Number(player.Bets || 0))
+  );
+  const selfPlayer = players.find((player) => player.playerId === game.self);
+  const callAmount = Math.max(
+    0,
+    largestBet - Number(selfPlayer?.Bets || 0)
+  );
   const lastBet = Number(extraInfo.LastBet || 0);
   const lastBetAnimationKey = [
     extraInfo.LastBetterPlayerId || "none",
@@ -576,16 +629,19 @@ function TexasTable() {
     extraInfo.RoundNumber || 0,
     extraInfo.Phase || "",
   ].join("-");
-  const selfPlayer = players.find((player) => player.playerId === game.self);
   const seatRails = getSeatRails(players, game.self);
 
   return (
     <section className="texas-table-stage">
       <div className="texas-table-statusbar">
-        <TexasMetric label="Active" value={`${activePlayers.length}/${players.length}`} />
-        <TexasMetric label="Round" value={extraInfo.RoundNumber ?? "-"} />
+        <TexasMetric
+          label="Active"
+          value={`${activePlayers.length}/${players.length}`}
+        />
+        <TexasMetric label="Stage" value={extraInfo.Phase || "-"} />
+        <TexasMetric label="Hand" value={extraInfo.RoundNumber ?? "-"} />
         <TexasMetric label="Pot" value={<ChipAmount value={extraInfo.ThePot} />} />
-        <TexasMetric label="To Call" value={<ChipAmount value={largestBet} />} />
+        <TexasMetric label="To Call" value={<ChipAmount value={callAmount} />} />
       </div>
 
       <div className="texas-table-felt">
