@@ -6,6 +6,12 @@ export const useLoading = ({ minLoadingTime } = {}) => {
   const isMountedRef = useRef(true);
 
   useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     let timeout;
     if (value) {
       setIsFakeLoading(true);
@@ -17,10 +23,9 @@ export const useLoading = ({ minLoadingTime } = {}) => {
     }
 
     return () => {
-      isMountedRef.current = false;
       timeout && clearTimeout(timeout);
     };
-  }, [value]);
+  }, [value, minLoadingTime]);
 
   const setLoading = (newValue) => {
     setValue(newValue);

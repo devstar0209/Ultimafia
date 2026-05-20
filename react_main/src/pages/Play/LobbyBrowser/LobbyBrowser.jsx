@@ -38,6 +38,8 @@ import { DailyChallenges } from "./DailyChallengeDisplay";
 import { getRowStubColor } from "./gameRowColors.js";
 import GameIcon from "components/GameIcon";
 
+const LOBBY_GAMES_PER_PAGE = 6;
+
 export default function LobbyBrowser() {
   const theme = useTheme();
   const siteInfo = useContext(SiteInfoContext);
@@ -126,23 +128,23 @@ export default function LobbyBrowser() {
   }, []);
 
   const getGameList = async (_listType, _page, finallyCallback = null) => {
-    setLoading(true);
     var filterArg = getPageNavFilterArg(_page, page, games, "endTime");
 
     if (filterArg == null) return;
 
+    setLoading(true);
     filterArg += `&page=${_page}`;
     try {
       const res = await axios.get(
         `/api/game/list?list=${camelCase(
           _listType
-        )}&lobby=All&${filterArg}`
+        )}&lobby=All&gameType=${encodeURIComponent(
+          selectedGameType
+        )}&pageSize=${LOBBY_GAMES_PER_PAGE}&${filterArg}`
       );
       if (!isMountedRef.current) return;
 
-      const filteredGames = (res.data || []).filter(
-        (game) => game?.setup?.gameType === selectedGameType
-      );
+      const filteredGames = res.data || [];
 
       if (filteredGames.length > 0 || _page === 1) {
         setListType(_listType);
@@ -153,12 +155,13 @@ export default function LobbyBrowser() {
       if (isMountedRef.current) {
         errorAlert();
       }
-    }
-    if (isMountedRef.current) {
-      setLoading(false);
-    }
-    if (isMountedRef.current && finallyCallback) {
-      finallyCallback();
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+      if (isMountedRef.current && finallyCallback) {
+        finallyCallback();
+      }
     }
   };
 

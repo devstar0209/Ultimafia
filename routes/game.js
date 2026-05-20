@@ -149,9 +149,14 @@ router.get("/list", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
     var userId = await routeUtils.verifyLoggedIn(req, true);
-    var start = ((Number(req.query.page) || 1) - 1) * constants.lobbyPageSize;
+    var pageSize = Math.min(
+      Math.max(Number(req.query.pageSize) || constants.lobbyPageSize, 1),
+      50
+    );
+    var start = ((Number(req.query.page) || 1) - 1) * pageSize;
     var listName = String(req.query.list).toLowerCase();
     var lobby = String(req.query.lobby || "All");
+    var gameType = req.query.gameType ? String(req.query.gameType) : null;
     var last = Number(req.query.last);
     var first = Number(req.query.first);
     var games = [];
@@ -165,7 +170,17 @@ router.get("/list", async function (req, res) {
       return;
     }
 
-    var end = start + constants.lobbyPageSize;
+    if (
+      gameType &&
+      (!routeUtils.validProp(gameType) ||
+        constants.gameTypes.indexOf(gameType) == -1)
+    ) {
+      logger.error("Invalid game type.");
+      res.send([]);
+      return;
+    }
+
+    var end = start + pageSize;
 
     const canSeePrivate =
       userId && (await routeUtils.verifyPermission(userId, "breakGame"));
@@ -189,6 +204,7 @@ router.get("/list", async function (req, res) {
     }
 
     if (lobby != "All") games = games.filter((game) => game.lobby == lobby);
+    if (gameType) games = games.filter((game) => game.type == gameType);
 
     games = games.slice(start, end);
 
@@ -235,17 +251,19 @@ router.get("/list", async function (req, res) {
 
     if (
       (listName == "all" || listName == "finished") &&
-      games.length < constants.lobbyPageSize
+      games.length < pageSize
     ) {
       var gameFilter = lobby != "All" ? { lobby } : {};
+      var finishedLast = last === 0 ? Infinity : last;
+      if (gameType) gameFilter.type = gameType;
       var finishedGames = await routeUtils.modelPageQuery(
         models.Game,
         gameFilter,
         "endTime",
-        last,
+        finishedLast,
         first,
         "id type setup lobby lobbyName anonymousGame anonymousDeck ranked competitive private spectating guests readyCheck noVeg stateLengths gameTypeOptions broken winnersInfo playerIdMap playerAlignmentMap endTime -_id",
-        constants.lobbyPageSize - games.length,
+        pageSize - games.length,
         [
           "setup",
           "id gameType name roles closed useRoleGroups roleGroupSizes count total -_id",
