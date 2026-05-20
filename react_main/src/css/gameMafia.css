@@ -1,0 +1,453 @@
+.game .mafia-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.game .mafia-game .main,
+.game .mafia-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .mafia-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .mafia-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.game .mafia-action-dock {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.game .mafia-action-dock .side-menu {
+  min-height: 0;
+}
+
+.game .mafia-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .mafia-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .mafia-side-chat {
+  min-height: 270px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .mafia-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .mafia-side-chat .meeting-tabs .MuiTabs-root {
+  min-width: 0;
+}
+
+.game .mafia-side-chat .meeting-tabs .MuiTab-root {
+  max-width: 132px;
+}
+
+.game .mafia-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .mafia-side-chat .speech-display {
+  min-width: 0;
+}
+
+.game .mafia-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .mafia-side-chat .message .time {
+  min-width: 34px;
+}
+
+.game .mafia-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(18, 18, 17, 0.96), rgba(34, 31, 27, 0.96)),
+    var(--scheme-color);
+  color: #f8f0de;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .mafia-statusbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.game .mafia-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .mafia-metric > span,
+.game .mafia-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(248, 240, 222, 0.64);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .mafia-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .mafia-town-board {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 390px;
+  display: grid;
+  grid-template-columns: minmax(170px, 0.7fr) minmax(250px, 1fr);
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(214, 181, 113, 0.22);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 32%, rgba(111, 42, 42, 0.42), rgba(34, 23, 21, 0.12) 42%, rgba(7, 8, 7, 0.45) 100%),
+    linear-gradient(180deg, rgba(65, 71, 49, 0.35), rgba(18, 17, 15, 0.84)),
+    #151513;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 -34px 55px rgba(0, 0, 0, 0.34);
+}
+
+.game .mafia-town-board::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+}
+
+.game .mafia-role-spotlight,
+.game .mafia-phase-card,
+.game .mafia-clue-chip {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(10, 11, 10, 0.72);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.game .mafia-role-spotlight {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 14px;
+}
+
+.game .mafia-role-spotlight strong,
+.game .mafia-phase-card strong {
+  color: #ffffff;
+  font-size: 1.16rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.game .mafia-role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.game .mafia-pill {
+  max-width: 100%;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(214, 181, 113, 0.36);
+  border-radius: 999px;
+  background: rgba(214, 181, 113, 0.11);
+  color: #ead39d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .mafia-pill.is-alive {
+  border-color: rgba(91, 171, 121, 0.45);
+  background: rgba(91, 171, 121, 0.16);
+  color: #b9e8c9;
+}
+
+.game .mafia-pill.is-dead,
+.game .mafia-pill.is-exorcised {
+  border-color: rgba(197, 73, 73, 0.45);
+  background: rgba(197, 73, 73, 0.16);
+  color: #ffb5ad;
+}
+
+.game .mafia-phase-card {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  gap: 4px;
+  align-self: start;
+  padding: 14px;
+}
+
+.game .mafia-phase-card p {
+  margin: 0;
+  color: rgba(248, 240, 222, 0.68);
+  font-size: 0.9rem;
+}
+
+.game .mafia-town-grid {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(106px, 1fr));
+  gap: 9px;
+  min-width: 0;
+}
+
+.game .mafia-player-token {
+  min-width: 0;
+  min-height: 126px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 7px;
+  align-items: center;
+  justify-items: center;
+  padding: 9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background: rgba(10, 13, 12, 0.74);
+  color: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.game .mafia-player-token:not(:disabled):hover {
+  border-color: rgba(214, 181, 113, 0.55);
+  background: rgba(42, 36, 25, 0.86);
+  transform: translateY(-1px);
+}
+
+.game .mafia-player-token:disabled {
+  cursor: default;
+}
+
+.game .mafia-player-token.is-self {
+  border-color: rgba(91, 171, 121, 0.5);
+  background: rgba(33, 83, 60, 0.38);
+}
+
+.game .mafia-player-token.is-dead {
+  opacity: 0.62;
+}
+
+.game .mafia-token-avatar {
+  display: inline-flex;
+}
+
+.game .mafia-token-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .mafia-token-role {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  overflow: hidden;
+  color: rgba(248, 240, 222, 0.7);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .mafia-token-role .role {
+  flex: 0 0 auto;
+}
+
+.game .mafia-lower-track {
+  position: relative;
+  z-index: 1;
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.game .mafia-player-token.is-compact {
+  width: 128px;
+  min-height: 66px;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  justify-items: start;
+  padding: 7px;
+}
+
+.game .mafia-player-token.is-compact .mafia-token-avatar {
+  grid-row: 1 / span 2;
+}
+
+.game .mafia-player-token.is-compact .mafia-token-role {
+  justify-content: flex-start;
+}
+
+.game .mafia-clue-chip {
+  display: inline-grid;
+  gap: 2px;
+  min-width: 100px;
+  padding: 8px 10px;
+}
+
+.game .mafia-clue-chip span {
+  color: rgba(248, 240, 222, 0.62);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .mafia-clue-chip strong {
+  color: #ead39d;
+  font-size: 1.1rem;
+}
+
+.game .mafia-stage.is-night .mafia-town-board {
+  background:
+    radial-gradient(circle at 50% 28%, rgba(89, 49, 104, 0.28), rgba(19, 21, 31, 0.24) 44%, rgba(4, 5, 8, 0.54) 100%),
+    linear-gradient(180deg, rgba(49, 57, 76, 0.42), rgba(14, 14, 17, 0.88)),
+    #121215;
+}
+
+.game .mafia-stage.is-day .mafia-town-board,
+.game .mafia-stage.is-dawn .mafia-town-board {
+  background:
+    radial-gradient(circle at 50% 26%, rgba(192, 148, 85, 0.28), rgba(65, 71, 49, 0.22) 44%, rgba(21, 18, 15, 0.55) 100%),
+    linear-gradient(180deg, rgba(103, 91, 58, 0.34), rgba(20, 18, 14, 0.86)),
+    #171612;
+}
+
+@media (max-width: 900px) {
+  .game .mafia-stage {
+    min-height: auto;
+    border-radius: 0;
+  }
+
+  .game .mafia-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .mafia-town-board {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    padding: 12px;
+  }
+
+  .game .mafia-role-spotlight,
+  .game .mafia-phase-card,
+  .game .mafia-town-grid,
+  .game .mafia-lower-track {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .game .mafia-role-spotlight {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .game .mafia-role-tags {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .game .mafia-stage {
+    padding: 8px;
+  }
+
+  .game .mafia-town-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .game .mafia-player-token {
+    min-height: 116px;
+    padding: 8px 6px;
+  }
+
+  .game .mafia-player-token.is-compact {
+    width: calc(50% - 4px);
+  }
+}

@@ -1339,7 +1339,7 @@ export function MobileLayout({
 
   function onBottomNavigationChange(event, newValue) {
     if (newValue === "leave") {
-      onLeaveGameClick();
+      game.onLeaveGameClick();
     } else {
       setSelectedPanel(newValue);
     }
@@ -3151,7 +3151,7 @@ export function OptionsList() {
   const game = useContext(GameContext);
   const gameOptions = game.options.gameTypeOptions;
 
-  if (history.currentState !== -1) {
+  if (game.history.currentState !== -1) {
     return <></>;
   }
 
@@ -4219,41 +4219,39 @@ function ActionButton(props) {
 
   if (notClickable) return null;
 
-  const votes = { ...(meeting.votes || {}) };
-  for (let playerId in votes) {
-    votes[playerId] = getTargetDisplay(votes[playerId], meeting, props.players);
-  }
-
-  const myVoteDisplay = votes[props.self];
+  const myVote = meeting.votes?.[props.self];
+  const selectedTargets = Array.isArray(myVote) ? myVote : [myVote];
+  const hasSubmittedVote = myVote !== undefined && myVote !== null;
 
   return (
-    <Box className="action" sx={{ ...props.style }}>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+    <Box className="action action-button-panel" sx={{ ...props.style }}>
+      <Typography className="action-name" variant="subtitle1">
         {meeting.actionName}
       </Typography>
 
-      <Stack direction="row" spacing={1} flexWrap="wrap">
+      <Stack className="action-button-grid">
         {(meeting.targets || []).map((target) => {
-          const targetDisplay = getTargetDisplay(
-            target,
-            meeting,
-            props.players
-          );
+          const targetDisplay = getTargetDisplay(target, meeting, props.players);
+          const targetLabel = Array.isArray(targetDisplay)
+            ? targetDisplay.join(", ")
+            : targetDisplay;
 
-          const isSelected = myVoteDisplay === targetDisplay;
-          const disabled = !!myVoteDisplay && !meeting.canUnvote;
+          const isSelected = selectedTargets.includes(target);
+          const disabled = hasSubmittedVote && !meeting.canUnvote;
 
           return (
             <Button
               key={target}
+              className={`game-action-button ${isSelected ? "is-selected" : ""}`}
               color="primary"
               disabled={disabled}
               onClick={() => onVote(target)}
               size="small"
+              variant={isSelected ? "contained" : "outlined"}
               sx={{ textTransform: "none" }}
               aria-pressed={isSelected}
             >
-              {targetDisplay}
+              {targetLabel}
             </Button>
           );
         })}
@@ -4525,14 +4523,15 @@ function ActionText(props) {
   }
 
   return (
-    <Box className="action">
-      <Typography variant="subtitle1" gutterBottom>
+    <Box className="action action-text-panel">
+      <Typography className="action-name" variant="subtitle1">
         {meeting.actionName}
       </Typography>
 
       {!disabled && (
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack className="action-text-row">
           <TextField
+            className="action-text-input"
             value={textData}
             onChange={handleOnChange}
             onKeyDown={handleKeyDown}
@@ -4541,6 +4540,7 @@ function ActionText(props) {
             placeholder={textOptions.placeholder || "Type here"}
           />
           <Button
+            className="game-action-button action-submit-button"
             variant="contained"
             onClick={handleOnSubmit}
             disabled={textData.length < minLength}

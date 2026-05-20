@@ -2,14 +2,12 @@ import React, { useRef, useEffect, useContext, useMemo } from "react";
 
 import {
   useSocketListeners,
-  // useStateViewingReducer,
   ThreePanelLayout,
   TopBar,
   TextMeetingLayout,
   ActionList,
   PlayerList,
   LastWillEntry,
-  Timer,
   SpeechFilter,
   SettingsMenu,
   Notes,
@@ -22,39 +20,44 @@ import {
 import { GameContext, SiteInfoContext } from "../../Contexts";
 import { mafiaAudioConfig } from "../../audio/audioConfigs";
 import { SideMenu } from "./Game";
-import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import { StrategiesPanel, StrategiesSection } from "components/Strategies";
+import { RoleCount } from "../../components/Roles";
+import { Avatar } from "../User/User";
+
+import "css/gameMafia.css";
 
 export default function MafiaGame() {
   const game = useContext(GameContext);
   const siteInfo = useContext(SiteInfoContext);
-  const isPhoneDevice = useIsPhoneDevice();
+  const loadAudioFiles = game.loadAudioFiles;
+  const playAudio = game.playAudio;
+  const stopAudio = game.stopAudio;
+  const review = game.review;
+  const socket = game.socket;
+  const options = game.options || {};
 
   const history = game.history;
-  const updateHistory = game.updateHistory;
-  // const updatePlayers = game.updatePlayers;
   const stateViewing = game.stateViewing;
   const updateStateViewing = game.updateStateViewing;
   const self = game.self;
-  const players = game.players;
-  const isSpectator = game.isSpectator;
 
   const playBellRef = useRef(false);
 
   const gameType = "Mafia";
-  const meetings = history.states[stateViewing]
-    ? history.states[stateViewing].meetings
-    : {};
+  const meetings = useMemo(
+    () => history.states[stateViewing]?.meetings || {},
+    [history.states, stateViewing]
+  );
 
   const baseActionProps = useMemo(
     () => ({
-      socket: game.socket,
+      socket,
       players: game.players,
-      self: game.self,
-      history: game.history,
-      stateViewing: game.stateViewing,
+      self,
+      history,
+      stateViewing,
     }),
-    [game.socket, game.players, game.self, game.history, game.stateViewing]
+    [socket, game.players, self, history, stateViewing]
   );
 
   const actionDescriptorData = useMemo(
@@ -78,21 +81,43 @@ export default function MafiaGame() {
       ? game.players[game.self].inventory || []
       : [];
 
+  const actionList = isViewingPregame ? (
+    <>
+      {actionDescriptorData.regularActionDescriptors.length > 0 && (
+        <ActionList descriptors={actionDescriptorData.regularActionDescriptors} />
+      )}
+      <StrategiesPanel setupId={setupId} visible={Boolean(setupId)} />
+    </>
+  ) : (
+    <ActionList descriptors={actionDescriptorData.regularActionDescriptors} />
+  );
+
+  const mobileActionList = isViewingPregame ? (
+    <>
+      {actionDescriptorData.regularActionDescriptors.length > 0 && (
+        <ActionList descriptors={actionDescriptorData.regularActionDescriptors} />
+      )}
+      <StrategiesSection setupId={setupId} visible={Boolean(setupId)} />
+    </>
+  ) : (
+    <ActionList descriptors={actionDescriptorData.regularActionDescriptors} />
+  );
+
   // Make player view current state when it changes
   useEffect(() => {
     updateStateViewing({ type: "current" });
-  }, [history.currentState]);
+  }, [history.currentState, updateStateViewing]);
 
   useEffect(() => {
-    game.loadAudioFiles(mafiaAudioConfig);
+    loadAudioFiles(mafiaAudioConfig);
 
     // Make game review start at pregame
-    if (game.review) updateStateViewing({ type: "first" });
-  }, []);
+    if (review) updateStateViewing({ type: "first" });
+  }, [loadAudioFiles, review, updateStateViewing]);
 
   // Play music on state change to Night
   useEffect(() => {
-    if (game.review) return;
+    if (review) return;
 
     const currentState = history.states[history.currentState];
     if (currentState && currentState.name.startsWith("Night")) {
@@ -110,7 +135,7 @@ export default function MafiaGame() {
           case "Manhunter":
           case "Tracker":
           case "Watcher":
-            game.playAudio("music/NightInvestigator");
+            playAudio("music/NightInvestigator");
             break;
           case "Baker":
           case "Barista":
@@ -128,19 +153,19 @@ export default function MafiaGame() {
           case "Pharmacist":
           case "Reanimator":
           case "Capybara":
-            game.playAudio("music/NightCrafter");
+            playAudio("music/NightCrafter");
             break;
           case "Doctor":
           case "Surgeon":
           case "Nurse":
           case "Medic":
           case "Dentist":
-            game.playAudio("music/NightProtector");
+            playAudio("music/NightProtector");
             break;
           case "Sheriff":
           case "Deputy":
           case "Rival":
-            game.playAudio("music/NightWestern");
+            playAudio("music/NightWestern");
             break;
           case "Mayor":
           case "Governor":
@@ -152,7 +177,7 @@ export default function MafiaGame() {
           case "Kingmaker":
           case "Queen":
           case "Judge":
-            game.playAudio("music/NightEssential");
+            playAudio("music/NightEssential");
             break;
           case "Caroler":
           case "Santa":
@@ -160,19 +185,19 @@ export default function MafiaGame() {
           case "Polar Bear":
           case "Snow Queen":
           case "Matchmaker":
-            game.playAudio("music/NightWinter");
+            playAudio("music/NightWinter");
             break;
           case "Penguin":
-            game.playAudio("music/NightPenguin");
+            playAudio("music/NightPenguin");
             break;
           case "Fiddler":
-            game.playAudio("music/NightFiddler");
+            playAudio("music/NightFiddler");
             break;
           case "Clockmaker":
-            game.playAudio("music/NightClockmaker");
+            playAudio("music/NightClockmaker");
             break;
           case "Pyromaniac":
-            game.playAudio("music/NightPyromaniac");
+            playAudio("music/NightPyromaniac");
             break;
           case "Serial Killer":
           case "Mastermind":
@@ -182,25 +207,25 @@ export default function MafiaGame() {
           case "Grizzly Bear":
           case "Puppeteer":
           case "Supervillain":
-            game.playAudio("music/NightHostile");
+            playAudio("music/NightHostile");
             break;
           case "Clown":
           case "Fool":
           case "Trickster":
           case "Prankster":
-            game.playAudio("music/NightFool");
+            playAudio("music/NightFool");
             break;
           case "Joker":
-            game.playAudio("music/NightJoker");
+            playAudio("music/NightJoker");
             break;
           case "Siren":
-            game.playAudio("music/NightSiren");
+            playAudio("music/NightSiren");
             break;
           case "Warlock":
           case "Monk":
           case "Fatalist":
           case "Prophet":
-            game.playAudio("music/NightFantasy");
+            playAudio("music/NightFantasy");
             break;
           case "Suitress":
           case "Mistress":
@@ -208,7 +233,7 @@ export default function MafiaGame() {
           case "Astrologer":
           case "Heartbreaker":
           case "Yandere":
-            game.playAudio("music/NightLove");
+            playAudio("music/NightLove");
             break;
           case "Oracle":
           case "Resurrectionist":
@@ -231,7 +256,7 @@ export default function MafiaGame() {
           case "Blob":
           case "Doppelgänger":
           case "Grey Goo":
-            game.playAudio("music/NightMystical");
+            playAudio("music/NightMystical");
             break;
           case "Egg":
           case "Dodo":
@@ -239,7 +264,7 @@ export default function MafiaGame() {
           case "Tofurkey":
           case "Harpy":
           case "Falconer":
-            game.playAudio("music/NightBird");
+            playAudio("music/NightBird");
             break;
           case "Autocrat":
           case "Palladist":
@@ -248,23 +273,23 @@ export default function MafiaGame() {
           case "Dragoon":
           case "Emperor":
           case "Politician":
-            game.playAudio("music/NightPolitic");
+            playAudio("music/NightPolitic");
             break;
           case "Executioner":
-            game.playAudio("music/NightExecutioner");
+            playAudio("music/NightExecutioner");
             break;
           default:
             if (currentAlignment === "Mafia") {
               // If mafia role isn't listed above the mafia track plays
-              game.playAudio("music/NightMafia");
+              playAudio("music/NightMafia");
             }
             else if (currentAlignment === "Cult") {
               // If cult role isn't listed above the mafia track plays
-              game.playAudio("music/NightCult");
+              playAudio("music/NightCult");
             }
             else {
               // If no role has assigned music the generic track plays
-              game.playAudio("music/NightGeneric");
+              playAudio("music/NightGeneric");
             }
             break;
         }
@@ -277,143 +302,153 @@ export default function MafiaGame() {
       //Night Music Contiunes at Give Clue and Dawn
     } else if (
       history.currentState === -1 &&
-      game.options?.competitive
+      options.competitive
     ) {
-      game.playAudio("music/PregameCompetitive");
+      playAudio("music/PregameCompetitive");
     } else if (
       history.currentState === -1 &&
-      game.options?.lobby === "Sandbox"
+      options.lobby === "Sandbox"
     ) {
-      game.playAudio("music/PregameSandbox");
+      playAudio("music/PregameSandbox");
     } else {
-      game.stopAudio();
+      stopAudio();
     }
-  }, [history.currentState]);
+  }, [
+    history.currentState,
+    history.states,
+    options.competitive,
+    options.lobby,
+    playAudio,
+    review,
+    self,
+    siteInfo.rolesRaw,
+    stopAudio,
+  ]);
 
   useSocketListeners((socket) => {
     socket.on("state", (state) => {
       if (state && state.name && state.name.startsWith("Give Clue")) {
       } else if (playBellRef.current) {
-        game.playAudio("bell");
+        playAudio("bell");
       }
 
       playBellRef.current = true;
     });
 
     socket.on("winners", (winners) => {
-      game.stopAudio();
+      stopAudio();
       if (winners.groups.includes("Alien")) {
-        game.playAudio("music/WinAlien");
+        playAudio("music/WinAlien");
       }
       if (winners.groups.includes("Blob")) {
-        game.playAudio("music/WinBlob");
+        playAudio("music/WinBlob");
       }
       if (winners.groups.includes("Prophet")) {
-        game.playAudio("music/WinProphet");
+        playAudio("music/WinProphet");
       }
       if (winners.groups.includes("Fool")) {
-        game.playAudio("music/WinFool");
+        playAudio("music/WinFool");
       }
       if (winners.groups.includes("Dodo")) {
-        game.playAudio("music/WinDodo");
+        playAudio("music/WinDodo");
       }
       if (winners.groups.includes("Joker")) {
-        game.playAudio("music/WinJoker");
+        playAudio("music/WinJoker");
       }
       if (winners.groups.includes("Puppeteer")) {
-        game.playAudio("music/WinPuppeteer");
+        playAudio("music/WinPuppeteer");
       }
       if (winners.groups.includes("Matchmaker")) {
-        game.playAudio("music/WinMatchmaker");
+        playAudio("music/WinMatchmaker");
       }
       if (winners.groups.includes("Survivor")) {
-        game.playAudio("music/WinSurvivor");
+        playAudio("music/WinSurvivor");
       }
       if (winners.groups.includes("Serial Killer")) {
-        game.playAudio("music/WinKiller");
+        playAudio("music/WinKiller");
       }
       if (winners.groups.includes("Cult")) {
-        game.playAudio("music/WinCult");
+        playAudio("music/WinCult");
       }
       if (winners.groups.includes("Village")) {
-        game.playAudio("music/WinVillage");
+        playAudio("music/WinVillage");
       }
       if (winners.groups.includes("Angel")) {
-        game.playAudio("music/WinAngel");
+        playAudio("music/WinAngel");
       }
       if (winners.groups.includes("Siren")) {
-        game.playAudio("music/WinSiren");
+        playAudio("music/WinSiren");
       }
       if (winners.groups.includes("Monk")) {
-        game.playAudio("music/WinMonk");
+        playAudio("music/WinMonk");
       }
       if (winners.groups.includes("Lover")) {
-        game.playAudio("music/WinLover");
+        playAudio("music/WinLover");
       }
       if (winners.groups.includes("Astrologer")) {
-        game.playAudio("music/WinAstrologer");
+        playAudio("music/WinAstrologer");
       }
       if (winners.groups.includes("Hellhound")) {
-        game.playAudio("music/WinHellhound");
+        playAudio("music/WinHellhound");
       }
       if (winners.groups.includes("Warlock")) {
-        game.playAudio("music/WinWarlock");
+        playAudio("music/WinWarlock");
       }
       if (winners.groups.includes("Creepy Girl")) {
-        game.playAudio("music/WinCreepyGirl");
+        playAudio("music/WinCreepyGirl");
       }
       if (winners.groups.includes("Autocrat")) {
-        game.playAudio("music/WinAutocrat");
+        playAudio("music/WinAutocrat");
       }
       if (winners.groups.includes("Gambler")) {
-        game.playAudio("music/WinGambler");
+        playAudio("music/WinGambler");
       }
       if (winners.groups.includes("Sidekick")) {
-        game.playAudio("music/WinSidekick");
+        playAudio("music/WinSidekick");
       }
       if (winners.groups.includes("Executioner")) {
-        game.playAudio("music/WinExecutioner");
+        playAudio("music/WinExecutioner");
       }
       if (winners.groups.includes("Clockmaker")) {
-        game.playAudio("music/WinClockmaker");
+        playAudio("music/WinClockmaker");
       }
       if (winners.groups.includes("Mastermind")) {
-        game.playAudio("music/WinMastermind");
+        playAudio("music/WinMastermind");
       }
       if (winners.groups.includes("Communist")) {
-        game.playAudio("music/WinCommunist");
+        playAudio("music/WinCommunist");
       }
       if (winners.groups.includes("Pyromaniac")) {
-        game.playAudio("music/WinPyromaniac");
+        playAudio("music/WinPyromaniac");
       }
       if (winners.groups.includes("Grey Goo")) {
-        game.playAudio("music/WinGreyGoo");
+        playAudio("music/WinGreyGoo");
       }
       if (winners.groups.includes("Mafia")) {
-        game.playAudio("music/WinMafia");
+        playAudio("music/WinMafia");
       } else if (winners.groups.includes("No one")) {
-        game.playAudio("music/Draw");
+        playAudio("music/Draw");
       }
     });
 
     socket.on("gunshot", () => {
-      game.playAudio("gunshot");
+      playAudio("gunshot");
     });
     socket.on("giveClue", (player) => {
-      if (player == self) {
-        game.playAudio("ghostAsk");
+      if (player === self) {
+        playAudio("ghostAsk");
       }
     });
     socket.on("condemn", () => {
-      game.playAudio("condemn");
+      playAudio("condemn");
     });
     socket.on("explosion", () => {
-      game.playAudio("explosion");
+      playAudio("explosion");
     });
     socket.on("snowball", () => {
-      game.playAudio("snowball");
+      playAudio("snowball");
     });
-  }, game.socket);
+  }, socket);
 
   return (
     <GameTypeContext.Provider
@@ -421,89 +456,308 @@ export default function MafiaGame() {
         singleState: false,
       }}
     >
-      <TopBar />
-      <ThreePanelLayout
-        leftPanelContent={
-          <>
-            <PlayerList />
-            <SpeechFilter />
-            <SettingsMenu />
-          </>
-        }
-        centerPanelContent={<TextMeetingLayout />}
-        rightPanelContent={
-          <>
-            <HistoryKeeper history={history} stateViewing={stateViewing} />
-            {isViewingPregame ? (
-              <>
-                {actionDescriptorData.regularActionDescriptors.length > 0 && (
-                  <ActionList
-                    descriptors={actionDescriptorData.regularActionDescriptors}
-                  />
-                )}
-                <StrategiesPanel setupId={setupId} visible={Boolean(setupId)} />
-              </>
-            ) : (
-              <ActionList
-                descriptors={actionDescriptorData.regularActionDescriptors}
+      <div className="mafia-game">
+        <TopBar />
+        <ThreePanelLayout
+          leftPanelContent={
+            <>
+              <PlayerList />
+              <SpeechFilter />
+              <SettingsMenu />
+            </>
+          }
+          centerPanelContent={
+            <div className="mafia-play-column">
+              <MafiaStage />
+              <div className="mafia-action-dock">{actionList}</div>
+            </div>
+          }
+          rightPanelContent={
+            <>
+              <HistoryKeeper history={history} stateViewing={stateViewing} />
+              <div className="mafia-side-chat">
+                <TextMeetingLayout />
+              </div>
+              <InventoryPanel
+                show={showInventory}
+                items={inventoryItems}
+                actionsByItemId={actionDescriptorData.inventoryActionDescriptors}
+                gameType={gameType}
               />
-            )}
-            <InventoryPanel
-              show={showInventory}
-              items={inventoryItems}
-              actionsByItemId={actionDescriptorData.inventoryActionDescriptors}
-              gameType={gameType}
-            />
-            <LastWillEntry />
-            <PinnedMessages />
-            <Notes />
-          </>
-        }
-      />
-      <MobileLayout
-        outerLeftContent={
-          <>
-            <PlayerList />
-            <SpeechFilter />
-          </>
-        }
-        innerRightContent={
-          <>
-            <HistoryKeeper history={history} stateViewing={stateViewing} />
-            {isViewingPregame ? (
-              <>
-                {actionDescriptorData.regularActionDescriptors.length > 0 && (
-                  <ActionList
-                    descriptors={actionDescriptorData.regularActionDescriptors}
-                  />
-                )}
-                <StrategiesSection
-                  setupId={setupId}
-                  visible={Boolean(setupId)}
-                />
-              </>
-            ) : (
-              <ActionList
-                descriptors={actionDescriptorData.regularActionDescriptors}
+              <LastWillEntry />
+              <PinnedMessages />
+              <Notes />
+            </>
+          }
+        />
+        <MobileLayout
+          outerLeftContent={
+            <>
+              <PlayerList />
+              <SpeechFilter />
+            </>
+          }
+          innerRightContent={
+            <>
+              <HistoryKeeper history={history} stateViewing={stateViewing} />
+              {mobileActionList}
+              <InventoryPanel
+                show={showInventory}
+                items={inventoryItems}
+                actionsByItemId={actionDescriptorData.inventoryActionDescriptors}
+                gameType={gameType}
               />
-            )}
-            <InventoryPanel
-              show={showInventory}
-              items={inventoryItems}
-              actionsByItemId={actionDescriptorData.inventoryActionDescriptors}
-              gameType={gameType}
-            />
-            <LastWillEntry />
-          </>
-        }
-        additionalInfoContent={
-          <>
-            <PinnedMessages />
-            <Notes />
-          </>
-        }
-      />
+              <LastWillEntry />
+            </>
+          }
+          additionalInfoContent={
+            <>
+              <MafiaStage />
+              <PinnedMessages />
+              <Notes />
+            </>
+          }
+        />
+      </div>
     </GameTypeContext.Provider>
+  );
+}
+
+function getViewedState(game) {
+  return game.history.states?.[game.stateViewing];
+}
+
+function getStatePlayers(game, state) {
+  const dead = state?.dead || {};
+  const exorcised = state?.exorcised || {};
+  const players = Object.values(game.players || {}).filter((player) => !player.left);
+
+  return {
+    alive: players.filter((player) => !dead[player.id]),
+    dead: players.filter((player) => dead[player.id] && !exorcised[player.id]),
+    exorcised: players.filter((player) => exorcised[player.id]),
+    all: players,
+  };
+}
+
+function getBaseStateName(stateName = "Pregame") {
+  return stateName.replace(/\s+\d+$/, "");
+}
+
+function getPhaseKind(stateName = "Pregame") {
+  const baseStateName = getBaseStateName(stateName);
+
+  if (baseStateName === "Night") return "night";
+  if (baseStateName === "Dawn") return "dawn";
+  if (baseStateName === "Day") return "day";
+  if (baseStateName === "Dusk") return "dusk";
+  if (baseStateName === "Postgame") return "postgame";
+  if (baseStateName === "Pregame") return "pregame";
+
+  return "special";
+}
+
+function getRoleName(role = "") {
+  return role.split(":")[0] || "";
+}
+
+function getRoleModifiers(role = "") {
+  return role.split(":")[1] || "";
+}
+
+function formatRole(role = "") {
+  const roleName = getRoleName(role);
+  const modifiers = getRoleModifiers(role);
+
+  if (!roleName) return "Unknown";
+
+  return modifiers ? `${roleName} (${modifiers})` : roleName;
+}
+
+function getAlignment(siteInfo, role = "") {
+  const roleName = getRoleName(role);
+
+  return siteInfo.rolesRaw?.Mafia?.[roleName]?.alignment || "Hidden";
+}
+
+function getSelfStatus(game, state) {
+  if (game.isSpectator) return "Spectating";
+  if (!state || game.stateViewing < 0) return "Waiting";
+  if (state.exorcised?.[game.self]) return "Exorcised";
+  if (state.dead?.[game.self]) return "Dead";
+
+  return "Alive";
+}
+
+function getMeetingCounts(state) {
+  const meetings = Object.values(state?.meetings || {});
+
+  return {
+    speech: meetings.filter((meeting) => meeting.speech).length,
+    actions: meetings.filter((meeting) => meeting.voting && !meeting.speech).length,
+    unresolved: meetings.filter(
+      (meeting) => meeting.voting && meeting.canVote && !meeting.playerHasVoted
+    ).length,
+  };
+}
+
+function MafiaStage() {
+  const game = useContext(GameContext);
+  const siteInfo = useContext(SiteInfoContext);
+  const state = getViewedState(game);
+  const stateName = state?.name || "Pregame";
+  const phaseKind = getPhaseKind(stateName);
+  const players = getStatePlayers(game, state);
+  const meetingCounts = getMeetingCounts(state);
+  const selfRole = state?.roles?.[game.self] || "";
+  const selfStatus = getSelfStatus(game, state);
+  const clueCount = state?.extraInfo?.currentClueHistory?.length || 0;
+  const isPregame =
+    game.stateViewing === -1 || getBaseStateName(stateName) === "Pregame";
+  const anonymousGame = game.options?.anonymousGame;
+
+  return (
+    <section className={`mafia-stage is-${phaseKind}`}>
+      <div className="mafia-statusbar">
+        <MafiaMetric label="Phase" value={stateName} />
+        <MafiaMetric label="Alive" value={`${players.alive.length}/${players.all.length}`} />
+        <MafiaMetric label="Graveyard" value={players.dead.length} />
+        <MafiaMetric label="Actions" value={meetingCounts.unresolved} />
+      </div>
+
+      <div className="mafia-town-board">
+        <div className="mafia-role-spotlight">
+          <div>
+            <span className="mafia-kicker">{isPregame ? "Mafia" : "Your role"}</span>
+            <strong>{isPregame ? "Waiting for the town" : formatRole(selfRole)}</strong>
+          </div>
+          {!isPregame && selfRole && (
+            <RoleCount role={selfRole} gameType="Mafia" showPopover />
+          )}
+          <div className="mafia-role-tags">
+            <span className={`mafia-pill is-${selfStatus.toLowerCase()}`}>
+              {selfStatus}
+            </span>
+            {!isPregame && (
+              <span className="mafia-pill">
+                {getAlignment(siteInfo, selfRole)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="mafia-phase-card">
+          <span className="mafia-kicker">{getBaseStateName(stateName)}</span>
+          <strong>{isPregame ? "Pregame lobby" : `${players.alive.length} still standing`}</strong>
+          <p>
+            {isPregame
+              ? "The game will open once the host starts the setup."
+              : `${meetingCounts.speech} chat room${
+                  meetingCounts.speech === 1 ? "" : "s"
+                } and ${meetingCounts.actions} active action panel${
+                  meetingCounts.actions === 1 ? "" : "s"
+                }.`}
+          </p>
+        </div>
+
+        <div className="mafia-town-grid" aria-label="Alive players">
+          {players.alive.map((player) => (
+            <MafiaPlayerToken
+              key={player.id}
+              player={player}
+              state={state}
+              self={game.self}
+              anonymousGame={anonymousGame}
+              stateViewing={game.stateViewing}
+            />
+          ))}
+        </div>
+
+        {(players.dead.length > 0 || players.exorcised.length > 0 || clueCount > 0) && (
+          <div className="mafia-lower-track">
+            {clueCount > 0 && (
+              <div className="mafia-clue-chip">
+                <span>Ghost clues</span>
+                <strong>{clueCount}</strong>
+              </div>
+            )}
+            {[...players.dead, ...players.exorcised].map((player) => (
+              <MafiaPlayerToken
+                key={player.id}
+                player={player}
+                state={state}
+                self={game.self}
+                anonymousGame={anonymousGame}
+                stateViewing={game.stateViewing}
+                compact
+                dead
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MafiaMetric({ label, value }) {
+  return (
+    <div className="mafia-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function MafiaPlayerToken({
+  player,
+  state,
+  self,
+  anonymousGame,
+  stateViewing,
+  compact = false,
+  dead = false,
+}) {
+  const role = state?.roles?.[player.id] || "";
+  const isSelf = player.id === self;
+  const canOpenProfile = !(stateViewing >= 0 && anonymousGame);
+  const avatarId = player.anonId === undefined ? player.userId : player.anonId;
+
+  function openProfile() {
+    if (!canOpenProfile) return;
+
+    window.open(`/user/${player.userId}`, "_blank");
+  }
+
+  return (
+    <button
+      type="button"
+      className={`mafia-player-token ${isSelf ? "is-self" : ""} ${
+        compact ? "is-compact" : ""
+      } ${dead ? "is-dead" : ""}`}
+      onClick={openProfile}
+      disabled={!canOpenProfile}
+    >
+      <span className="mafia-token-avatar">
+        <Avatar
+          hasImage={player.avatar}
+          id={player.userId}
+          avatarId={avatarId}
+          name={player.name}
+          mediumlarge={!compact}
+          dead={dead}
+        />
+      </span>
+      <span className="mafia-token-name" title={player.name}>
+        {isSelf ? "You" : player.name}
+      </span>
+      {role && state && (
+        <span className="mafia-token-role">
+          <RoleCount role={role} gameType="Mafia" showPopover />
+          <span>{formatRole(role)}</span>
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -565,7 +819,7 @@ function ClueHistory(props) {
     <>
       <div className="ghost-history-group">
         {clueHistory.map((c) => (
-          <Clue clue={c} />
+          <Clue key={c} clue={c} />
         ))}
       </div>
     </>
