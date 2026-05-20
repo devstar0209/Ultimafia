@@ -1,4 +1,4 @@
-import React, { useEffect, useContext } from "react";
+import React, { useCallback, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Dialog from "@mui/material/Dialog";
@@ -38,9 +38,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
   const isPhoneDevice = useIsPhoneDevice();
   const navigate = useNavigate();
 
-  const [initialFormFields, onHostGame] = GameTypeHostForm(setup.gameType);
-
-  function GameTypeHostForm(gameType) {
+  const GameTypeHostForm = useCallback((gameType, catalogItem) => {
     switch (gameType) {
       case "Mafia":
         return HostMafia();
@@ -57,7 +55,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
       case "Liars Dice":
         return HostLiarsDice();
       case "Texas Hold Em":
-        return HostTexasHoldEm();
+        return HostTexasHoldEm(catalogItem);
       case "Cheat":
         return HostCheat();
       case "Ratscrew":
@@ -74,27 +72,48 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
 
     // Fail fast
     throw new Error(
-      `Failed to get form fields for game type: ${setup.gameType}`
+      `Failed to get form fields for game type: ${gameType}`
     );
-  }
+  }, []);
+
+  const gameCatalogItem = (siteInfo?.gameCatalog || []).find(
+    (game) =>
+      game.key === setup.gameType ||
+      game.title === setup.gameType ||
+      game.slug === setup.gameType
+  );
+  const [initialFormFields, onHostGame] = GameTypeHostForm(
+    setup.gameType,
+    gameCatalogItem
+  );
 
   const [formFields, updateFormFields] = useForm(initialFormFields);
 
   useEffect(
     function () {
-      const [newFormFields] = GameTypeHostForm(setup.gameType);
+      const [newFormFields] = GameTypeHostForm(setup.gameType, gameCatalogItem);
       if (preSelectedDeck) {
         for (let field of newFormFields) {
           if (field.ref === "anonymousGame") field.value = true;
           if (field.ref === "anonymousDeckId") field.value = preSelectedDeck;
         }
       }
+      for (let field of newFormFields) {
+        if (field.ref === "lobby") {
+          field.value = getDefaultLobby(setup.gameType, newFormFields);
+        }
+        if (field.ref === "lobbyName") {
+          field.value = "";
+        }
+      }
       updateFormFields({ type: "setFields", fields: newFormFields });
     },
-    [setup.gameType, preSelectedDeck]
+    [GameTypeHostForm, gameCatalogItem, setup.gameType, preSelectedDeck, updateFormFields]
   );
 
   function getFormFieldValue(ref) {
+    if (ref === "lobby") return getDefaultLobby(setup.gameType, formFields);
+    if (ref === "lobbyName") return "";
     for (let field of formFields) if (field.ref === ref) return field.value;
   }
 
@@ -109,13 +128,8 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
   const lobby = getFormFieldValue("lobby");
   const isRanked = getFormFieldValue("ranked");
   const isCompetitive = getFormFieldValue("competitive");
-  const gameCatalogItem = (siteInfo?.gameCatalog || []).find(
-    (game) =>
-      game.key === setup.gameType ||
-      game.title === setup.gameType ||
-      game.slug === setup.gameType
-  );
   const coinsRequired = Number(gameCatalogItem?.coins || 0);
+  const startingChips = Number(gameCatalogItem?.startingChips || 50);
   const userCoins = Number(user?.coins || 0);
   const hasEnoughCoins = coinsRequired <= 0 || userCoins >= coinsRequired;
 
@@ -127,7 +141,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
         value: "Competitive",
       });
     }
-  }, [isCompetitive]);
+  }, [isCompetitive, updateFormFields]);
 
   var alertText = "";
 
@@ -184,11 +198,29 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
                 true
               )}
             />
+            {setup.gameType === "Texas Hold Em" && (
+              <Alert severity="info">
+                Starting chips: {startingChips.toLocaleString()}
+              </Alert>
+            )}
             {alertText && <Alert severity="warning">{alertText}</Alert>}
-            <Form compact fields={formFields} onChange={updateFormFields} />
+            <Form
+              compact
+              fields={formFields.filter(
+                (field) => !["lobby", "lobbyName"].includes(field.ref)
+              )}
+              onChange={updateFormFields}
+            />
           </Stack>
         </DialogContent>
       </Dialog>
     </>
   );
+}
+
+function getDefaultLobby(gameType, fields = []) {
+  const competitiveField = fields.find((field) => field.ref === "competitive");
+  if (competitiveField?.value) return "Competitive";
+  if (gameType === "Mafia") return "Main";
+  return "Games";
 }

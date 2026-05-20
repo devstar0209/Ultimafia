@@ -11,7 +11,7 @@ const HOST_OPTIONS_VERSIONS = {
   Jotto: 2,
   "Liars Dice": 2,
   Battlesnakes: 2,
-  "Texas Hold Em": 2,
+  "Texas Hold Em": 3,
   Resistance: 2,
   "Secret Dictator": 2,
   "Wacky Words": 2,

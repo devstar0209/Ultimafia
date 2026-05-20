@@ -1591,6 +1591,7 @@ router.post("/settings/gamecatalogs", async function (req, res) {
       pointsWin: Number(req.body?.pointsWin ?? 25),
       pointsCorrectVote: Number(req.body?.pointsCorrectVote ?? 10),
       pointsRoleSuccess: Number(req.body?.pointsRoleSuccess ?? 15),
+      startingChips: Number(req.body?.startingChips || 0),
       sortOrder: Number(lastGameCatalog?.sortOrder || 0) + 1,
       updatedAt: Date.now(),
       updatedBy: sessionInfo.user.id,
@@ -1659,6 +1660,7 @@ router.patch("/settings/gamecatalogs/:key", async function (req, res) {
       title,
       slug,
       coins: Number(req.body?.coins || 0),
+      startingChips: Number(req.body?.startingChips || 0),
       updatedAt: Date.now(),
       updatedBy: sessionInfo.user.id,
     };

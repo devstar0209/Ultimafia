@@ -11,3 +11,16 @@
   padding: 8px;
   gap: 8px;
 }
+
+.host-game-option {
+  font: inherit;
+}
+
+.host-setup-row .setup {
+  min-width: 0;
+}
+
+.host-setup-row .setup-name {
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+}

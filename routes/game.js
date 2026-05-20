@@ -34,6 +34,22 @@ async function getGameCoinsRequired(gameType) {
   return Number(gameCatalog?.coins || 0);
 }
 
+async function getGameCatalogSettings(gameType) {
+  const gameCatalog = await models.GameCatalog.findOne({
+    $or: [
+      { key: gameType },
+      { title: gameType },
+      { slug: gameCatalogUtils.slugifyGameTitle(gameType) },
+    ],
+  })
+    .select("startingChips -_id")
+    .lean();
+
+  return {
+    startingChips: Number(gameCatalog?.startingChips || 0),
+  };
+}
+
 async function getGameCoinsBalanceError(userId, gameType) {
   const coinsRequired = await getGameCoinsRequired(gameType);
 
@@ -613,7 +629,7 @@ router.post("/host", async function (req, res) {
     }
 
     var gameType = String(req.body.gameType);
-    var lobby = String(req.body.lobby);
+    var lobby = String(req.body.lobby || getDefaultLobby(gameType, req.body));
     var lobbyName = req.body.lobbyName ? String(req.body.lobbyName) : null;
     var rehostId = req.body.rehost && String(req.body.rehost);
     var scheduled = Number(req.body.scheduled);
@@ -843,7 +859,8 @@ router.post("/host", async function (req, res) {
       }
     }
 
-    var settings = settingsChecks[gameType](req.body, setup);
+    const gameCatalogSettings = await getGameCatalogSettings(gameType);
+    var settings = settingsChecks[gameType](req.body, setup, gameCatalogSettings);
     settings.anonymousGame = Boolean(req.body.anonymousGame);
     settings.anonymousDeckId = String(req.body.anonymousDeckId);
 
@@ -1342,10 +1359,10 @@ const settingsChecks = {
       startingDice,
     };
   },
-  "Texas Hold Em": (settings, setup) => {
-    let minimumBet = settings.minimumBet;
-    let startingChips = settings.startingChips;
-    let MaxRounds = settings.MaxRounds;
+  "Texas Hold Em": (settings, setup, gameCatalogSettings = {}) => {
+    let minimumBet = Number(settings.minimumBet || 2);
+    let startingChips = Number(gameCatalogSettings.startingChips || 50);
+    let MaxRounds = Number(settings.MaxRounds || 0);
 
     return {
       minimumBet,
@@ -1396,5 +1413,11 @@ const settingsChecks = {
     // return "Connect Four is currently not available.";
   },
 };
+
+function getDefaultLobby(gameType, settings = {}) {
+  if (settings.competitive) return "Competitive";
+  if (gameType === "Mafia") return "Main";
+  return "Games";
+}
 
 module.exports = router;

@@ -79,12 +79,23 @@ function createGame(hostId, gameType, settings) {
         portForNextGame = Number(3010);
       }
 
+      let server = servers[portForNextGame];
+
+      if (!server) {
+        establishGameConn(portForNextGame);
+        server = servers[portForNextGame];
+      }
+
+      if (!server || server.readyState >= 2) {
+        throw new Error(`Game server ${portForNextGame} is not connected.`);
+      }
+
       waiting[gameId] = {
         resolve: res,
         reject: rej,
       };
 
-      servers[portForNextGame].send("createGame", {
+      server.send("createGame", {
         gameId: gameId,
         key: process.env.LOAD_BALANCER_KEY,
         hostId: hostId,

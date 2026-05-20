@@ -3,9 +3,12 @@ import axios from "axios";
 import { getDefaults, persistDefaults, sortInitialFormFields } from "./DefaultValues";
 import { Lobbies } from "Constants";
 
-export default function HostTexasHoldEm() {
+export default function HostTexasHoldEm(gameCatalogItem) {
   const gameType = "Texas Hold Em";
   const defaults = getDefaults(gameType);
+  const startingChips = Number(
+    gameCatalogItem?.startingChips || defaults.startingChips || 50
+  );
 
   const initialFormFields = [
     {
@@ -15,14 +18,6 @@ export default function HostTexasHoldEm() {
       value: defaults.minimumBet,
       min: 2,
       max: 20,
-    },
-    {
-      label: "Starting Chips",
-      ref: "startingChips",
-      type: "number",
-      value: defaults.startingChips,
-      min: 5,
-      max: 500,
     },
     {
       label: "Max Rounds",
@@ -145,7 +140,7 @@ export default function HostTexasHoldEm() {
           "Place Bets": getFormFieldValue("placeBetsLength"),
           Showdown: getFormFieldValue("showdownLength"),
         },
-        startingChips: getFormFieldValue("startingChips"),
+        startingChips,
         minimumBet: getFormFieldValue("minimumBet"),
         MaxRounds: getFormFieldValue("MaxRounds"),
         anonymousGame: getFormFieldValue("anonymousGame"),
