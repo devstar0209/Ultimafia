@@ -477,7 +477,7 @@ function TexasBetInput({ meeting, canAct, socket, self, isTheFlyingDutchman }) {
         className="texas-bet-submit"
         disabled={disabled || amount.length < minLength}
       >
-        Bet
+        Raise
       </button>
       
     </form>
