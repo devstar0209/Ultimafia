@@ -199,6 +199,10 @@ export default function LobbyBrowser() {
     getOpenGameCounts();
   };
 
+  const showOpenGames = () => {
+    getGameList("Open", 1);
+  };
+
   if (!user.loaded) return <Loading small />;
   // Allow logged-out users to access LobbyBrowser
 
@@ -512,6 +516,7 @@ export default function LobbyBrowser() {
                 icon={<BoltRoundedIcon />}
                 label={`${selectedOpenCount} open`}
                 color="primary"
+                onClick={showOpenGames}
                 sx={{ borderRadius: 1, fontWeight: 800 }}
               />
               <Chip
