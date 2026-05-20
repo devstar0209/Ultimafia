@@ -545,7 +545,7 @@ function TexasTable() {
         <div className="texas-table-felt">
           <div className="texas-table-center">
             <div className="texas-table-kicker">Texas Hold Em</div>
-            <div className="texas-table-title">Waiting for another player</div>
+            <div className="texas-table-title">Waiting for players</div>
             <div className="texas-table-subtitle">
               The table will open once enough players are seated.
             </div>
@@ -609,7 +609,7 @@ function TexasTable() {
               <PlayingCard
                 key={`${card || "blank"}-${index}`}
                 value={card}
-                blank={!card}
+                hidden={!card}
                 className={card ? "is-dealt" : ""}
               />
             ))}
@@ -752,18 +752,23 @@ function CommunityCards() {
   const communityCards = Array.isArray(extraInfo.CommunityCards)
     ? extraInfo.CommunityCards
     : [];
+  const visibleCards = [...communityCards];
+
+  while (visibleCards.length < 5) {
+    visibleCards.push(null);
+  }
 
   return (
     <div className="texas-info-board">
       <span>Community</span>
       <div className="texas-info-cards">
-        {communityCards.length > 0 ? (
-          communityCards.map((value, index) => (
-            <PlayingCard key={`${value}-${index}`} value={value} />
-          ))
-        ) : (
-          <span className="texas-muted">No board cards yet</span>
-        )}
+        {visibleCards.map((value, index) => (
+          <PlayingCard
+            key={`${value || "hidden-community"}-${index}`}
+            value={value}
+            hidden={!value}
+          />
+        ))}
       </div>
     </div>
   );
