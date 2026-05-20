@@ -51,6 +51,8 @@ module.exports = class TexasHoldEmGame extends Game {
 
     //information about last turn's bid
     this.lastAmountBid = 0;
+    this.lastBetAmount = 0;
+    this.lastBetter = null;
     this.lastFaceBid = 1;
     this.lastBidder = null;
     this.allRolledDice = []; //Used for counting dice on lie or spot on calls. player.diceRolled would remove dice if player left, so
@@ -150,6 +152,9 @@ module.exports = class TexasHoldEmGame extends Game {
   //Start: Randomizes player order, and gives the microphone to first one.
   setupNextRoundTexas() {
     this.ThePot = parseInt(0);
+    this.lastAmountBid = 0;
+    this.lastBetAmount = 0;
+    this.lastBetter = null;
     this.randomizedPlayers.forEach((player) => {
       player.hasFolded = false;
       player.hasHadTurn = false;
@@ -234,6 +239,8 @@ module.exports = class TexasHoldEmGame extends Game {
     this.SmallBlind.AmountBidding = Math.ceil(this.minimumBet / 2.0);
     this.ThePot += Math.ceil(this.minimumBet / 2.0);
     this.lastAmountBid = Math.ceil(this.minimumBet / 2.0);
+    this.lastBetAmount = Math.ceil(this.minimumBet / 2.0);
+    this.lastBetter = this.SmallBlind;
     this.sendAlert(
       `${this.BigBlind.name} is The Big Blind and bets ${this.minimumBet}.`
     );
@@ -241,6 +248,8 @@ module.exports = class TexasHoldEmGame extends Game {
     this.BigBlind.AmountBidding = this.minimumBet;
     this.ThePot += this.minimumBet;
     this.lastAmountBid = this.minimumBet;
+    this.lastBetAmount = this.minimumBet;
+    this.lastBetter = this.BigBlind;
     this.dealCards(2);
   }
 
@@ -303,6 +312,8 @@ module.exports = class TexasHoldEmGame extends Game {
         }
       } else if (this.Phase == "First Bets") {
         this.lastAmountBid = 0;
+        this.lastBetAmount = 0;
+        this.lastBetter = null;
         this.Phase = "The Flop";
         this.randomizedPlayers.forEach((player) => {
           player.hasHadTurn = false;
@@ -328,6 +339,8 @@ module.exports = class TexasHoldEmGame extends Game {
         }
       } else if (this.Phase == "The Flop" || this.Phase == "The Turn") {
         this.lastAmountBid = 0;
+        this.lastBetAmount = 0;
+        this.lastBetter = null;
         if (this.Phase == "The Flop") {
           this.Phase = "The Turn";
         } else {
@@ -637,6 +650,16 @@ module.exports = class TexasHoldEmGame extends Game {
     );
   }
 
+  recordLastBet(player, amount) {
+    const betAmount = parseInt(amount);
+    if (!Number.isFinite(betAmount) || betAmount <= 0) {
+      return;
+    }
+
+    this.lastBetter = player;
+    this.lastBetAmount = betAmount;
+  }
+
   addToPot(player, type, amount) {
     let soundNum = Random.randInt(0, 4);
     if (soundNum == 0) {
@@ -650,10 +673,12 @@ module.exports = class TexasHoldEmGame extends Game {
     }
 
     if (type == "Bet") {
-      this.sendAlert(`${player.name} bets ${amount} into the Pot!`);
-      player.Chips = parseInt(player.Chips) - parseInt(amount);
-      player.AmountBidding += parseInt(amount);
-      this.ThePot += parseInt(amount);
+      const betAmount = parseInt(amount);
+      this.sendAlert(`${player.name} bets ${betAmount} into the Pot!`);
+      player.Chips = parseInt(player.Chips) - betAmount;
+      player.AmountBidding += betAmount;
+      this.ThePot += betAmount;
+      this.recordLastBet(player, betAmount);
       let activePlayers = this.players.filter((p) => p.alive && !p.hasFolded);
       for (let person of activePlayers) {
         person.hasHadTurn = false;
@@ -665,25 +690,24 @@ module.exports = class TexasHoldEmGame extends Game {
     }
 
     if (type == "Call") {
-      if (player.Chips >= this.lastAmountBid - player.AmountBidding) {
+      const callAmount = this.lastAmountBid - player.AmountBidding;
+      if (player.Chips >= callAmount) {
         this.sendAlert(
-          `${player.name} calls and puts ${
-            this.lastAmountBid - player.AmountBidding
-          } into the Pot!`
+          `${player.name} calls and puts ${callAmount} into the Pot!`
         );
-        this.ThePot += parseInt(this.lastAmountBid - player.AmountBidding);
-        player.Chips =
-          parseInt(player.Chips) - (this.lastAmountBid - player.AmountBidding);
-        player.AmountBidding += parseInt(
-          this.lastAmountBid - player.AmountBidding
-        );
+        this.ThePot += parseInt(callAmount);
+        player.Chips = parseInt(player.Chips) - callAmount;
+        player.AmountBidding += parseInt(callAmount);
+        this.recordLastBet(player, callAmount);
       } else if (player.Chips > 0) {
+        const allInAmount = parseInt(player.Chips);
         this.sendAlert(
-          `${player.name} goes All in and puts ${player.Chips} into the Pot!`
+          `${player.name} goes All in and puts ${allInAmount} into the Pot!`
         );
-        player.AmountBidding += parseInt(player.Chips);
-        this.ThePot += parseInt(player.Chips);
+        player.AmountBidding += allInAmount;
+        this.ThePot += allInAmount;
         player.Chips = 0;
+        this.recordLastBet(player, allInAmount);
       } else {
         this.sendAlert(`${player.name} has Nothing to put into the Pot!`);
       }
@@ -751,7 +775,10 @@ module.exports = class TexasHoldEmGame extends Game {
       whoseTurnIsIt:
         this.randomizedPlayersCopy?.[this.currentIndex]?.user.id ?? 0,
       ThePot: this.ThePot,
-      LastBet: this.lastAmountBid,
+      LastBet: this.lastBetAmount,
+      LastBetterPlayerId: this.lastBetter?.id ?? null,
+      LastBetterUserId: this.lastBetter?.user?.id ?? null,
+      LastBetterName: this.lastBetter?.name ?? null,
       RoundNumber: this.RoundNumber,
       Phase: this.Phase,
       CommunityCards: this.CommunityCards,

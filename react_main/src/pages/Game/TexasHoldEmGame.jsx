@@ -104,6 +104,7 @@ export default function TexasHoldEmGame() {
           rightPanelContent={
             <>
               <OptionsList />
+              <CommunityCards />
               <div className="texas-side-chat">
                 <TextMeetingLayout />
               </div>
@@ -529,18 +530,16 @@ function TexasTable() {
 
   const extraInfo = state.extraInfo || {};
   const players = getPlayers(extraInfo);
-  const communityCards = Array.isArray(extraInfo.CommunityCards)
-    ? extraInfo.CommunityCards
-    : [];
-  const visibleCards = [...communityCards];
-
-  while (visibleCards.length < 5) {
-    visibleCards.push(null);
-  }
-
   const activePlayers = players.filter((player) => !player.Folded);
   const largestBet = Math.max(0, ...players.map((player) => Number(player.Bets || 0)));
-  const lastBet = extraInfo.LastBet ?? largestBet;
+  const lastBet = Number(extraInfo.LastBet || 0);
+  const lastBetAnimationKey = [
+    extraInfo.LastBetterPlayerId || "none",
+    lastBet,
+    extraInfo.ThePot || 0,
+    extraInfo.RoundNumber || 0,
+    extraInfo.Phase || "",
+  ].join("-");
   const selfPlayer = players.find((player) => player.playerId === game.self);
   const seatRails = getSeatRails(players, game.self);
 
@@ -561,27 +560,11 @@ function TexasTable() {
               player={player}
               isCurrentPlayer={player.playerId === game.self}
               isTurn={player.userId === extraInfo.whoseTurnIsIt}
+              isLastBetter={player.playerId === extraInfo.LastBetterPlayerId}
+              lastBetAmount={lastBet}
+              lastBetAnimationKey={lastBetAnimationKey}
             />
           ))}
-        </div>
-
-        <div className="texas-table-center">
-          <div className="texas-pot-stack">
-            <span className="texas-pot-label">Bet</span>
-            <strong>
-              <ChipAmount value={lastBet} />
-            </strong>
-          </div>
-          <div className="texas-community-board" aria-label="Community cards">
-            {visibleCards.map((card, index) => (
-              <PlayingCard
-                key={`${card || "blank"}-${index}`}
-                value={card}
-                blank={!card}
-                className={card ? "is-dealt" : ""}
-              />
-            ))}
-          </div>
         </div>
 
         <div className="texas-seat-rail texas-seat-rail-bottom">
@@ -591,6 +574,9 @@ function TexasTable() {
               player={player}
               isCurrentPlayer={player.playerId === game.self}
               isTurn={player.userId === extraInfo.whoseTurnIsIt}
+              isLastBetter={player.playerId === extraInfo.LastBetterPlayerId}
+              lastBetAmount={lastBet}
+              lastBetAnimationKey={lastBetAnimationKey}
             />
           ))}
         </div>
@@ -629,10 +615,18 @@ function TexasMetric({ label, value }) {
   );
 }
 
-function TexasSeatChip({ player, isCurrentPlayer, isTurn }) {
+function TexasSeatChip({
+  player,
+  isCurrentPlayer,
+  isTurn,
+  isLastBetter,
+  lastBetAmount,
+  lastBetAnimationKey,
+}) {
   const game = useContext(GameContext);
   const gamePlayer = game.players?.[player.playerId] || {};
   const displayName = getPlayerDisplayName(player, game.self);
+  const showBetBadge = isLastBetter && Number(lastBetAmount) > 0;
 
   return (
     <button
@@ -653,6 +647,15 @@ function TexasSeatChip({ player, isCurrentPlayer, isTurn }) {
       <span className="texas-seat-name" title={player.playerName}>
         {displayName}
       </span>
+      {showBetBadge && (
+        <span
+          key={lastBetAnimationKey}
+          className="texas-seat-bet-badge"
+          aria-label="Current bet"
+        >
+          <ChipAmount value={lastBetAmount} />
+        </span>
+      )}
     </button>
   );
 }
