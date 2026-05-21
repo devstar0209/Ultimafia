@@ -4,63 +4,55 @@ import {
   useSocketListeners,
   ThreePanelLayout,
   TopBar,
-  ActionList,
+  TextMeetingLayout,
   OptionsList,
   PlayerList,
   SettingsMenu,
-  TextMeetingLayout,
   Notes,
   MobileLayout,
   GameTypeContext,
+  SideMenu,
 } from "./Game";
 import { GameContext } from "../../Contexts";
 import { cardGameAudioConfig } from "../../audio/audioConfigs";
-import { SideMenu } from "./Game";
-import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
+import { Avatar } from "../User/User";
+import CheckIcon from "@mui/icons-material/Check";
 
 import "css/game.css";
 import "css/gameCardGames.css";
+import "../../css/gameCheat.css";
 
-export default function CheatGame(props) {
+export default function CheatGame() {
   const game = useContext(GameContext);
-  const isPhoneDevice = useIsPhoneDevice();
 
   const history = game.history;
-  const updateHistory = game.updateHistory;
   const stateViewing = game.stateViewing;
   const updateStateViewing = game.updateStateViewing;
-  const self = game.self;
-  const players = game.players;
-  const isSpectator = game.isSpectator;
-  const gameOptions = game.options.gameTypeOptions;
+  const loadAudioFiles = game.loadAudioFiles;
+  const review = game.review;
 
   const playBellRef = useRef(false);
-
-  const gameType = "Cheat";
-  const meetings = history.states[stateViewing]
-    ? history.states[stateViewing].meetings
-    : {};
 
   // Make player view current state when it changes
   useEffect(() => {
     updateStateViewing({ type: "current" });
-  }, [history.currentState]);
+  }, [history.currentState, updateStateViewing]);
 
   useEffect(() => {
-    game.loadAudioFiles(cardGameAudioConfig);
+    loadAudioFiles(cardGameAudioConfig);
 
     // Make game review start at pregame
-    if (game.review) updateStateViewing({ type: "first" });
-  }, []);
+    if (review) updateStateViewing({ type: "first" });
+  }, [loadAudioFiles, review, updateStateViewing]);
 
   useSocketListeners((socket) => {
-    socket.on("state", (state) => {
+    socket.on("state", () => {
       if (playBellRef.current) game.playAudio("ping");
 
       playBellRef.current = true;
     });
 
-    socket.on("winners", (winners) => {});
+    socket.on("winners", () => {});
     socket.on("cardShuffle", () => {
       game.playAudio("cardShuffle");
     });
@@ -81,23 +73,14 @@ export default function CheatGame(props) {
   const playerList = (
     <>
       {stateViewing < 0 && <PlayerList />}
-      <LiarscardcardViewWrapper
-        history={history}
-        stateViewing={stateViewing}
-        self={self}
-      />
+      <CheatRoster />
     </>
   );
+  const cheatMeetings = getCheatMeetings(game);
+  const cardSelection = useCheatCardSelection(cheatMeetings.playCardsMeeting);
 
-  const actionsList = (
-    <ActionList
-      title="Play your Cards!"
-      style={{
-        color: history.states?.[stateViewing]?.extraInfo?.isTheFlyingDutchman
-          ? "#718E77"
-          : undefined,
-      }}
-    />
+  const actionList = (
+    <CheatActions cheatMeetings={cheatMeetings} cardSelection={cardSelection} />
   );
 
   return (
@@ -106,106 +89,581 @@ export default function CheatGame(props) {
         singleState: true,
       }}
     >
-      <TopBar />
-      <ThreePanelLayout
-        leftPanelContent={
-          <>
-            {playerList}
-            <SettingsMenu />
-          </>
-        }
-        centerPanelContent={<TextMeetingLayout />}
-        rightPanelContent={
-          <>
-            <OptionsList />
-            <ThePot />
-            {actionsList}
-            <Notes />
-          </>
-        }
-      />
-      <MobileLayout
-        outerLeftContent={playerList}
-        innerRightContent={
-          <>
-            <OptionsList />
-            <ThePot />
-            {actionsList}
-          </>
-        }
-      />
+      <div className="cheat-game">
+        <TopBar />
+        <ThreePanelLayout
+          leftPanelContent={
+            <>
+              {playerList}
+              <SettingsMenu />
+            </>
+          }
+          centerPanelContent={
+            <div className="cheat-play-column">
+              <CheatTable
+                playCardsMeeting={cheatMeetings.playCardsMeeting}
+                cardSelection={cardSelection}
+                actionContent={actionList}
+              />
+            </div>
+          }
+          rightPanelContent={
+            <>
+              <OptionsList />
+              <div className="cheat-side-chat">
+                <TextMeetingLayout />
+              </div>
+              <Notes />
+            </>
+          }
+        />
+        <MobileLayout
+          outerLeftContent={playerList}
+          additionalInfoContent={
+            <CheatTable
+              playCardsMeeting={cheatMeetings.playCardsMeeting}
+              cardSelection={cardSelection}
+              actionContent={actionList}
+            />
+          }
+          innerRightContent={
+            <>
+              <OptionsList />
+              <CheatRoundInfo />
+            </>
+          }
+        />
+      </div>
     </GameTypeContext.Provider>
   );
 }
 
-export function ThePot() {
+function getViewedState(game) {
+  return game.history.states?.[game.stateViewing];
+}
+
+function getExtraInfo(game) {
+  return getViewedState(game)?.extraInfo || {};
+}
+
+function getPlayers(extraInfo) {
+  return Array.isArray(extraInfo.randomizedPlayers)
+    ? extraInfo.randomizedPlayers
+    : [];
+}
+
+function getSelfPlayer(players, self) {
+  return players.find((player) => player.playerId === self);
+}
+
+function getCurrentTurnPlayer(players, extraInfo) {
+  return players.find((player) => player.userId === extraInfo.whoseTurnIsIt);
+}
+
+function getPlayerDisplayName(player, self) {
+  return player.playerId === self ? "You" : player.playerName;
+}
+
+function getSeatRails(players, self) {
+  const selfPlayer = players.find((player) => player.playerId === self);
+
+  if (!selfPlayer) {
+    const splitIndex = Math.ceil(players.length / 2);
+
+    return {
+      top: players.slice(0, splitIndex),
+      bottom: players.slice(splitIndex),
+    };
+  }
+
+  return {
+    top: players.filter((player) => player.playerId !== self),
+    bottom: [selfPlayer],
+  };
+}
+
+function getRankLabel(rankNumber) {
+  const rank = Number(rankNumber);
+
+  if (rank === 1) return "Ace";
+  if (rank === 11) return "Jack";
+  if (rank === 12) return "Queen";
+  if (rank === 13) return "King";
+  if (rank > 1 && rank < 11) return String(rank);
+
+  return "-";
+}
+
+function getRankPlural(rankNumber) {
+  const rankLabel = getRankLabel(rankNumber);
+
+  if (rankLabel === "-") return "-";
+  if (rankLabel === "6") return "6s";
+
+  return `${rankLabel}s`;
+}
+
+function getStack(extraInfo) {
+  return Array.isArray(extraInfo.TheStack) ? extraInfo.TheStack : [];
+}
+
+function getCheatMeetings(game) {
+  const meetings = Object.values(getViewedState(game)?.meetings || {});
+
+  return {
+    playCardsMeeting: meetings.find(
+      (meeting) => meeting.inputType === "playingCardButtons"
+    ),
+    submitMeeting: meetings.find(
+      (meeting) =>
+        meeting.inputType === "boolean" &&
+        (meeting.name === "Submit" || meeting.actionName === "Submit")
+    ),
+    callLieMeeting: meetings.find(
+      (meeting) =>
+        meeting.name === "Call Lie" || meeting.actionName === "Call Lie"
+    ),
+  };
+}
+
+function canUseMeeting(game, meeting) {
+  if (!meeting) return false;
+
+  const isCurrentState = game.stateViewing === game.history.currentState;
+  const hasVoted = meeting.votes?.[game.self];
+  const lockedAfterVote =
+    ((meeting.instant && !meeting.instantButChangeable) || meeting.noUnvote) &&
+    hasVoted;
+
+  return (
+    isCurrentState &&
+    meeting.amMember &&
+    meeting.canVote &&
+    !lockedAfterVote
+  );
+}
+
+function PlayingCard({ value, hidden = false, blank = false, className = "" }) {
+  const cardClass = blank ? "card-blank" : hidden ? "card-unknown" : `c${value}`;
+
+  return (
+    <div
+      className={`card cheat-playing-card ${cardClass} ${className}`}
+      aria-label={blank ? "Empty card slot" : hidden ? "Hidden card" : value}
+    />
+  );
+}
+
+function useCheatCardSelection(meeting) {
+  const game = useContext(GameContext);
+  const serverSelectedCards = Array.isArray(meeting?.votes?.[game.self])
+    ? meeting.votes[game.self]
+    : [];
+  const serverSelectedKey = serverSelectedCards.join("|");
+  const [localSelectedCards, setLocalSelectedCards] =
+    useState(serverSelectedCards);
+  const selectedCards = localSelectedCards;
+  const selectedCardSet = new Set(selectedCards);
+  const minCards = meeting?.multiMin || 1;
+  const maxCards = meeting?.multiMax || 4;
+  const canPick = canUseMeeting(game, meeting);
+  const readyToSubmit =
+    selectedCards.length >= minCards && selectedCards.length <= maxCards;
+
+  useEffect(() => {
+    setLocalSelectedCards(serverSelectedKey ? serverSelectedKey.split("|") : []);
+  }, [meeting?.id, serverSelectedKey]);
+
+  function toggleCard(card) {
+    if (!canPick) return;
+
+    const selected = selectedCardSet.has(card);
+    const voteType = selected ? "unvote" : "vote";
+
+    if (!selected && selectedCards.length >= maxCards) return;
+
+    setLocalSelectedCards((currentCards) =>
+      selected
+        ? currentCards.filter((selectedCard) => selectedCard !== card)
+        : [...currentCards, card]
+    );
+
+    game.socket.send(voteType, {
+      meetingId: meeting.id,
+      selection: card,
+    });
+  }
+
+  return {
+    canPick,
+    maxCards,
+    minCards,
+    readyToSubmit,
+    selectedCards,
+    selectedCardSet,
+    toggleCard,
+  };
+}
+
+function CheatActions({ cheatMeetings, cardSelection }) {
+  const game = useContext(GameContext);
+  const { playCardsMeeting, submitMeeting, callLieMeeting } = cheatMeetings;
+
+  if (game.stateViewing < 0) return null;
+
+  return (
+    <div className="cheat-actions">
+      {playCardsMeeting && (
+        <CheatSubmitActions
+          submitMeeting={submitMeeting}
+          cardSelection={cardSelection}
+        />
+      )}
+      {callLieMeeting && <CheatChallengeActions meeting={callLieMeeting} />}
+    </div>
+  );
+}
+
+function CheatSubmitActions({ submitMeeting, cardSelection }) {
+  const game = useContext(GameContext);
+  const canSubmit = canUseMeeting(game, submitMeeting);
+
+  function submitCards() {
+    if (!canSubmit || !cardSelection.readyToSubmit) return;
+
+    submitMeeting.votes[game.self] = "Yes";
+    game.socket.send("vote", {
+      meetingId: submitMeeting.id,
+      selection: "Yes",
+    });
+  }
+
+  return (
+    <div className="cheat-submit-actions">
+      <div className="cheat-selection-count">
+        {cardSelection.selectedCards.length}/{cardSelection.maxCards}
+      </div>
+      {submitMeeting && (
+        <button
+          type="button"
+          className="cheat-submit-button"
+          disabled={!canSubmit || !cardSelection.readyToSubmit}
+          onClick={submitCards}
+          aria-label="Submit cards"
+          title="Submit cards"
+        >
+          <CheckIcon fontSize="small" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function getCheatChallengeLabel(target) {
+  if (target === "Don't Call Lie") return "Not Lie";
+  if (target === "Call Lie") return "Lie";
+
+  return target;
+}
+
+function CheatChallengeActions({ meeting }) {
+  const game = useContext(GameContext);
+  const selectedAction = meeting.votes?.[game.self];
+  const canAct = canUseMeeting(game, meeting);
+
+  function submitAction(target) {
+    if (!canAct) return;
+
+    meeting.votes[game.self] = target;
+    game.socket.send("vote", {
+      meetingId: meeting.id,
+      selection: target,
+    });
+  }
+
+  return (
+    <div className="cheat-challenge-actions">
+      {(meeting.targets || []).map((target) => (
+        <button
+          key={target}
+          type="button"
+          className={`cheat-challenge-button ${
+            target === "Call Lie" ? "is-call" : "is-pass"
+          } ${selectedAction === target ? "is-selected" : ""}`}
+          disabled={!canAct}
+          onClick={() => submitAction(target)}
+        >
+          {getCheatChallengeLabel(target)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CheatTable({ playCardsMeeting, cardSelection, actionContent }) {
+  const game = useContext(GameContext);
+  const state = getViewedState(game);
+
+  if (game.stateViewing < 0 || !state) {
+    return (
+      <section className="cheat-table-stage cheat-table-stage-pregame">
+        <div className="cheat-table-felt">
+          <div className="cheat-table-center">
+            <div className="cheat-table-kicker">Cheat</div>
+            <div className="cheat-table-title">Waiting for players</div>
+            <div className="cheat-table-subtitle">
+              The table opens once the first hand is dealt.
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const extraInfo = state.extraInfo || {};
+  const players = getPlayers(extraInfo);
+  const stack = getStack(extraInfo);
+  const currentTurnPlayer = getCurrentTurnPlayer(players, extraInfo);
+  const selfPlayer = getSelfPlayer(players, game.self);
+  const seatRails = getSeatRails(players, game.self);
+  const activePlayers = players.filter((player) => (player.CardsInHand || []).length > 0);
+
+  return (
+    <section
+      className={`cheat-table-stage ${
+        extraInfo.isTheFlyingDutchman ? "is-dutchman" : ""
+      }`}
+    >
+      <div className="cheat-table-statusbar">
+        <CheatMetric label="Round" value={extraInfo.RoundNumber ?? "-"} />
+        <CheatMetric label="Required Rank" value={getRankPlural(extraInfo.RankNumber)} />
+        <CheatMetric label="Stack" value={stack.length} />
+        <CheatMetric label="Turn" value={currentTurnPlayer?.playerName || "-"} />
+        <CheatMetric
+          label="Players"
+          value={`${activePlayers.length || players.length}/${players.length}`}
+        />
+      </div>
+
+      <div className="cheat-table-felt">
+        <div className="cheat-seat-rail cheat-seat-rail-top">
+          {seatRails.top.map((player) => (
+            <CheatSeat
+              key={player.userId || player.playerName}
+              player={player}
+              isCurrentPlayer={player.playerId === game.self}
+              isTurn={player.userId === extraInfo.whoseTurnIsIt}
+            />
+          ))}
+        </div>
+
+        <div className="cheat-table-center">
+          <CheatStackSummary stack={stack} rankNumber={extraInfo.RankNumber} />
+        </div>
+
+        <div className="cheat-seat-rail cheat-seat-rail-bottom">
+          {seatRails.bottom.map((player) => (
+            <CheatSeat
+              key={player.userId || player.playerName}
+              player={player}
+              isCurrentPlayer={player.playerId === game.self}
+              isTurn={player.userId === extraInfo.whoseTurnIsIt}
+            />
+          ))}
+        </div>
+      </div>
+
+        <div className="cheat-table-footer">
+        <div className="cheat-hero-hand">
+          <span>Your hand</span>
+          <CheatCardLine
+            cards={selfPlayer?.CardsInHand || []}
+            meeting={playCardsMeeting}
+            selection={cardSelection}
+            revealed
+            selectable
+          />
+        </div>
+        {actionContent && (
+          <div className="cheat-table-actions">{actionContent}</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CheatMetric({ label, value }) {
+  return (
+    <div className="cheat-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function CheatStackSummary({ stack, rankNumber, compact = false }) {
+  const visibleBacks = Math.min(stack.length || 1, compact ? 3 : 5);
+
+  return (
+    <div className={`cheat-stack-summary ${compact ? "is-compact" : ""}`}>
+      <div className="cheat-stack-cards" aria-label="Stack">
+        {Array.from({ length: visibleBacks }).map((_, index) => (
+          <PlayingCard
+            key={index}
+            hidden={stack.length > 0}
+            blank={stack.length === 0}
+            className={`cheat-stack-card cheat-stack-card-${index}`}
+          />
+        ))}
+      </div>
+      <div className="cheat-stack-copy">
+        <span>Current claim</span>
+        <strong>{getRankPlural(rankNumber)}</strong>
+        <em>{stack.length} cards in stack</em>
+      </div>
+    </div>
+  );
+}
+
+function CheatCardLine({
+  cards,
+  revealed,
+  small = false,
+  selectable = false,
+  meeting = null,
+  selection = null,
+}) {
+  const values = Array.isArray(cards) ? cards : [];
+  const targetSet = new Set(meeting?.targets || []);
+  const canSelect = Boolean(selectable && meeting && selection?.canPick);
+
+  if (values.length === 0) {
+    return <div className="cheat-card-line is-empty">No cards</div>;
+  }
+
+  return (
+    <div className={`cheat-card-line ${canSelect ? "is-selectable" : ""}`}>
+      {values.map((card, index) => {
+        const isSelectableCard = canSelect && targetSet.has(card);
+        const isSelected = selection?.selectedCardSet?.has(card);
+
+        if (!isSelectableCard) {
+          return (
+            <PlayingCard
+              key={`${card}-${index}`}
+              value={card}
+              hidden={!revealed}
+              className={small ? "cheat-playing-card-small" : ""}
+            />
+          );
+        }
+
+        return (
+          <button
+            key={`${card}-${index}`}
+            type="button"
+            className={`cheat-hand-card-button ${
+              isSelected ? "is-selected" : ""
+            } ${small ? "is-small" : ""}`}
+            onClick={() => selection.toggleCard(card)}
+          >
+            <span className="cheat-card-button-frame">
+              <PlayingCard
+                value={card}
+                hidden={!revealed}
+                className={small ? "cheat-playing-card-small" : ""}
+              />
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CheatSeat({ player, isCurrentPlayer, isTurn }) {
+  const game = useContext(GameContext);
+  const gamePlayer = game.players?.[player.playerId] || {};
+  const displayName = getPlayerDisplayName(player, game.self);
+  const cardCount = Array.isArray(player.CardsInHand)
+    ? player.CardsInHand.length
+    : 0;
+
+  return (
+    <button
+      type="button"
+      className={`cheat-seat ${isCurrentPlayer ? "is-self" : ""} ${
+        isTurn ? "is-turn" : ""
+      } ${cardCount === 0 ? "is-empty" : ""}`}
+      onClick={() => window.open(`/user/${player.userId}`, "_blank")}
+    >
+      <span className="cheat-seat-avatar">
+        <Avatar
+          hasImage={gamePlayer.avatar}
+          id={gamePlayer.userId || player.userId}
+          name={player.playerName}
+          mediumlarge
+        />
+      </span>
+      <span className="cheat-seat-name" title={player.playerName}>
+        {displayName}
+      </span>
+      <span className="cheat-seat-card-count">{cardCount} cards</span>
+    </button>
+  );
+}
+
+export function CheatRoundInfo() {
   const game = useContext(GameContext);
 
-  const history = game.history;
-  const stateViewing = game.stateViewing;
+  if (game.stateViewing < 0) return <></>;
 
-  if (stateViewing < 0) return <></>;
-
-  const extraInfo = history.states[stateViewing].extraInfo;
+  const extraInfo = getExtraInfo(game);
+  const players = getPlayers(extraInfo);
+  const stack = getStack(extraInfo);
+  const currentTurnPlayer = getCurrentTurnPlayer(players, extraInfo);
 
   return (
     <SideMenu
       title="Round Info"
       scrollable
       content={
-        <table className="options-table">
-          <tbody>
-            Round:
-            {extraInfo.RoundNumber}
-          </tbody>
-          <tbody>
-            Current Card Rank:
-            {extraInfo.RankNumber != 1 &&
-            extraInfo.RankNumber != 11 &&
-            extraInfo.RankNumber != 12 &&
-            extraInfo.RankNumber != 13
-              ? extraInfo.RankNumber
-              : extraInfo.RankNumber == 1
-              ? "Ace"
-              : extraInfo.RankNumber == 11
-              ? "Jack"
-              : extraInfo.RankNumber == 12
-              ? "Queen"
-              : "King"}
-          </tbody>
-          <tbody>
-            The Stack:
-            {extraInfo.TheStack.length}
-          </tbody>
-        </table>
+        <div className="cheat-info-panel">
+          <CheatMetric label="Round" value={extraInfo.RoundNumber ?? "-"} />
+          <CheatMetric label="Required Rank" value={getRankPlural(extraInfo.RankNumber)} />
+          <CheatMetric label="Stack" value={stack.length} />
+          <CheatMetric
+            label="Action"
+            value={currentTurnPlayer?.playerName || "-"}
+          />
+          <CheatStackSummary stack={stack} rankNumber={extraInfo.RankNumber} compact />
+        </div>
       }
     />
   );
 }
 
-function LiarscardcardViewWrapper(props) {
-  const history = props.history;
-  const stateViewing = props.stateViewing;
-  const self = props.self;
+function CheatRoster() {
+  const game = useContext(GameContext);
 
-  if (stateViewing < 0) return <></>;
+  if (game.stateViewing < 0) return <></>;
 
-  const extraInfo = history.states[stateViewing].extraInfo;
+  const extraInfo = getExtraInfo(game);
+  const players = getPlayers(extraInfo);
 
   return (
     <SideMenu
-      title="Hand"
+      title="Seats"
       scrollable
-      className="card-games-wrapper"
       content={
-        <div className="card-games-players-container">
-          {extraInfo.randomizedPlayers.map((player, index) => (
-            <LiarscardPlayerRow
-              key={index}
+        <div className="cheat-roster">
+          {players.map((player) => (
+            <CheatPlayerRow
+              key={player.userId || player.playerName}
               userId={player.userId}
-              playerName={player.playerName}
-              CardsInHand={player.CardsInHand}
-              isCurrentPlayer={player.playerId === self}
+              playerName={getPlayerDisplayName(player, game.self)}
+              cards={player.CardsInHand}
+              isCurrentPlayer={player.playerId === game.self}
               isTheFlyingDutchman={extraInfo.isTheFlyingDutchman}
               whoseTurnIsIt={extraInfo.whoseTurnIsIt}
             />
@@ -216,59 +674,43 @@ function LiarscardcardViewWrapper(props) {
   );
 }
 
-function LiarscardPlayerRow({
+function CheatPlayerRow({
   userId,
   playerName,
-  CardsInHand,
+  cards,
   isCurrentPlayer,
   isTheFlyingDutchman,
   whoseTurnIsIt,
 }) {
+  const safeCards = Array.isArray(cards) ? cards : [];
   const isSamePlayer = whoseTurnIsIt === userId;
+
   return (
-    <div className="card-games-player-section">
-      <div
-        className={`card-games-player-name ${
-          isCurrentPlayer ? "current-player" : ""
-        }`}
+    <div
+      className={`cheat-player-row ${isCurrentPlayer ? "is-self" : ""} ${
+        isSamePlayer ? "is-turn" : ""
+      } ${safeCards.length === 0 ? "is-empty" : ""}`}
+    >
+      <button
+        type="button"
+        className="cheat-player-name"
         style={
           isTheFlyingDutchman
             ? {
                 backgroundColor: isCurrentPlayer ? "#506D56" : "#48654e",
                 borderColor: "#3B5841",
-                cursor: "pointer",
               }
-            : {
-                cursor: "pointer",
-              }
+            : {}
         }
         onClick={() => window.open(`/user/${userId}`, "_blank")}
       >
         {playerName}
+      </button>
+      <div className="cheat-player-card-meta">
+        <strong>{safeCards.length}</strong>
+        <span>{safeCards.length === 1 ? "card" : "cards"}</span>
       </div>
-      <div
-        className="card-games-card-container"
-        style={
-          isTheFlyingDutchman
-            ? {
-                borderColor: isSamePlayer ? "grey" : "#3B5841",
-              }
-            : {
-                borderColor: isSamePlayer ? "grey" : undefined,
-              }
-        }
-      >
-        <div className="current-rolls">
-          {CardsInHand.map((value, index) => (
-            <div
-              key={index}
-              className={`card ${
-                isCurrentPlayer ? `c${value}` : "card-unknown"
-              }`}
-            ></div>
-          ))}
-        </div>
-      </div>
+      <CheatCardLine cards={safeCards} revealed={isCurrentPlayer} small />
     </div>
   );
 }
