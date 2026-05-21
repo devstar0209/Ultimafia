@@ -12,6 +12,7 @@ import { useParams, Navigate, Link, useNavigate } from "react-router-dom";
 import update from "immutability-helper";
 import axios from "axios";
 import ReactLoading from "react-loading";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
 import { UserText } from "../../components/Basic";
 import Newspaper, {
@@ -96,7 +97,6 @@ import { getSetupBackgroundColor } from "../Play/LobbyBrowser/gameRowColors.js";
 import lore from "images/emotes/lore.webp";
 import poison from "images/emotes/poison.webp";
 import unicorn from "images/emotes/unicorn.webp";
-import exit from "images/emotes/exit.png";
 import veg from "images/emotes/veg.webp";
 import { usePopover, InfoPopover, SetupInfo } from "components/Popover";
 
@@ -122,6 +122,40 @@ const emoteMap = {
   dice5: dice5,
   dice6: dice6,
 };
+
+function LeaveGameButton({ sx }) {
+  const game = useContext(GameContext);
+
+  return (
+    <Button
+      onClick={game.onLeaveGameClick}
+      variant="contained"
+      color="error"
+      startIcon={<LogoutRoundedIcon fontSize="small" />}
+      sx={{
+        minHeight: 40,
+        px: 1.75,
+        borderRadius: 999,
+        border: "1px solid",
+        borderColor: "rgba(255, 255, 255, 0.18)",
+        boxShadow: "0 8px 18px rgba(211, 47, 47, 0.22)",
+        fontWeight: 700,
+        letterSpacing: 0,
+        textTransform: "none",
+        whiteSpace: "nowrap",
+        "&:hover": {
+          boxShadow: "0 10px 22px rgba(211, 47, 47, 0.28)",
+        },
+        "& .MuiButton-startIcon": {
+          mr: 0.75,
+        },
+        ...sx,
+      }}
+    >
+      Leave
+    </Button>
+  );
+}
 
 const NO_ONE_NAME = "no one";
 const MAGUS_NAME = "Declare Magus Game";
@@ -1143,7 +1177,22 @@ export function TopBar() {
     <></>
   );
 
-  const buttonGroup = (
+  const showArchiveButton = game.review;
+  const showFillButton = game.dev && game.history.currentState === -1;
+  const showChangeSetupButton =
+    !game.review &&
+    game.history.currentState === -1 &&
+    game.self &&
+    game.players[game.self] &&
+    game.players[game.self].userId === game.hostId;
+  const showRehostButton = !game.review && game.history.currentState === -2;
+  const hasUtilityButtons =
+    showArchiveButton ||
+    showFillButton ||
+    showChangeSetupButton ||
+    showRehostButton;
+
+  const buttonGroup = hasUtilityButtons ? (
     <ButtonGroup
       variant="contained"
       sx={{
@@ -1152,7 +1201,7 @@ export function TopBar() {
         borderRadius: 1,
       }}
     >
-      {game.review && (
+      {showArchiveButton && (
         <Tooltip title="Archive">
           <IconButton size="large" onClick={onArchiveGameClick}>
             <img src={lore} alt="Archive" />
@@ -1160,7 +1209,7 @@ export function TopBar() {
         </Tooltip>
       )}
 
-      {game.dev && game.history.currentState == -1 && (
+      {showFillButton && (
         <Tooltip title="Fill">
           <IconButton size="large" onClick={onTestClick}>
             <img src={poison} alt="Fill" />
@@ -1168,38 +1217,39 @@ export function TopBar() {
         </Tooltip>
       )}
 
-      {!game.review &&
-        game.history.currentState === -1 &&
-        game.self &&
-        game.players[game.self] &&
-        game.players[game.self].userId === game.hostId && (
-          <Tooltip title="Change Setup">
-            <IconButton
-              size="large"
-              onClick={() => game.setChangeSetupDialogOpen(true)}
-            >
-              <img src={unicorn} alt="Change Setup" />
-            </IconButton>
-          </Tooltip>
-        )}
+      {showChangeSetupButton && (
+        <Tooltip title="Change Setup">
+          <IconButton
+            size="large"
+            onClick={() => game.setChangeSetupDialogOpen(true)}
+          >
+            <img src={unicorn} alt="Change Setup" />
+          </IconButton>
+        </Tooltip>
+      )}
 
-      {!game.review && game.history.currentState === -2 && (
+      {showRehostButton && (
         <Tooltip title="Rehost">
           <IconButton size="large" onClick={onRehostGameClick}>
             <img src={veg} alt="Rehost" />
           </IconButton>
         </Tooltip>
       )}
-
-      {!isPhoneDevice && (
-        <Button
-          onClick={game.onLeaveGameClick}
-          startIcon={<img src={exit} alt="Leave" />}
-        >
-          Leave
-        </Button>
-      )}
     </ButtonGroup>
+  ) : null;
+
+  const controls = (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        alignItems: "center",
+        alignSelf: "stretch",
+      }}
+    >
+      {buttonGroup}
+      {!isPhoneDevice && <LeaveGameButton />}
+    </Stack>
   );
 
   if (!isPhoneDevice) {
@@ -1228,7 +1278,7 @@ export function TopBar() {
           }}
         >
           {setup}
-          {buttonGroup}
+          {controls}
         </Stack>
       </Stack>
     );
@@ -1277,8 +1327,6 @@ function UnresolvedActionCount({ children }) {
 }
 
 function MobileMenu() {
-  const game = useContext(GameContext);
-
   const menuContent = (
     <Stack
       direction="column"
@@ -1289,15 +1337,12 @@ function MobileMenu() {
       }}
     >
       <SettingsForm />
-      <Button
-        onClick={game.onLeaveGameClick}
-        startIcon={<img src={exit} alt="Leave" />}
+      <LeaveGameButton
         sx={{
           mt: "auto",
+          width: "100%",
         }}
-      >
-        Leave
-      </Button>
+      />
     </Stack>
   );
 
