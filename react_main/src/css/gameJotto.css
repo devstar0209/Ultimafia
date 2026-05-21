@@ -1,45 +1,251 @@
-.game .jotto-history {
+.game .jotto-game {
+  flex: 1;
+  min-height: 0;
   display: flex;
-}
-
-.game .jotto-guess-history {
-  margin: 5px;
-  display: inline-flex;
   flex-direction: column;
 }
 
-.game .jotto-guess-history-name {
-  font-weight: bold;
+.game .jotto-game .main,
+.game .jotto-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .jotto-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .jotto-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.game .jotto-action-dock {
+  flex-shrink: 0;
+}
+
+.game .jotto-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .jotto-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .jotto-side-chat {
+  min-height: 260px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .jotto-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .jotto-side-chat .meeting-tabs .MuiTab-root {
+  max-width: 140px;
+}
+
+.game .jotto-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .jotto-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .jotto-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(17, 22, 26, 0.98), rgba(31, 34, 35, 0.98)),
+    var(--scheme-color);
+  color: #f8f2e6;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .jotto-board-pregame {
+  min-height: 320px;
+  align-items: center;
+  justify-content: center;
+}
+
+.game .jotto-board-center {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.game .jotto-board-kicker {
+  color: #d9c179;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .jotto-board-title {
+  color: #ffffff;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.game .jotto-board-subtitle {
+  max-width: 34rem;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .jotto-statusbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.game .jotto-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .jotto-metric > span {
   display: block;
-  font-size: 1.1em;
+  margin-bottom: 3px;
+  color: rgba(248, 242, 230, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .jotto-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .jotto-table {
+  flex: 1 1 auto;
+  min-height: 330px;
+  display: flex;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(217, 193, 121, 0.28);
+  border-radius: 24px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 45%, rgba(58, 74, 72, 0.94), rgba(37, 55, 58, 0.98) 58%, rgba(17, 31, 34, 1) 100%),
+    #25373a;
+  background-size: 38px 38px, 38px 38px, auto, auto;
+  box-shadow:
+    inset 0 0 0 8px rgba(58, 45, 30, 0.42),
+    inset 0 0 34px rgba(0, 0, 0, 0.44);
+}
+
+.game .jotto-history-grid {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  overflow: auto;
+}
+
+.game .jotto-history-panel {
+  min-width: 0;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(9, 14, 18, 0.68);
+}
+
+.game .jotto-history-panel.is-active {
+  border-color: rgba(217, 193, 121, 0.72);
+  box-shadow:
+    0 0 0 2px rgba(217, 193, 121, 0.16),
+    0 0 18px rgba(217, 193, 121, 0.22);
+}
+
+.game .jotto-panel-header {
+  flex-shrink: 0;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.game .jotto-guess-input-spacer {
+  height: 45px;
+}
+
+.game .jotto-panel-guesses {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 10px 10px;
+}
+
+.game .jotto-guess-history {
+  display: grid;
+  gap: 7px;
 }
 
 .game .jotto-guess {
-  display: flex;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
-  padding: 2px 0;
-  font-size: 1.2em;
-}
-
-.game .jotto-guess-value {
-  padding: 0px 5px;
-  margin-left: 5px;
-  color: var(--scheme-color-text);
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  font-size: 0.95rem;
 }
 
 .game .jotto-guess-score {
   width: 28px;
   height: 28px;
-  -moz-border-radius: 14px;
-  -webkit-border-radius: 14px;
-  border-radius: 14px;
-  text-align: center;
-  line-height: 28px;
-  font-size: 1em;
-  font-weight: bold;
-  color: black;
-  margin-right: 8px;
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #111111;
+  font-size: 0.92rem;
+  font-weight: 900;
 }
 
 .game .jotto-guess .guess-score-0 {
@@ -47,13 +253,13 @@
 }
 
 .game .jotto-guess .guess-score-1 {
-  background-color: #b31e00;
-  color: white;
+  background-color: #b33122;
+  color: #ffffff;
 }
 
 .game .jotto-guess .guess-score-2 {
-  background-color: #ad6200;
-  color: white;
+  background-color: #b36f1d;
+  color: #ffffff;
 }
 
 .game .jotto-guess .guess-score-3 {
@@ -68,72 +274,26 @@
   background-color: #30b332;
 }
 
-.game .jotto-guess-word.done {
-  color: grey;
-}
-
 .game .jotto-guess-score.forbidden {
   background-color: #6b6b6b;
-  color: white;
+  color: #ffffff;
 }
 
-/* Custom Jotto desktop layout */
-.game .jotto-desktop {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0 var(--mui-spacing);
-  gap: var(--mui-spacing);
-}
-
-.game .jotto-main-row {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  gap: var(--mui-spacing);
-  min-height: 0;
-}
-
-.game .jotto-sidebar {
-  width: 27vw;
-  min-width: 220px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.game .jotto-center {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: row;
-  min-height: 0;
-  background-color: var(--scheme-color);
-  border-radius: var(--mui-shape-borderRadius);
-}
-
-.game .jotto-history-panel {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
+.game .jotto-guess-word {
   min-width: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.game .jotto-panel-header {
-  flex-shrink: 0;
-  text-align: center;
-}
-
-.game .jotto-guess-input-spacer {
-  height: 30px;
-}
-
-.game .jotto-panel-guesses {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 8px;
-  text-align: center;
+.game .jotto-guess-word.done {
+  color: rgba(255, 255, 255, 0.42);
+  text-decoration: line-through;
 }
 
 .game .jotto-select-word {
@@ -143,22 +303,126 @@
   justify-content: center;
 }
 
-.game .jotto-pregame {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
+.game .jotto-select-card {
+  width: min(100%, 420px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  text-align: center;
 }
 
-/* Mobile layout */
-.game .jotto-mobile-panels {
-  display: flex;
-  flex-direction: row;
-  flex: 1;
+.game .jotto-roster-menu .side-menu-content {
   min-height: 0;
-  overflow-x: auto;
 }
 
-.game .jotto-mobile-panels .jotto-history-panel {
-  min-width: 50%;
-  flex: 1 0 50%;
+.game .jotto-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .jotto-player-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.game .jotto-player-row:hover {
+  border-color: rgba(217, 193, 121, 0.42);
+  background: rgba(217, 193, 121, 0.08);
+}
+
+.game .jotto-player-row.is-active {
+  border-color: rgba(217, 193, 121, 0.62);
+  box-shadow: inset 3px 0 0 rgba(217, 193, 121, 0.72);
+}
+
+.game .jotto-player-row.is-dead {
+  opacity: 0.48;
+}
+
+.game .jotto-player-position {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.game .jotto-player-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .jotto-player-row em {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(217, 193, 121, 0.14);
+  color: #d9c179;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .game .jotto-board {
+    border-radius: 0;
+  }
+
+  .game .jotto-table {
+    min-height: 430px;
+    border-radius: 18px;
+  }
+
+  .game .jotto-history-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .game .jotto-board {
+    padding: 8px;
+  }
+
+  .game .jotto-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .jotto-table {
+    min-height: 420px;
+    padding: 12px;
+  }
+
+  .game .jotto-history-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game .jotto-player-row {
+    grid-template-columns: 26px auto minmax(0, 1fr);
+  }
+
+  .game .jotto-player-row em {
+    grid-column: 3;
+  }
 }

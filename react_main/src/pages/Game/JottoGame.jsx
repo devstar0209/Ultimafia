@@ -4,26 +4,27 @@ import React, {
   useContext,
   useState,
   useReducer,
-  useMemo,
 } from "react";
 import update from "immutability-helper";
 
 import {
   useSocketListeners,
+  ThreePanelLayout,
   TopBar,
   TextMeetingLayout,
   ActionList,
-  buildActionDescriptors,
   PlayerList,
+  OptionsList,
+  SpeechFilter,
   Notes,
   SettingsMenu,
+  PinnedMessages,
   MobileLayout,
   GameTypeContext,
+  SideMenu,
 } from "./Game";
 import { GameContext } from "../../Contexts";
-import { SideMenu } from "./Game";
 import { Avatar } from "../User/User";
-import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 
 import "css/game.css";
 import "css/gameJotto.css";
@@ -40,7 +41,6 @@ export default function JottoGame() {
   const game = useContext(GameContext);
 
   const history = game.history;
-  const stateViewing = game.stateViewing;
   const updateStateViewing = game.updateStateViewing;
 
   const playBellRef = useRef(false);
@@ -48,12 +48,12 @@ export default function JottoGame() {
   // Make player view current state when it changes
   useEffect(() => {
     updateStateViewing({ type: "current" });
-  }, [history.currentState]);
+  }, [history.currentState, updateStateViewing]);
 
   // Make game review start at the final state
   useEffect(() => {
     if (game.review) updateStateViewing({ type: "current" });
-  }, []);
+  }, [game.review, updateStateViewing]);
 
   // Cycle letters through "none", "correct", "wrong", "maybe"
   const [cheatSheet, updateCheatSheet] = useReducer((state, letter) => {
@@ -78,74 +78,28 @@ export default function JottoGame() {
   }, {});
 
   useSocketListeners((socket) => {
-    socket.on("state", (state) => {
+    socket.on("state", () => {
       if (playBellRef.current) game.playAudio("ping");
 
       playBellRef.current = true;
     });
 
-    socket.on("winners", (winners) => {});
+    socket.on("winners", () => {});
   }, game.socket);
 
-  const jottoCheatSheet = (
+  const playerPanel = (
     <>
-      {stateViewing >= 0 && (
-        <SideMenu
-          title="Cheatsheet"
-          content={
-            <JottoCheatSheet
-              cheatSheet={cheatSheet}
-              updateCheatSheet={updateCheatSheet}
-            />
-          }
-          flex="0 0 auto"
-        />
-      )}
+      <JottoRoster />
+      <SpeechFilter />
     </>
   );
-
-  const isPhoneDevice = useIsPhoneDevice();
-
-  const stateInfo =
-    stateViewing >= 0
-      ? history.states[stateViewing]
-      : game.review && stateViewing === -2
-        ? history.states[-2]
-        : null;
-  const extraInfo = stateInfo ? stateInfo.extraInfo : null;
-  const turnOrder = extraInfo ? extraInfo.turnOrder : [];
-  const meetings = stateInfo ? stateInfo.meetings : {};
-
-  const guessMeeting = Object.values(meetings).find(
-    (m) => m.name === "Guess Word" && m.voting
+  const actionPanel = <JottoActions />;
+  const cheatSheetPanel = (
+    <JottoCheatSheetMenu
+      cheatSheet={cheatSheet}
+      updateCheatSheet={updateCheatSheet}
+    />
   );
-  const selectWordMeeting = Object.values(meetings).find(
-    (m) => m.name === "Select Word" && m.voting
-  );
-
-  const jottoMeetingNames = new Set(["Guess Word", "Select Word"]);
-  const filteredMeetings = Object.fromEntries(
-    Object.entries(meetings).filter(([, m]) => !jottoMeetingNames.has(m.name))
-  );
-
-  const baseActionProps = useMemo(
-    () => ({
-      socket: game.socket,
-      players: game.players,
-      self: game.self,
-      history: game.history,
-      stateViewing: game.stateViewing,
-    }),
-    [game.socket, game.players, game.self, game.history, game.stateViewing]
-  );
-
-  const filteredDescriptors = useMemo(() => {
-    const result = buildActionDescriptors({
-      meetings: filteredMeetings,
-      baseActionProps,
-    });
-    return result.regularActionDescriptors;
-  }, [filteredMeetings, baseActionProps]);
 
   return (
     <GameTypeContext.Provider
@@ -153,128 +107,319 @@ export default function JottoGame() {
         singleState: true,
       }}
     >
-      <TopBar />
-      {!isPhoneDevice && (
-        <div className="jotto-desktop">
-          <div className="jotto-main-row">
-            <div className="jotto-sidebar panel with-radial-gradient">
-              {jottoCheatSheet}
-              <Notes />
-              <SideMenu
-                title="Actions"
-                isAccordionMenu
-                content={
-                  <div className="action-list">
-                    {(filteredDescriptors || []).map(
-                      ({ Component, props, key }) => (
-                        <Component key={key} {...props} />
-                      )
-                    )}
-                  </div>
-                }
-              />
+      <div className="jotto-game">
+        <TopBar />
+        <ThreePanelLayout
+          leftPanelContent={
+            <>
+              {playerPanel}
+              {cheatSheetPanel}
               <SettingsMenu />
+            </>
+          }
+          centerPanelContent={
+            <div className="jotto-play-column">
+              <JottoBoard />
+              <div className="jotto-action-dock">{actionPanel}</div>
             </div>
+          }
+          rightPanelContent={
+            <>
+              <OptionsList />
+              <div className="jotto-side-chat">
+                <TextMeetingLayout />
+              </div>
+              <PinnedMessages />
+              <Notes />
+            </>
+          }
+        />
+        <MobileLayout
+          outerLeftContent={playerPanel}
+          additionalInfoContent={
+            <>
+              <JottoBoard />
+              {cheatSheetPanel}
+              <Notes />
+            </>
+          }
+          innerRightContent={
+            <>
+              <OptionsList />
+              {actionPanel}
+            </>
+          }
+          chatTab
+        />
+      </div>
+    </GameTypeContext.Provider>
+  );
+}
 
-            <div className="jotto-center panel with-radial-gradient">
-              {history.currentState == -1 ? (
-                <div className="jotto-pregame">
-                  <PlayerList />
-                </div>
-              ) : turnOrder.length > 0 ? (
-                turnOrder.map((name) => (
-                  <JottoHistoryPanel
-                    key={name}
-                    name={name}
-                    guessHistory={extraInfo.guessHistoryByNames[name]}
-                    guessMeeting={guessMeeting}
-                    socket={game.socket}
-                    self={game.self}
-                    players={game.players}
-                  />
-                ))
-              ) : (
-                <div className="jotto-select-word">
-                  <JottoGuessInput
-                    meeting={selectWordMeeting}
-                    socket={game.socket}
-                    self={game.self}
-                    isMyTurn={
-                      selectWordMeeting &&
-                      selectWordMeeting.amMember &&
-                      selectWordMeeting.canVote
-                    }
-                    placeholder="Select word"
-                    label={selectWordMeeting?.actionName || "Select Word"}
-                  />
-                </div>
-              )}
-            </div>
+function getViewedState(game) {
+  if (game.stateViewing >= 0) return game.history.states?.[game.stateViewing];
+  if (game.review && game.stateViewing === -2) {
+    return game.history.states?.[-2];
+  }
 
-            <div className="jotto-sidebar panel with-radial-gradient">
-              <TextMeetingLayout />
-            </div>
+  return null;
+}
+
+function getJottoInfo(game) {
+  return getViewedState(game)?.extraInfo || {};
+}
+
+function getJottoMeetings(game) {
+  return getViewedState(game)?.meetings || {};
+}
+
+function getJottoMeeting(game, name) {
+  return Object.values(getJottoMeetings(game)).find(
+    (meeting) => meeting.name === name && meeting.voting
+  );
+}
+
+function getPhaseLabel(game) {
+  if (game.stateViewing < 0) return "Pregame";
+
+  return getViewedState(game)?.name || "-";
+}
+
+function getTurnOrder(game) {
+  const turnOrder = getJottoInfo(game).turnOrder;
+
+  return Array.isArray(turnOrder) ? turnOrder : [];
+}
+
+function getGuessHistoryByNames(game) {
+  return getJottoInfo(game).guessHistoryByNames || {};
+}
+
+function getPlayerByName(game, playerName) {
+  return Object.values(game.players || {}).find(
+    (player) => player.name === playerName
+  );
+}
+
+function isSelfPlayer(game, player) {
+  return Boolean(player && player.id === game.self);
+}
+
+function getPlayerDisplayName(game, playerName) {
+  const player = getPlayerByName(game, playerName);
+
+  return isSelfPlayer(game, player) ? "You" : playerName;
+}
+
+function getMeetingPlayer(game, meeting) {
+  const memberId =
+    meeting?.members?.find((member) => member.canVote)?.id ||
+    meeting?.members?.[0]?.id;
+
+  return memberId ? game.players?.[memberId] : null;
+}
+
+function getCurrentTurnName(game) {
+  return getMeetingPlayer(game, getJottoMeeting(game, "Guess Word"))?.name;
+}
+
+function getTotalGuessCount(game) {
+  return Object.values(getGuessHistoryByNames(game)).reduce(
+    (total, guesses) => total + (Array.isArray(guesses) ? guesses.length : 0),
+    0
+  );
+}
+
+function isJottoPrimaryMeeting(meeting) {
+  return meeting.name === "Guess Word" || meeting.name === "Select Word";
+}
+
+function JottoActions() {
+  return (
+    <ActionList
+      scrollable={false}
+      hideIfEmpty
+      meetingFilter={(meeting) => !isJottoPrimaryMeeting(meeting)}
+    />
+  );
+}
+
+function JottoCheatSheetMenu({ cheatSheet, updateCheatSheet }) {
+  const game = useContext(GameContext);
+
+  if (game.stateViewing < 0) return null;
+
+  return (
+    <SideMenu
+      title="Letter Board"
+      content={
+        <JottoCheatSheet
+          cheatSheet={cheatSheet}
+          updateCheatSheet={updateCheatSheet}
+        />
+      }
+      flex="0 0 auto"
+    />
+  );
+}
+
+function JottoBoard() {
+  const game = useContext(GameContext);
+  const state = getViewedState(game);
+  const info = getJottoInfo(game);
+  const turnOrder = getTurnOrder(game);
+  const guessHistoryByNames = getGuessHistoryByNames(game);
+  const guessMeeting = getJottoMeeting(game, "Guess Word");
+  const selectWordMeeting = getJottoMeeting(game, "Select Word");
+  const currentTurnName = getCurrentTurnName(game);
+  const wordLength =
+    Number(info.wordLength) ||
+    Number(game.options?.gameTypeOptions?.wordLength) ||
+    Number(game.setup?.gameSettings?.wordLength) ||
+    "-";
+
+  if (game.stateViewing < 0 || !state) {
+    return (
+      <section className="jotto-board jotto-board-pregame">
+        <div className="jotto-board-center">
+          <div className="jotto-board-kicker">Jotto</div>
+          <div className="jotto-board-title">Waiting for Players</div>
+          <div className="jotto-board-subtitle">
+            The deduction board opens once the game starts.
           </div>
         </div>
-      )}
-      <MobileLayout
-        innerRightNavigationProps={{
-          label: "Game",
-          value: "actions",
-          icon: <i className="fas fa-gamepad" />,
-        }}
-        innerRightContent={
-          <>
-            {history.currentState === -1 ? (
-              <PlayerList />
-            ) : turnOrder.length > 0 ? (
-              <div className="jotto-mobile-panels">
-                {turnOrder.map((name) => (
-                  <JottoHistoryPanel
-                    key={name}
-                    name={name}
-                    guessHistory={extraInfo.guessHistoryByNames[name]}
-                    guessMeeting={guessMeeting}
-                    socket={game.socket}
-                    self={game.self}
-                    players={game.players}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="jotto-select-word">
-                <JottoGuessInput
-                  meeting={selectWordMeeting}
-                  socket={game.socket}
-                  self={game.self}
-                  isMyTurn={
-                    selectWordMeeting &&
-                    selectWordMeeting.amMember &&
-                    selectWordMeeting.canVote
-                  }
-                  placeholder="Select word"
-                  label={selectWordMeeting?.actionName || "Select Word"}
-                />
-              </div>
-            )}
-            <div className="action-list">
-              {(filteredDescriptors || []).map(
-                ({ Component, props, key }) => (
-                  <Component key={key} {...props} />
-                )
-              )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="jotto-board">
+      <div className="jotto-statusbar">
+        <JottoMetric label="Phase" value={getPhaseLabel(game)} />
+        <JottoMetric label="Word Length" value={wordLength} />
+        <JottoMetric label="Players" value={turnOrder.length || "-"} />
+        <JottoMetric label="Guesses" value={getTotalGuessCount(game)} />
+        <JottoMetric
+          label="Turn"
+          value={
+            currentTurnName ? getPlayerDisplayName(game, currentTurnName) : "-"
+          }
+        />
+      </div>
+
+      <div className="jotto-table">
+        {turnOrder.length > 0 ? (
+          <div className="jotto-history-grid">
+            {turnOrder.map((name) => (
+              <JottoHistoryPanel
+                key={name}
+                name={name}
+                guessHistory={guessHistoryByNames[name]}
+                guessMeeting={guessMeeting}
+                socket={game.socket}
+                self={game.self}
+                players={game.players}
+                isActive={name === currentTurnName}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="jotto-select-word">
+            <div className="jotto-select-card">
+              <div className="jotto-board-kicker">Secret Word</div>
+              <div className="jotto-board-title">Choose your word</div>
+              <JottoGuessInput
+                meeting={selectWordMeeting}
+                socket={game.socket}
+                self={game.self}
+                isMyTurn={
+                  selectWordMeeting &&
+                  selectWordMeeting.amMember &&
+                  selectWordMeeting.canVote
+                }
+                placeholder="Select word"
+                label={selectWordMeeting?.actionName || "Select Word"}
+              />
             </div>
-          </>
-        }
-        additionalInfoContent={
-          <>
-            {jottoCheatSheet}
-            <Notes />
-          </>
-        }
-        chatTab
-      />
-    </GameTypeContext.Provider>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function JottoMetric({ label, value }) {
+  return (
+    <div className="jotto-metric">
+      <span>{label}</span>
+      <strong title={typeof value === "string" ? value : undefined}>
+        {value}
+      </strong>
+    </div>
+  );
+}
+
+function JottoRoster() {
+  const game = useContext(GameContext);
+  const state = getViewedState(game);
+  const turnOrder = getTurnOrder(game);
+  const currentTurnName = getCurrentTurnName(game);
+
+  if (game.stateViewing < 0 || turnOrder.length === 0) {
+    return <PlayerList />;
+  }
+
+  return (
+    <div className="side-menu scrollable jotto-roster-menu">
+      <div className="title-box">Players</div>
+      <div className="side-menu-content">
+        <div className="jotto-roster">
+          {turnOrder.map((name, index) => {
+            const player = getPlayerByName(game, name);
+
+            return (
+              <JottoPlayerRow
+                key={name}
+                player={player}
+                name={name}
+                position={index + 1}
+                isActive={name === currentTurnName}
+                isDead={Boolean(player && state?.dead?.[player.id])}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function JottoPlayerRow({ player, name, position, isActive, isDead }) {
+  const game = useContext(GameContext);
+  const displayName = isSelfPlayer(game, player) ? "You" : name;
+
+  return (
+    <button
+      type="button"
+      className={`jotto-player-row ${isActive ? "is-active" : ""} ${
+        isDead ? "is-dead" : ""
+      }`}
+      onClick={() => player && window.open(`/user/${player.userId}`, "_blank")}
+    >
+      <span className="jotto-player-position">{position}</span>
+      {player && (
+        <Avatar
+          hasImage={player.avatar}
+          id={player.userId}
+          name={player.name}
+          mediumlarge
+        />
+      )}
+      <span className="jotto-player-name" title={name}>
+        {displayName}
+      </span>
+      {isActive && <em>Turn</em>}
+    </button>
   );
 }
 
@@ -301,7 +446,7 @@ function JottoCheatSheet({ cheatSheet, updateCheatSheet }) {
             variant="text"
             sx={{
               position: "relative",
-              minwidth: "0",
+              minWidth: "0",
               width: "3em",
               height: "3em",
               zIndex: 1,
@@ -333,43 +478,28 @@ function JottoCheatSheet({ cheatSheet, updateCheatSheet }) {
         );
       })}
       <Button
-        onClick={() =>
-          confirm("Are you sure you want to reset all letters?") &&
-          updateCheatSheet(null)
-        }
+        onClick={() => updateCheatSheet(null)}
         sx={{
           height: "3em",
         }}
       >
         Reset
       </Button>
+      <Typography
+        variant="caption"
+        sx={{
+          flexBasis: "100%",
+          color: "var(--mui-palette-text-secondary)",
+          fontFamily: "inherit",
+          lineHeight: 1.35,
+          px: 1,
+          textAlign: "center",
+        }}
+      >
+        Use this to track which letters seem correct, wrong, or possible while
+        you solve.
+      </Typography>
     </Stack>
-  );
-}
-
-function HistoryKeeper(props) {
-  const history = props.history;
-  const stateViewing = props.stateViewing;
-  const review = props.review;
-
-  if (stateViewing < 0 && !(review && stateViewing === -2)) return <></>;
-
-  const state = history.states[stateViewing];
-  if (!state) return <></>;
-  const extraInfo = state.extraInfo;
-  return (
-    <SideMenu
-      title="Game Info"
-      scrollable
-      content={
-        <>
-          <JottoHistory
-            guessHistoryByNames={extraInfo.guessHistoryByNames}
-            turnOrder={extraInfo.turnOrder}
-          />
-        </>
-      }
-    />
   );
 }
 
@@ -380,14 +510,16 @@ function JottoHistoryPanel({
   socket,
   self,
   players,
+  isActive,
 }) {
-  const player = Object.values(players).find((p) => p.name === name);
+  const player = Object.values(players || {}).find((p) => p.name === name);
   const isSelf = player && player.id === self;
+  const displayName = isSelf ? "You" : name;
   const isMyTurn =
     isSelf && guessMeeting && guessMeeting.amMember && guessMeeting.canVote;
 
   return (
-    <div className="jotto-history-panel">
+    <div className={`jotto-history-panel ${isActive ? "is-active" : ""}`}>
       <div className="jotto-panel-header">
         <Stack
           direction="row"
@@ -403,10 +535,11 @@ function JottoHistoryPanel({
             />
           )}
           <Typography
-            variant="h4"
+            variant="h6"
             sx={{ fontWeight: "bold", fontFamily: "inherit" }}
+            title={name}
           >
-            {name}
+            {displayName}
           </Typography>
         </Stack>
         {isSelf ? (
@@ -429,11 +562,18 @@ function JottoHistoryPanel({
 
 function JottoGuessInput({ meeting, socket, self, isMyTurn, placeholder, label }) {
   const [textData, setTextData] = useState("");
+  const [submittedText, setSubmittedText] = useState("");
 
   const textOptions = meeting ? meeting.textOptions || {} : {};
   const minLength = textOptions.minLength || 0;
   const maxLength = textOptions.maxLength || 50;
   const disabled = !isMyTurn || !meeting || meeting.finished;
+  const confirmedText = meeting?.votes?.[self] || submittedText;
+
+  useEffect(() => {
+    setSubmittedText(meeting?.votes?.[self] || "");
+    setTextData("");
+  }, [meeting?.id, meeting?.votes, self]);
 
   function handleOnChange(e) {
     let textInput = e.target.value;
@@ -449,11 +589,14 @@ function JottoGuessInput({ meeting, socket, self, isMyTurn, placeholder, label }
 
   function handleOnSubmit() {
     if (!meeting || textData.length < minLength || disabled) return;
-    meeting.votes[self] = textData;
+    const submittedValue = textData;
+
+    meeting.votes[self] = submittedValue;
     socket.send("vote", {
       meetingId: meeting.id,
-      selection: textData,
+      selection: submittedValue,
     });
+    setSubmittedText(submittedValue);
     setTextData("");
   }
 
@@ -481,47 +624,65 @@ function JottoGuessInput({ meeting, socket, self, isMyTurn, placeholder, label }
           {label}
         </Typography>
       )}
-      <Stack direction="row" spacing={0.5} sx={{ width: "100%", alignItems: "center" }}>
-      <TextField
-        value={textData}
-        onChange={handleOnChange}
-        onKeyDown={handleKeyDown}
-        size="small"
-        fullWidth
-        disabled={disabled}
-        placeholder={placeholder || "Guess word"}
-        sx={{ "& .MuiInputBase-input": { py: "4px", px: 1, fontSize: "0.9em" } }}
-      />
-      <Button
-        variant="contained"
-        onClick={handleOnSubmit}
-        disabled={disabled || textData.length < minLength}
-        size="small"
-        sx={{ minwidth: "auto", px: 1, py: "3px", fontSize: "0.75em" }}
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{ width: "100%", alignItems: "center" }}
       >
-        {textOptions.submit || "Confirm"}
-      </Button>
+        <TextField
+          value={textData}
+          onChange={handleOnChange}
+          onKeyDown={handleKeyDown}
+          size="small"
+          fullWidth
+          disabled={disabled}
+          placeholder={placeholder || "Guess word"}
+          sx={{
+            "& .MuiInputBase-root": {
+              minHeight: "40px",
+              borderRadius: "8px",
+            },
+            "& .MuiInputBase-input": {
+              py: "8px",
+              px: 1.25,
+              fontSize: "0.95rem",
+            },
+          }}
+        />
+        <Button
+          variant="contained"
+          onClick={handleOnSubmit}
+          disabled={disabled || textData.length < minLength}
+          size="small"
+          sx={{
+            minWidth: "86px",
+            minHeight: "40px",
+            px: 1.5,
+            py: "7px",
+            borderRadius: "8px",
+            fontSize: "0.82rem",
+            fontWeight: 800,
+          }}
+        >
+          {textOptions.submit || "Confirm"}
+        </Button>
       </Stack>
+      {confirmedText && (
+        <Typography
+          variant="caption"
+          sx={{
+            alignSelf: "stretch",
+            color: "var(--mui-palette-success-main)",
+            fontFamily: "inherit",
+            fontWeight: 700,
+            lineHeight: 1.25,
+            textAlign: "left",
+          }}
+        >
+          Confirmed: {confirmedText}
+        </Typography>
+      )}
     </Stack>
-  );
-}
-
-function JottoHistory(props) {
-  let guessHistoryByNames = props.guessHistoryByNames;
-  let turnOrder = props.turnOrder;
-
-  return (
-    <>
-      <div className="jotto-history">
-        {turnOrder.map((name) => (
-          <JottoGuessHistoryByName
-            key={name}
-            name={name}
-            guessHistory={guessHistoryByNames[name]}
-          />
-        ))}
-      </div>
-    </>
   );
 }
 
