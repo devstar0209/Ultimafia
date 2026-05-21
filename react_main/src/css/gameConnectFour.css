@@ -1,45 +1,476 @@
 /* Connect Four */
 
-.game .connectFour-history {
+.game .connect-four-game {
+  flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
 }
 
-.game .connectFour-board {
-  margin: 30px auto;
+.game .connect-four-game .main {
+  min-height: 0;
+  overflow: hidden;
 }
 
-.game .connectFour-board-row {
+.game .connect-four-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .connect-four-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .connect-four-play-column {
+  flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
-.game .connectFour-board-row {
+.game .connect-four-action-dock {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.game .connect-four-action-dock:empty {
+  display: none;
+}
+
+.game .connect-four-action-dock .side-menu {
+  min-height: 0;
+}
+
+.game .connect-four-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .connect-four-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .connect-four-side-chat {
+  min-height: 250px;
+  flex: 1 1 0;
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
 }
 
-.game .connectFour-board-box {
-  width: 70px;
-  height: 70px;
-  margin: 0px;
+.game .connect-four-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .connect-four-side-chat .MuiTabs-root {
+  min-width: 0;
+}
+
+.game .connect-four-side-chat .MuiTab-root {
+  max-width: 128px;
+}
+
+.game .connect-four-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .connect-four-side-chat .speech-display {
+  min-width: 0;
+}
+
+.game .connect-four-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .connect-four-side-chat .message .time {
+  min-width: 34px;
+}
+
+.game .connect-four-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(15, 22, 26, 0.96), rgba(30, 35, 42, 0.96)),
+    var(--scheme-color);
+  color: #f8fbff;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .connect-four-stage-pregame {
+  min-height: 320px;
+}
+
+.game .connect-four-statusbar,
+.game .connect-four-info-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.game .connect-four-statusbar {
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+}
+
+.game .connect-four-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .connect-four-metric > span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(248, 251, 255, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .connect-four-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .connect-four-machine {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  overflow: auto;
+  border: 1px solid rgba(249, 201, 70, 0.28);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(31, 101, 145, 0.95), rgba(14, 64, 121, 0.98) 58%, rgba(12, 34, 77, 1) 100%),
+    #0e4079;
+  box-shadow:
+    inset 0 0 0 10px rgba(10, 24, 62, 0.66),
+    inset 0 0 36px rgba(0, 0, 0, 0.42);
+}
+
+.game .connect-four-machine::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+}
+
+.game .connect-four-board-center {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  max-width: 34rem;
+  text-align: center;
+}
+
+.game .connect-four-board-kicker {
+  color: #f9d65c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .connect-four-board-title {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.game .connect-four-board-subtitle {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .connect-four-board-wrap {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  max-width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(9, 19, 36, 0.96), rgba(13, 25, 48, 0.96)),
+    #0d1930;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(249, 214, 92, 0.08);
+}
+
+.game .connect-four-column-hints {
+  display: grid;
+  gap: 6px;
+}
+
+.game .connect-four-column-hint {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.78rem;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.game .connect-four-column-hint.is-hovered,
+.game .connect-four-column-hint.is-selected {
+  background: rgba(249, 214, 92, 0.14);
+  color: #f9d65c;
+  transform: translateY(1px);
+}
+
+.game .connect-four-board {
+  display: grid;
+  gap: 6px;
+}
+
+.game .connect-four-board-row {
+  display: flex;
+  gap: 6px;
+}
+
+.game .connect-four-cell {
+  width: clamp(42px, 7.1vh, 70px);
+  aspect-ratio: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
   background-image: url("/src/images/ConnectFourBackground.png");
-  background-size: 70px 70px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  color: #ffffff;
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.game .connectFour-board-box.clickable {
+.game .connect-four-cell.is-clickable {
   cursor: pointer;
 }
 
-.game .connectFour-board-box.highlighted {
-  filter: brightness(1.3);
+.game .connect-four-cell:disabled {
+  cursor: default;
 }
 
-.game .connectFour-board-box.winning {
-  box-shadow: 0 0 8px 3px rgba(255, 215, 0, 0.8);
-  filter: brightness(1.2);
-  border-radius: 4px;
-  animation: winPulse 1.5s ease-in-out infinite;
+.game .connect-four-cell.is-highlighted {
+  filter: brightness(1.18);
+  transform: translateY(-1px);
 }
 
-@keyframes winPulse {
-  0%, 100% { box-shadow: 0 0 8px 3px rgba(255, 215, 0, 0.8); }
-  50% { box-shadow: 0 0 14px 5px rgba(255, 215, 0, 1); }
+.game .connect-four-cell.is-selected {
+  box-shadow: 0 0 0 2px rgba(249, 214, 92, 0.5);
+}
+
+.game .connect-four-cell.is-winning {
+  border-radius: 8px;
+  filter: brightness(1.18);
+  animation: connect-four-win-pulse 1.5s ease-in-out infinite;
+}
+
+.game .connect-four-slot {
+  width: 74%;
+  height: 74%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.game .connect-four-slot .avatar {
+  transform: scale(0.95);
+}
+
+.game .connect-four-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .connect-four-player-row {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.game .connect-four-player-row.is-turn {
+  border-color: rgba(249, 214, 92, 0.72);
+  animation: connect-four-active-row-pulse 1.45s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(249, 214, 92, 0.15),
+    0 0 18px rgba(249, 214, 92, 0.18);
+}
+
+.game .connect-four-player-row.is-turn::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(11, 17, 22, 0.9);
+  border-radius: 50%;
+  background: #f9d65c;
+  box-shadow: 0 0 12px rgba(249, 214, 92, 0.85);
+}
+
+.game .connect-four-player-row.is-self {
+  background: rgba(22, 82, 106, 0.26);
+}
+
+.game .connect-four-player-avatar {
+  display: inline-flex;
+}
+
+.game .connect-four-player-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .connect-four-player-meta {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 48px;
+  color: rgba(248, 251, 255, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.game .connect-four-player-meta strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.game .connect-four-player-meta em {
+  max-width: 74px;
+  overflow: hidden;
+  color: #f9d65c;
+  font-style: normal;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+@keyframes connect-four-win-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(249, 214, 92, 0.54),
+      0 0 12px rgba(249, 214, 92, 0.7);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(249, 214, 92, 0.78),
+      0 0 22px rgba(249, 214, 92, 0.95);
+  }
+}
+
+@keyframes connect-four-active-row-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(249, 214, 92, 0.14),
+      0 0 12px rgba(249, 214, 92, 0.12);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(249, 214, 92, 0.22),
+      0 0 22px rgba(249, 214, 92, 0.26);
+  }
+}
+
+@media (max-width: 900px) {
+  .game .connect-four-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .connect-four-machine {
+    min-height: 360px;
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  .game .connect-four-stage {
+    padding: 8px;
+    border-radius: 0;
+  }
+
+  .game .connect-four-machine {
+    min-height: 330px;
+    padding: 12px;
+  }
+
+  .game .connect-four-machine::before {
+    inset: 18px;
+  }
+
+  .game .connect-four-board-wrap {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .game .connect-four-board,
+  .game .connect-four-board-row,
+  .game .connect-four-column-hints {
+    gap: 4px;
+  }
+
+  .game .connect-four-cell {
+    width: min(11.6vw, 50px);
+  }
 }

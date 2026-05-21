@@ -216,9 +216,13 @@ module.exports = class ConnectFourGame extends Game {
 
   getStateInfo(state) {
     var info = super.getStateInfo(state);
+    const currentPlayer = this.randomizedPlayersCopy[this.currentIndex];
+
     info.extraInfo = {
       board: JSON.parse(JSON.stringify(this.board)),
       winningLine: this.winningLine,
+      currentPlayerId: currentPlayer?.id,
+      currentPlayerName: currentPlayer?.name,
     };
     return info;
   }
