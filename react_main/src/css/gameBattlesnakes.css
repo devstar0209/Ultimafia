@@ -34,3 +34,440 @@
   color: var(--scheme-color-text);
   size: 8px;
 }
+
+.game .battlesnakes-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.game .battlesnakes-game .main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .battlesnakes-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .battlesnakes-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .battlesnakes-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.game .battlesnakes-action-dock {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.game .battlesnakes-action-dock .side-menu {
+  min-height: 0;
+}
+
+.game .battlesnakes-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .battlesnakes-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .battlesnakes-side-chat {
+  min-height: 250px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .battlesnakes-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .battlesnakes-side-chat .MuiTabs-root {
+  min-width: 0;
+}
+
+.game .battlesnakes-side-chat .MuiTab-root {
+  max-width: 128px;
+}
+
+.game .battlesnakes-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .battlesnakes-side-chat .speech-display {
+  min-width: 0;
+}
+
+.game .battlesnakes-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .battlesnakes-side-chat .message .time {
+  min-width: 34px;
+}
+
+.game .battlesnakes-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(16, 19, 20, 0.96), rgba(29, 36, 36, 0.96)),
+    var(--scheme-color);
+  color: #f6f7ee;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .battlesnakes-board-pregame {
+  min-height: 320px;
+}
+
+.game .battlesnakes-statusbar,
+.game .battlesnakes-info-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.game .battlesnakes-statusbar {
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+}
+
+.game .battlesnakes-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .battlesnakes-metric > span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(246, 247, 238, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .battlesnakes-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .battlesnakes-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(170, 214, 121, 0.26);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(42, 98, 72, 0.96), rgba(23, 61, 56, 0.98) 60%, rgba(12, 31, 36, 1) 100%),
+    #173d38;
+  box-shadow:
+    inset 0 0 0 10px rgba(53, 64, 41, 0.62),
+    inset 0 0 36px rgba(0, 0, 0, 0.45);
+}
+
+.game .battlesnakes-stage::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+}
+
+.game .battlesnakes-board-center {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  max-width: 34rem;
+  text-align: center;
+}
+
+.game .battlesnakes-board-kicker {
+  color: #d9ef9f;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .battlesnakes-board-title {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.game .battlesnakes-board-subtitle {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .battlesnakes-board-frame {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  max-width: 100%;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(9, 15, 16, 0.96), rgba(13, 20, 22, 0.96)),
+    #0d1416;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(217, 239, 159, 0.08);
+}
+
+.game .battlesnakes-board-frame svg {
+  display: block;
+  width: min(72vh, 640px);
+  max-width: 720px;
+  height: auto;
+}
+
+.game .battlesnakes-board-frame .gridline {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.game .battlesnakes-board-frame .snake-seg {
+  rx: 5px;
+  ry: 5px;
+  transition: opacity 0.12s ease;
+}
+
+.game .battlesnakes-board-caption {
+  height: 0;
+}
+
+.game .battlesnakes-info-panel {
+  padding: 10px;
+  color: #f6f7ee;
+}
+
+.game .battlesnakes-controls {
+  display: grid;
+  grid-template-columns: repeat(2, 48px);
+  grid-template-rows: repeat(2, 48px);
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.game .battlesnakes-control-up {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.game .battlesnakes-control-down {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.game .battlesnakes-control-left {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.game .battlesnakes-control-right {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.game .battlesnakes-control-button {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.game .battlesnakes-control-button:not(:disabled):hover {
+  border-color: rgba(217, 239, 159, 0.6);
+  background: rgba(217, 239, 159, 0.14);
+  transform: translateY(-1px);
+}
+
+.game .battlesnakes-control-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+@keyframes battlesnakes-active-row-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(217, 239, 159, 0.14),
+      0 0 12px rgba(217, 239, 159, 0.12);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(217, 239, 159, 0.24),
+      0 0 22px rgba(217, 239, 159, 0.26);
+  }
+}
+
+.game .battlesnakes-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .battlesnakes-player-row {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 10px auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.game .battlesnakes-player-row.is-alive {
+  border-color: rgba(217, 239, 159, 0.24);
+}
+
+.game .battlesnakes-player-row.is-self {
+  background: rgba(35, 98, 109, 0.24);
+}
+
+.game .battlesnakes-player-row.is-dead {
+  opacity: 0.55;
+}
+
+.game .battlesnakes-player-row.is-alive.is-self {
+  animation: battlesnakes-active-row-pulse 1.55s ease-in-out infinite;
+}
+
+.game .battlesnakes-player-color {
+  width: 10px;
+  height: 100%;
+  min-height: 34px;
+  border-radius: 999px;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.game .battlesnakes-player-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .battlesnakes-player-meta {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 48px;
+  color: rgba(246, 247, 238, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.game .battlesnakes-player-meta strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.game .battlesnakes-player-meta em {
+  max-width: 74px;
+  overflow: hidden;
+  color: #d9ef9f;
+  font-style: normal;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .game .battlesnakes-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .battlesnakes-stage {
+    min-height: 360px;
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  .game .battlesnakes-board {
+    padding: 8px;
+    border-radius: 0;
+  }
+
+  .game .battlesnakes-stage {
+    min-height: 330px;
+    padding: 12px;
+  }
+
+  .game .battlesnakes-stage::before {
+    inset: 18px;
+  }
+
+  .game .battlesnakes-board-frame {
+    padding: 8px;
+  }
+
+  .game .battlesnakes-board-frame svg {
+    width: min(86vw, 68vh);
+  }
+}

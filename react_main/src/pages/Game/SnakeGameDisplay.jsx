@@ -22,29 +22,43 @@ function cellToPx(cell, cellSize) {
  *              Calls onGameState(state) with latest state,
  *              calls onPlayerId(id) when player id assigned.
  */
-export default function SnakeGameDisplay({ player, players, gameSocket, extraInfo }) {
+export default function SnakeGameDisplay({
+  player,
+  players,
+  gameSocket,
+  extraInfo,
+  onGameState,
+}) {
   const [gameState, setGameState] = useState(null);
   const [playerId, setPlayerId] = useState(player || -1);
   const svgRef = useRef();
-  const [cellSize, setCellSize] = useState(24); // pixels per grid square
+  const cellSize = 24; // pixels per grid square
   const siteInfo = useContext(SiteInfoContext);
+
+  useEffect(() => {
+    setPlayerId(player || -1);
+  }, [player]);
 
   useSocketListeners((socket) => {
     socket.on("gameState", (state) => {
       setGameState(state);
+      onGameState?.(state);
     });
   }, gameSocket || {});
 
   // Use extraInfo from history when in review mode or postgame
   useEffect(() => {
     if (extraInfo?.snakes) {
-      setGameState({
+      const nextGameState = {
         snakes: extraInfo.snakes,
         foods: extraInfo.foods,
         gridSize: extraInfo.gridSize,
-      });
+      };
+
+      setGameState(nextGameState);
+      onGameState?.(nextGameState);
     }
-  }, [extraInfo]);
+  }, [extraInfo, onGameState]);
 
   useEffect(() => {
     if (gameSocket || extraInfo) return;
@@ -80,7 +94,6 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
         { x: 5, y: 5 },
       ],
     };
-    let tick = 0;
     const intv = setInterval(() => {
       demoState.snakes[demoPlayerId].segments = demoState.snakes[
         demoPlayerId
@@ -90,7 +103,6 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
         f.x = (f.x + 1 + i) % demoState.gridSize;
       });
       setGameState({ ...demoState });
-      tick += 1;
     }, 400);
     return () => clearInterval(intv);
   }, [gameSocket, extraInfo]);
@@ -155,7 +167,7 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
     snakePlayerIds.forEach((id, idx) => {
       const snake = gameState.snakes[id];
       const segs = snake.segments
-        .filter((se) => se.active == true)
+        .filter((segment) => segment.active !== false)
         .map((s, i) => ({
           ...s,
           player: id,
@@ -167,7 +179,7 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
       allSegs.push(...segs);
     });
 
-    // One color per player — use their text colour if set, otherwise fallback to palette
+    // One color per player, using their text color if set.
     const colorMap = {};
     snakePlayerIds.forEach((id, idx) => {
       const p = players && players[id];
@@ -246,10 +258,10 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
       }
 
     });
-  }, [gameState, cellSize, playerId, players]);
+  }, [gameState, playerId, players, siteInfo]);
 
   useEffect(() => {
-    if (!playerId) return;
+    if (!playerId || !gameSocket) return;
     const keyToDir = {
       ArrowUp: "up",
       ArrowDown: "down",
@@ -267,25 +279,9 @@ export default function SnakeGameDisplay({ player, players, gameSocket, extraInf
   }, [playerId, gameSocket]);
 
   return (
-    <div
-      style={{
-        background: "#181818",
-        border: "2px solid #222",
-        borderRadius: 8,
-        width: "fit-content",
-        margin: "24px auto",
-        padding: "16px",
-        boxShadow: "0 2px 8px #000a",
-      }}
-    >
+    <div className="battlesnakes-board-frame">
       <svg ref={svgRef} />
-      <div
-        style={{
-          textAlign: "center",
-          marginTop: 10,
-          color: "#ccc",
-        }}
-      ></div>
+      <div className="battlesnakes-board-caption" />
     </div>
   );
 }
