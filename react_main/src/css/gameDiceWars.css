@@ -1,0 +1,582 @@
+.game .dice-wars-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.game .dice-wars-game .main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .dice-wars-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .dice-wars-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .dice-wars-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.game .dice-wars-action-dock {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.game .dice-wars-action-dock .side-menu {
+  min-height: 0;
+}
+
+.game .dice-wars-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .dice-wars-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .dice-wars-side-chat {
+  min-height: 250px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .dice-wars-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .dice-wars-side-chat .meeting-tabs .MuiTabs-root {
+  min-width: 0;
+}
+
+.game .dice-wars-side-chat .meeting-tabs .MuiTab-root {
+  max-width: 128px;
+}
+
+.game .dice-wars-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .dice-wars-side-chat .speech-display {
+  min-width: 0;
+}
+
+.game .dice-wars-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .dice-wars-side-chat .message .time {
+  min-width: 34px;
+}
+
+.game .dice-wars-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(14, 19, 24, 0.96), rgba(30, 33, 35, 0.96)),
+    var(--scheme-color);
+  color: #f7f1df;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .dice-wars-board-pregame {
+  min-height: 320px;
+}
+
+.game .dice-wars-statusbar,
+.game .dice-wars-selected-card {
+  display: grid;
+  gap: 8px;
+}
+
+.game .dice-wars-statusbar {
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+}
+
+.game .dice-wars-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .dice-wars-metric > span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(247, 241, 223, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .dice-wars-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .dice-wars-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(230, 194, 101, 0.24);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(42, 93, 100, 0.94), rgba(23, 52, 61, 0.98) 58%, rgba(12, 25, 33, 1) 100%),
+    #17343d;
+  box-shadow:
+    inset 0 0 0 10px rgba(75, 62, 43, 0.58),
+    inset 0 0 36px rgba(0, 0, 0, 0.45);
+}
+
+.game .dice-wars-stage::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+}
+
+.game .dice-wars-board-center {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  max-width: 34rem;
+  text-align: center;
+}
+
+.game .dice-wars-board-kicker {
+  color: #e6c265;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .dice-wars-board-title {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.game .dice-wars-board-subtitle {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .dice-wars-board-frame {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 920px);
+  max-height: min(66vh, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(8, 15, 19, 0.96), rgba(13, 22, 27, 0.96)),
+    #0d161b;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(230, 194, 101, 0.08);
+}
+
+.game .dice-wars-board-frame svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(min(66vh, 720px) - 30px);
+}
+
+.game .dice-wars-territory {
+  transition: opacity 0.12s ease;
+}
+
+.game .dice-wars-dice-count {
+  fill: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+  pointer-events: none;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.game .dice-wars-territory-id {
+  fill: rgba(255, 255, 255, 0.62);
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.game .dice-wars-scoreboard {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.game .dice-wars-score-pill {
+  min-width: 118px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(8, 13, 17, 0.78);
+  color: #ffffff;
+}
+
+.game .dice-wars-score-pill.is-turn {
+  border-color: #e6c265;
+  box-shadow:
+    0 0 0 2px rgba(230, 194, 101, 0.16),
+    0 0 16px rgba(230, 194, 101, 0.24);
+}
+
+.game .dice-wars-score-pill.is-eliminated {
+  opacity: 0.48;
+}
+
+.game .dice-wars-score-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .dice-wars-score-pill strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.game .dice-wars-score-pill em {
+  grid-column: 2 / -1;
+  overflow: hidden;
+  color: rgba(247, 241, 223, 0.65);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.game .dice-wars-player-color {
+  width: 10px;
+  height: 100%;
+  min-height: 34px;
+  border-radius: 999px;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.game .dice-wars-intro-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.game .dice-wars-intro {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+  border: 1px solid rgba(230, 194, 101, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(21, 30, 35, 0.98), rgba(34, 34, 32, 0.98)),
+    #151e23;
+  color: #ffffff;
+  text-align: center;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.game .dice-wars-intro h2 {
+  margin: 0;
+  color: #e6c265;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.game .dice-wars-intro p {
+  margin: 0;
+  color: rgba(247, 241, 223, 0.76);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.game .dice-wars-intro button,
+.game .dice-wars-end-turn {
+  height: 42px;
+  min-width: 86px;
+  padding: 0 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.game .dice-wars-intro button {
+  justify-self: center;
+  border: 1px solid rgba(230, 194, 101, 0.5);
+  background: rgba(230, 194, 101, 0.18);
+  color: #e6c265;
+}
+
+.game .dice-wars-intro button:hover {
+  background: rgba(230, 194, 101, 0.26);
+}
+
+.game .dice-wars-actions {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.game .dice-wars-action-status {
+  color: rgba(247, 241, 223, 0.68);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.game .dice-wars-selected-card {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game .dice-wars-end-turn {
+  border: 1px solid rgba(230, 194, 101, 0.5);
+  background: rgba(230, 194, 101, 0.18);
+  color: #e6c265;
+}
+
+.game .dice-wars-end-turn:not(:disabled):hover {
+  background: rgba(230, 194, 101, 0.26);
+  transform: translateY(-1px);
+}
+
+.game .dice-wars-end-turn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+@keyframes dice-wars-active-row-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(230, 194, 101, 0.14),
+      0 0 12px rgba(230, 194, 101, 0.12);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(230, 194, 101, 0.22),
+      0 0 22px rgba(230, 194, 101, 0.26);
+  }
+}
+
+.game .dice-wars-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .dice-wars-player-row {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 10px auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.game .dice-wars-player-row.is-turn {
+  border-color: rgba(230, 194, 101, 0.72);
+  animation: dice-wars-active-row-pulse 1.45s ease-in-out infinite;
+}
+
+.game .dice-wars-player-row.is-turn::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(11, 17, 22, 0.9);
+  border-radius: 50%;
+  background: #e6c265;
+  box-shadow: 0 0 12px rgba(230, 194, 101, 0.85);
+}
+
+.game .dice-wars-player-row.is-self {
+  background: rgba(31, 96, 106, 0.24);
+}
+
+.game .dice-wars-player-row.is-eliminated {
+  opacity: 0.55;
+}
+
+.game .dice-wars-player-avatar {
+  display: inline-flex;
+}
+
+.game .dice-wars-player-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .dice-wars-player-meta {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 48px;
+  color: rgba(247, 241, 223, 0.72);
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.game .dice-wars-player-meta strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.game .dice-wars-player-meta em {
+  max-width: 74px;
+  overflow: hidden;
+  color: #e6c265;
+  font-style: normal;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .game .dice-wars-statusbar,
+  .game .dice-wars-selected-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .dice-wars-stage {
+    min-height: 380px;
+    border-radius: 24px;
+  }
+
+  .game .dice-wars-scoreboard {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    margin-bottom: 12px;
+  }
+
+  .game .dice-wars-stage {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .game .dice-wars-board {
+    padding: 8px;
+    border-radius: 0;
+  }
+
+  .game .dice-wars-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .dice-wars-stage {
+    min-height: 330px;
+    padding: 12px;
+  }
+
+  .game .dice-wars-stage::before {
+    inset: 18px;
+  }
+
+  .game .dice-wars-board-frame {
+    padding: 8px;
+  }
+
+  .game .dice-wars-score-pill {
+    min-width: 104px;
+  }
+
+  .game .dice-wars-player-row {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+  }
+
+  .game .dice-wars-player-avatar {
+    display: none;
+  }
+}

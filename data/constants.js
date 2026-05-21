@@ -152,9 +152,9 @@ module.exports = {
     },
     "Dice Wars": {
       Play: {
-        min: 5 * 60 * 1000,
+        min: 1 * 60 * 1000,
         max: 60 * 60 * 1000,
-        default: 5 * 60 * 1000,
+        default: 1 * 60 * 1000,
       },
     },
     Jotto: {

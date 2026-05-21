@@ -1,4 +1,11 @@
-import React, { useRef, useEffect, useContext, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as d3 from "d3";
 
 import {
@@ -7,38 +14,70 @@ import {
   TopBar,
   TextMeetingLayout,
   PlayerList,
-  Timer,
+  OptionsList,
+  Notes,
+  SettingsMenu,
   GameTypeContext,
   SideMenu,
   MobileLayout,
 } from "./Game";
 import { GameContext } from "../../Contexts";
+import { Avatar } from "../User/User";
 
-import "css/gameBattlesnakes.css"; // Reuse Battlesnakes CSS as placeholder
+import "css/game.css";
+import "css/gameDiceWars.css";
 
-export default function DiceWarsGame(props) {
+const HEX_SIZE = 25;
+
+export default function DiceWarsGame() {
   const game = useContext(GameContext);
-  const history = game.history;
-  const updateHistory = game.updateHistory;
-  const stateViewing = game.stateViewing;
-  const updateStateViewing = game.updateStateViewing;
-  const self = game.self;
-  const players = game.players;
+  const { history, stateViewing, updateStateViewing, self, players } = game;
+  const [gameState, setGameState] = useState(null);
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState(null);
 
-  const gameType = "Dice Wars";
-  const meetings = history.states[stateViewing]
-    ? history.states[stateViewing].meetings
-    : {};
-
-  // Make player view current state when it changes
   useEffect(() => {
     updateStateViewing({ type: "current" });
-  }, [history.currentState]);
+  }, [history.currentState, updateStateViewing]);
 
   useEffect(() => {
-    // Make game review start at pregame
     if (game.review) updateStateViewing({ type: "first" });
-  }, []);
+  }, [game.review, updateStateViewing]);
+
+  useSocketListeners((socket) => {
+    socket.on("gameState", (state) => {
+      setGameState(state);
+    });
+  }, game.socket);
+
+  useEffect(() => {
+    const extraInfo = history.states?.[stateViewing]?.extraInfo;
+
+    if (extraInfo?.territories) {
+      setGameState(extraInfo);
+    }
+  }, [history.states, stateViewing]);
+
+  const playerList = (
+    <>
+      {stateViewing < 0 && <PlayerList />}
+      <DiceWarsRoster gameState={gameState} />
+    </>
+  );
+
+  const renderBoard = () =>
+    players &&
+    game.socket && (
+      <DiceWarsBoardWrapper
+        player={self}
+        players={players}
+        gameSocket={game.socket}
+        gameState={gameState}
+        stateViewing={stateViewing}
+        isReview={game.review}
+        selectedTerritoryId={selectedTerritoryId}
+        setSelectedTerritoryId={setSelectedTerritoryId}
+      />
+    );
 
   return (
     <GameTypeContext.Provider
@@ -46,55 +85,225 @@ export default function DiceWarsGame(props) {
         singleState: false,
       }}
     >
-      <TopBar />
-      <ThreePanelLayout
-        leftPanelContent={
-          <>
-            <PlayerList />
-          </>
-        }
-        centerPanelContent={
-          <>
-            {players && game.socket && (
-              <DiceWarsBoardWrapper
-                player={self}
-                players={players}
-                gameSocket={game.socket}
-                history={history}
-                stateViewing={stateViewing}
-                isReview={game.review}
-              />
-            )}
-          </>
-        }
-        rightPanelContent={
-          <>
-            <TextMeetingLayout combineMessagesFromAllMeetings />
-          </>
-        }
-      />
-      <MobileLayout
-        centerContent={
-          <>
-            {players && game.socket && (
-              <DiceWarsBoardWrapper
-                player={self}
-                players={players}
-                gameSocket={game.socket}
-                history={history}
-                stateViewing={stateViewing}
-                isReview={game.review}
-              />
-            )}
-          </>
-        }
-        innerRightContent={
-          <>
-            <TextMeetingLayout combineMessagesFromAllMeetings />
-          </>
-        }
-      />
+      <div className="dice-wars-game">
+        <TopBar />
+        <ThreePanelLayout
+          leftPanelContent={
+            <>
+              {playerList}
+              <SettingsMenu />
+            </>
+          }
+          centerPanelContent={
+            <div className="dice-wars-play-column">{renderBoard()}</div>
+          }
+          rightPanelContent={
+            <>
+              <OptionsList />
+              <div className="dice-wars-side-chat">
+                <TextMeetingLayout combineMessagesFromAllMeetings />
+              </div>
+              <Notes />
+            </>
+          }
+        />
+        <MobileLayout
+          outerLeftContent={playerList}
+          additionalInfoContent={renderBoard()}
+          innerRightContent={<OptionsList />}
+        />
+      </div>
     </GameTypeContext.Provider>
+  );
+}
+
+function hexToPixel(col, row) {
+  return {
+    x: HEX_SIZE * (3 / 2) * col,
+    y: HEX_SIZE * Math.sqrt(3) * (row + 0.5 * (col % 2)),
+  };
+}
+
+function getHexPath(centerX, centerY) {
+  const points = [];
+
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    const x = centerX + HEX_SIZE * Math.cos(angle);
+    const y = centerY + HEX_SIZE * Math.sin(angle);
+    points.push([x, y]);
+  }
+
+  return (
+    points
+      .map((point, index) =>
+        index === 0 ? `M${point[0]},${point[1]}` : `L${point[0]},${point[1]}`
+      )
+      .join(" ") + "Z"
+  );
+}
+
+function getHexCorners(centerX, centerY) {
+  const corners = [];
+
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    corners.push({
+      x: centerX + HEX_SIZE * Math.cos(angle),
+      y: centerY + HEX_SIZE * Math.sin(angle),
+    });
+  }
+
+  return corners;
+}
+
+function buildTerritoryPath(territoryId, hexGrid, offsetX, offsetY) {
+  const territoryHexes = hexGrid.filter(
+    (hex) => hex.territoryId === territoryId && !hex.isOcean
+  );
+
+  if (territoryHexes.length === 0) return null;
+
+  if (territoryHexes.length === 1) {
+    const hex = territoryHexes[0];
+    const position = hexToPixel(hex.col, hex.row);
+    return getHexPath(position.x + offsetX, position.y + offsetY);
+  }
+
+  const edges = new Map();
+
+  territoryHexes.forEach((hex) => {
+    const position = hexToPixel(hex.col, hex.row);
+    const corners = getHexCorners(position.x + offsetX, position.y + offsetY);
+
+    for (let i = 0; i < 6; i++) {
+      const pointA = corners[i];
+      const pointB = corners[(i + 1) % 6];
+      const edgeKey =
+        pointA.x < pointB.x || (pointA.x === pointB.x && pointA.y < pointB.y)
+          ? `${pointA.x.toFixed(2)},${pointA.y.toFixed(2)},${pointB.x.toFixed(
+              2
+            )},${pointB.y.toFixed(2)}`
+          : `${pointB.x.toFixed(2)},${pointB.y.toFixed(2)},${pointA.x.toFixed(
+              2
+            )},${pointA.y.toFixed(2)}`;
+
+      edges.set(edgeKey, (edges.get(edgeKey) || 0) + 1);
+    }
+  });
+
+  const perimeterEdges = [];
+
+  edges.forEach((count, key) => {
+    if (count === 1) {
+      const [x1, y1, x2, y2] = key.split(",").map(Number);
+      perimeterEdges.push({ x1, y1, x2, y2 });
+    }
+  });
+
+  if (perimeterEdges.length === 0) return null;
+
+  const path = [];
+  const usedEdges = new Set();
+  let currentEdge = perimeterEdges[0];
+
+  path.push({ x: currentEdge.x1, y: currentEdge.y1 });
+  path.push({ x: currentEdge.x2, y: currentEdge.y2 });
+  usedEdges.add(0);
+
+  let currentPoint = { x: currentEdge.x2, y: currentEdge.y2 };
+
+  while (usedEdges.size < perimeterEdges.length) {
+    let foundNext = false;
+
+    for (let i = 0; i < perimeterEdges.length; i++) {
+      if (usedEdges.has(i)) continue;
+
+      const edge = perimeterEdges[i];
+      const distanceA =
+        Math.abs(edge.x1 - currentPoint.x) +
+        Math.abs(edge.y1 - currentPoint.y);
+      const distanceB =
+        Math.abs(edge.x2 - currentPoint.x) +
+        Math.abs(edge.y2 - currentPoint.y);
+
+      if (distanceA < 0.1) {
+        currentPoint = { x: edge.x2, y: edge.y2 };
+        path.push(currentPoint);
+        usedEdges.add(i);
+        foundNext = true;
+        break;
+      }
+
+      if (distanceB < 0.1) {
+        currentPoint = { x: edge.x1, y: edge.y1 };
+        path.push(currentPoint);
+        usedEdges.add(i);
+        foundNext = true;
+        break;
+      }
+    }
+
+    if (!foundNext) break;
+  }
+
+  if (path.length < 3) return null;
+
+  return (
+    path
+      .map((point, index) =>
+        index === 0 ? `M${point.x},${point.y}` : `L${point.x},${point.y}`
+      )
+      .join(" ") + "Z"
+  );
+}
+
+function getPlayerName(players, playerId) {
+  return players?.[playerId]?.name || "Unknown";
+}
+
+function getTerritoryCounts(gameState) {
+  return (gameState?.territories || []).reduce((counts, territory) => {
+    if (territory.playerId) {
+      counts[territory.playerId] = (counts[territory.playerId] || 0) + 1;
+    }
+
+    return counts;
+  }, {});
+}
+
+function getDiceCounts(gameState) {
+  return (gameState?.territories || []).reduce((counts, territory) => {
+    if (territory.playerId) {
+      counts[territory.playerId] =
+        (counts[territory.playerId] || 0) + Number(territory.dice || 0);
+    }
+
+    return counts;
+  }, {});
+}
+
+function getPlayerIds(gameState, players) {
+  if (Array.isArray(gameState?.turnOrder) && gameState.turnOrder.length > 0) {
+    return gameState.turnOrder;
+  }
+
+  const ids = new Set();
+
+  (gameState?.territories || []).forEach((territory) => {
+    if (territory.playerId) ids.add(territory.playerId);
+  });
+
+  Object.keys(players || {}).forEach((playerId) => ids.add(playerId));
+
+  return [...ids];
+}
+
+function getSelectedTerritory(gameState, selectedTerritoryId) {
+  if (selectedTerritoryId == null) return null;
+
+  return gameState?.territories?.find(
+    (territory) => territory.id === selectedTerritoryId
   );
 }
 
@@ -102,269 +311,108 @@ function DiceWarsBoardWrapper({
   player,
   players,
   gameSocket,
-  history,
+  gameState,
   stateViewing,
   isReview,
+  selectedTerritoryId,
+  setSelectedTerritoryId,
 }) {
-  const [gameState, setGameState] = useState(null);
-  const [selectedTerritoryId, setSelectedTerritoryId] = useState(null);
-  const [playerId, setPlayerId] = useState(player || null);
   const [showIntro, setShowIntro] = useState(true);
   const svgRef = useRef();
-  const hexSize = 25; // radius of each hex
+  const playerId = player || null;
+  const territoryCounts = useMemo(
+    () => getTerritoryCounts(gameState),
+    [gameState]
+  );
+  const diceCounts = useMemo(() => getDiceCounts(gameState), [gameState]);
+  const selectedTerritory = getSelectedTerritory(gameState, selectedTerritoryId);
+  const playerIds = getPlayerIds(gameState, players);
+  const currentTurnName = getPlayerName(players, gameState?.currentTurnPlayerId);
+  const isYourTurn =
+    !isReview &&
+    stateViewing !== -2 &&
+    gameState?.currentTurnPlayerId === playerId;
 
-  useSocketListeners((socket) => {
-    socket.on("gameState", (state) => {
-      setGameState(state);
-    });
-  }, gameSocket);
+  const handleHexClick = useCallback(
+    (hex) => {
+      if (isReview || !gameState) return;
+      if (hex.isOcean || hex.territoryId === null) return;
 
-  useEffect(() => {
-    if (player) {
-      setPlayerId(player);
-    }
-  }, [player]);
+      const territory = gameState.territories.find(
+        (item) => item.id === hex.territoryId
+      );
 
-  // Update game state from history when navigating states (review mode)
-  // Only trigger on stateViewing change, NOT on every history update.
-  // During live play, the gameState socket event provides current state;
-  // history's extraInfo is only set at state creation and becomes stale after attacks.
-  useEffect(() => {
-    if (history && history.states[stateViewing]) {
-      const extraInfo = history.states[stateViewing].extraInfo;
-      if (extraInfo && extraInfo.territories) {
-        setGameState(extraInfo);
-      }
-    }
-  }, [stateViewing]);
+      if (!territory || gameState.currentTurnPlayerId !== playerId) return;
 
-  // Convert offset hex coordinates to pixel position (flat-top orientation)
-  const hexToPixel = (col, row) => {
-    const x = hexSize * (3 / 2) * col;
-    const y = hexSize * Math.sqrt(3) * (row + 0.5 * (col % 2));
-    return { x, y };
-  };
-
-  // Generate hex path for SVG (flat-top orientation to match coordinates)
-  const getHexPath = (centerX, centerY) => {
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i; // Start at 0 for flat-top hexes
-      const x = centerX + hexSize * Math.cos(angle);
-      const y = centerY + hexSize * Math.sin(angle);
-      points.push([x, y]);
-    }
-    return (
-      points
-        .map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`))
-        .join(" ") + "Z"
-    );
-  };
-
-  // Get hex corner points (flat-top orientation)
-  const getHexCorners = (centerX, centerY) => {
-    const corners = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i;
-      corners.push({
-        x: centerX + hexSize * Math.cos(angle),
-        y: centerY + hexSize * Math.sin(angle),
-      });
-    }
-    return corners;
-  };
-
-  // Build a unified polygon path for a multi-hex territory
-  const buildTerritoryPath = (territoryId, hexGrid, offsetX, offsetY) => {
-    // Only include hexes that belong to this territory AND are not ocean
-    const territoryHexes = hexGrid.filter(
-      (h) => h.territoryId === territoryId && !h.isOcean
-    );
-    if (territoryHexes.length === 0) return null;
-
-    // For single-hex territories, just return the hex path
-    if (territoryHexes.length === 1) {
-      const hex = territoryHexes[0];
-      const pos = hexToPixel(hex.col, hex.row);
-      return getHexPath(pos.x + offsetX, pos.y + offsetY);
-    }
-
-    // For multi-hex territories, build the outer perimeter
-    // Find all edges that are on the boundary (not shared with same territory)
-    const edges = new Map(); // key: "x1,y1,x2,y2" -> count
-
-    territoryHexes.forEach((hex) => {
-      const pos = hexToPixel(hex.col, hex.row);
-      const corners = getHexCorners(pos.x + offsetX, pos.y + offsetY);
-
-      // Each hex has 6 edges
-      for (let i = 0; i < 6; i++) {
-        const p1 = corners[i];
-        const p2 = corners[(i + 1) % 6];
-
-        // Create edge key (normalized so direction doesn't matter)
-        const edgeKey =
-          p1.x < p2.x || (p1.x === p2.x && p1.y < p2.y)
-            ? `${p1.x.toFixed(2)},${p1.y.toFixed(2)},${p2.x.toFixed(
-                2
-              )},${p2.y.toFixed(2)}`
-            : `${p2.x.toFixed(2)},${p2.y.toFixed(2)},${p1.x.toFixed(
-                2
-              )},${p1.y.toFixed(2)}`;
-
-        edges.set(edgeKey, (edges.get(edgeKey) || 0) + 1);
-      }
-    });
-
-    // Perimeter edges appear exactly once (not shared with another hex in territory)
-    const perimeterEdges = [];
-    edges.forEach((count, key) => {
-      if (count === 1) {
-        const [x1, y1, x2, y2] = key.split(",").map(Number);
-        perimeterEdges.push({ x1, y1, x2, y2 });
-      }
-    });
-
-    if (perimeterEdges.length === 0) return null;
-
-    // Build a continuous path from the perimeter edges
-    const path = [];
-    const usedEdges = new Set();
-
-    // Start with the first edge
-    let currentEdge = perimeterEdges[0];
-    path.push({ x: currentEdge.x1, y: currentEdge.y1 });
-    path.push({ x: currentEdge.x2, y: currentEdge.y2 });
-    usedEdges.add(0);
-
-    let currentPoint = { x: currentEdge.x2, y: currentEdge.y2 };
-
-    // Find connecting edges
-    while (usedEdges.size < perimeterEdges.length) {
-      let foundNext = false;
-
-      for (let i = 0; i < perimeterEdges.length; i++) {
-        if (usedEdges.has(i)) continue;
-
-        const edge = perimeterEdges[i];
-        const dist1 =
-          Math.abs(edge.x1 - currentPoint.x) +
-          Math.abs(edge.y1 - currentPoint.y);
-        const dist2 =
-          Math.abs(edge.x2 - currentPoint.x) +
-          Math.abs(edge.y2 - currentPoint.y);
-
-        if (dist1 < 0.1) {
-          // Connect via x1->x2
-          currentPoint = { x: edge.x2, y: edge.y2 };
-          path.push(currentPoint);
-          usedEdges.add(i);
-          foundNext = true;
-          break;
-        } else if (dist2 < 0.1) {
-          // Connect via x2->x1
-          currentPoint = { x: edge.x1, y: edge.y1 };
-          path.push(currentPoint);
-          usedEdges.add(i);
-          foundNext = true;
-          break;
+      if (selectedTerritoryId == null) {
+        if (territory.playerId === playerId && territory.dice >= 2) {
+          setSelectedTerritoryId(territory.id);
         }
+
+        return;
       }
 
-      if (!foundNext) break;
-    }
+      if (selectedTerritoryId === territory.id) {
+        setSelectedTerritoryId(null);
+        return;
+      }
 
-    // Build SVG path
-    if (path.length < 3) return null;
+      const fromTerritory = gameState.territories.find(
+        (item) => item.id === selectedTerritoryId
+      );
 
-    return (
-      path
-        .map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`))
-        .join(" ") + "Z"
-    );
-  };
-
-  // Handle hex click (can be territory or ocean)
-  const handleHexClick = (hex) => {
-    // No interactions during review
-    if (isReview) return;
-
-    // Ocean tiles can't be clicked
-    if (hex.isOcean || hex.territoryId === null) {
-      return;
-    }
-
-    const territory = gameState.territories.find(
-      (t) => t.id === hex.territoryId
-    );
-    if (!territory) return;
-
-    if (!gameState || gameState.currentTurnPlayerId !== playerId) {
-      return;
-    }
-
-    // If no territory selected, select this one (if owned by current player)
-    if (selectedTerritoryId == null) {
-      if (territory.playerId === playerId && territory.dice >= 2) {
+      if (
+        fromTerritory &&
+        fromTerritory.neighbors.includes(territory.id) &&
+        territory.playerId !== playerId
+      ) {
+        gameSocket.send("attack", {
+          fromId: selectedTerritoryId,
+          toId: territory.id,
+        });
+        setSelectedTerritoryId(null);
+      } else if (territory.playerId === playerId && territory.dice >= 2) {
         setSelectedTerritoryId(territory.id);
+      } else {
+        setSelectedTerritoryId(null);
       }
-      return;
-    }
-
-    // If clicking the same territory, deselect
-    if (selectedTerritoryId === territory.id) {
-      setSelectedTerritoryId(null);
-      return;
-    }
-
-    // If a different territory is selected, try to attack
-    const fromTerritory = gameState.territories.find(
-      (t) => t.id === selectedTerritoryId
-    );
-    if (
-      fromTerritory &&
-      fromTerritory.neighbors.includes(territory.id) &&
-      territory.playerId !== playerId
-    ) {
-      gameSocket.send("attack", {
-        fromId: selectedTerritoryId,
-        toId: territory.id,
-      });
-      setSelectedTerritoryId(null);
-    } else if (territory.playerId === playerId && territory.dice >= 2) {
-      setSelectedTerritoryId(territory.id);
-    } else {
-      setSelectedTerritoryId(null);
-    }
-  };
+    },
+    [
+      gameSocket,
+      gameState,
+      isReview,
+      playerId,
+      selectedTerritoryId,
+      setSelectedTerritoryId,
+    ]
+  );
 
   useEffect(() => {
-    if (!gameState || !gameState.hexGrid || !gameState.territories) return;
+    if (!gameState?.hexGrid || !gameState?.territories) return;
 
     const hexGrid = gameState.hexGrid;
     const territories = gameState.territories;
     const playerColors = gameState.playerColors || {};
-
-    // Create a map for quick territory lookup
     const territoryMap = {};
-    territories.forEach((t) => {
-      territoryMap[t.id] = t;
+
+    territories.forEach((territory) => {
+      territoryMap[territory.id] = territory;
     });
 
-    // Calculate bounds for centering
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
     hexGrid.forEach((hex) => {
-      const pos = hexToPixel(hex.col, hex.row);
-      minX = Math.min(minX, pos.x);
-      maxX = Math.max(maxX, pos.x);
-      minY = Math.min(minY, pos.y);
-      maxY = Math.max(maxY, pos.y);
+      const position = hexToPixel(hex.col, hex.row);
+      minX = Math.min(minX, position.x);
+      maxX = Math.max(maxX, position.x);
+      minY = Math.min(minY, position.y);
+      maxY = Math.max(maxY, position.y);
     });
 
-    const padding = hexSize * 2;
+    const padding = HEX_SIZE * 2;
     const width = maxX - minX + padding * 2;
     const height = maxY - minY + padding * 2;
     const offsetX = -minX + padding;
@@ -375,35 +423,34 @@ function DiceWarsBoardWrapper({
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
 
-    // Clear previous content
     svg.selectAll("*").remove();
 
-    // Create groups for rendering
-    const oceanGroup = svg.append("g");
-    const territoryGroup = svg.append("g");
-    const textGroup = svg.append("g");
+    const oceanGroup = svg.append("g").attr("class", "dice-wars-ocean");
+    const territoryGroup = svg
+      .append("g")
+      .attr("class", "dice-wars-territories");
+    const textGroup = svg.append("g").attr("class", "dice-wars-labels");
 
-    // First, draw ocean hexes
     hexGrid.forEach((hex) => {
       const isOcean = hex.isOcean || hex.territoryId === null;
-      if (isOcean) {
-        const pos = hexToPixel(hex.col, hex.row);
-        const centerX = pos.x + offsetX;
-        const centerY = pos.y + offsetY;
-        const hexPath = getHexPath(centerX, centerY);
 
-        oceanGroup
-          .append("path")
-          .attr("d", hexPath)
-          .attr("fill", "#1a1a2e")
-          .attr("stroke", "#0f0f1e")
-          .attr("stroke-width", 1)
-          .attr("opacity", 0.3);
-      }
+      if (!isOcean) return;
+
+      const position = hexToPixel(hex.col, hex.row);
+      const centerX = position.x + offsetX;
+      const centerY = position.y + offsetY;
+
+      oceanGroup
+        .append("path")
+        .attr("d", getHexPath(centerX, centerY))
+        .attr("fill", "#10252d")
+        .attr("stroke", "#081319")
+        .attr("stroke-width", 1)
+        .attr("opacity", 0.58);
     });
 
-    // Draw territories as unified shapes
     const drawnTerritories = new Set();
+
     territories.forEach((territory) => {
       if (drawnTerritories.has(territory.id)) return;
       drawnTerritories.add(territory.id);
@@ -414,6 +461,7 @@ function DiceWarsBoardWrapper({
         offsetX,
         offsetY
       );
+
       if (!territoryPath) return;
 
       const isSelected = selectedTerritoryId === territory.id;
@@ -425,52 +473,36 @@ function DiceWarsBoardWrapper({
         territoryMap[selectedTerritoryId]?.neighbors.includes(territory.id);
       const isValidAttackTarget =
         isNeighborOfSelected && !isOwned && isCurrentPlayer;
-
-      // Determine territory color
-      let fillColor = "#333";
-      if (territory.playerId) {
-        fillColor = playerColors[territory.playerId] || "#888";
-      }
-
-      // Determine stroke
-      let strokeColor;
-      let strokeWidth;
-
-      if (isSelected) {
-        strokeColor = "#FFD700";
-        strokeWidth = 5;
-      } else if (isValidAttackTarget) {
-        strokeColor = "#FFA500";
-        strokeWidth = 4;
-      } else {
-        strokeColor = "#222";
-        strokeWidth = 2;
-      }
-
-      // Determine if this territory is clickable
       const isClickable = isCurrentPlayer && (canSelect || isValidAttackTarget);
+      const fillColor = territory.playerId
+        ? playerColors[territory.playerId] || "#6f7782"
+        : "#3b4148";
+      const strokeColor = isSelected
+        ? "#f3cf65"
+        : isValidAttackTarget
+        ? "#f08a4b"
+        : "#111820";
+      const strokeWidth = isSelected ? 5 : isValidAttackTarget ? 4 : 2;
 
-      // Draw unified territory shape
       const territoryElement = territoryGroup
         .append("path")
+        .attr("class", "dice-wars-territory")
         .attr("d", territoryPath)
         .attr("fill", fillColor)
         .attr("stroke", strokeColor)
         .attr("stroke-width", strokeWidth)
-        .attr("opacity", territory.playerId ? 0.8 : 0.3)
+        .attr("opacity", territory.playerId ? 0.86 : 0.35)
         .style("cursor", isClickable ? "pointer" : "default")
-        .on("click", function (event) {
+        .on("click", (event) => {
           event.stopPropagation();
-          // Find any hex in this territory for the click handler
+
           const territoryHex = hexGrid.find(
-            (h) => h.territoryId === territory.id
+            (hex) => hex.territoryId === territory.id
           );
-          if (territoryHex) {
-            handleHexClick(territoryHex);
-          }
+
+          if (territoryHex) handleHexClick(territoryHex);
         });
 
-      // Add hover effect for clickable territories
       if (isClickable) {
         territoryElement
           .on("mouseenter", function () {
@@ -480,7 +512,7 @@ function DiceWarsBoardWrapper({
           })
           .on("mouseleave", function () {
             d3.select(this)
-              .attr("opacity", territory.playerId ? 0.8 : 0.3)
+              .attr("opacity", territory.playerId ? 0.86 : 0.35)
               .attr(
                 "stroke-width",
                 isSelected ? 5 : isValidAttackTarget ? 4 : 2
@@ -488,241 +520,297 @@ function DiceWarsBoardWrapper({
           });
       }
 
-      // Draw dice count and ID on the center hex
-      const pos = hexToPixel(territory.col, territory.row);
-      const centerX = pos.x + offsetX;
-      const centerY = pos.y + offsetY;
+      const position = hexToPixel(territory.col, territory.row);
+      const centerX = position.x + offsetX;
+      const centerY = position.y + offsetY;
 
-      // Draw dice count
       textGroup
         .append("text")
         .attr("x", centerX)
         .attr("y", centerY)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "central")
-        .style("font-size", "24px")
-        .style("font-weight", "bold")
-        .style("fill", "#FFF")
-        .style("pointer-events", "none")
-        .style("text-shadow", "2px 2px 4px rgba(0,0,0,0.8)")
+        .attr("class", "dice-wars-dice-count")
         .text(territory.dice || "");
 
-      // Draw territory ID (small)
       textGroup
         .append("text")
         .attr("x", centerX)
-        .attr("y", centerY + hexSize * 0.6)
+        .attr("y", centerY + HEX_SIZE * 0.6)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "central")
-        .style("font-size", "10px")
-        .style("fill", "#AAA")
-        .style("pointer-events", "none")
+        .attr("class", "dice-wars-territory-id")
         .text(`#${territory.id}`);
     });
-  }, [gameState, selectedTerritoryId, playerId, hexSize]);
+  }, [gameState, handleHexClick, playerId, selectedTerritoryId]);
 
-  // Get player name by ID
-  const getPlayerName = (pId) => {
-    return players && players[pId] ? players[pId].name : "Unknown";
-  };
-
-  // Get board title based on current state
-  const getBoardTitle = () => {
-    if (!gameState) return "";
-    if (stateViewing === -2) return "Game Over";
-    return `${getPlayerName(gameState.currentTurnPlayerId)}'s Turn`;
-  };
-
-  // Compute territory counts per player
-  const territoryCounts = {};
-  if (gameState && gameState.territories && gameState.playerColors) {
-    for (const t of gameState.territories) {
-      if (t.playerId) {
-        territoryCounts[t.playerId] = (territoryCounts[t.playerId] || 0) + 1;
-      }
-    }
-  }
-
-  // Don't render until game state is available
-  if (!gameState || !gameState.territories) {
+  if (!gameState?.territories) {
     return (
-      <SideMenu
-        title="Pregame"
-        scrollable
-        content={
-          <div
-            style={{
-              background: "#181818",
-              border: "2px solid #222",
-              borderRadius: 8,
-              width: "fit-content",
-              margin: "24px auto",
-              padding: "24px",
-              boxShadow: "0 2px 8px #000a",
-              color: "#FFF",
-              textAlign: "center",
-              fontSize: "18px",
-            }}
-          ></div>
-        }
-      />
+      <>
+        <section className="dice-wars-board dice-wars-board-pregame">
+          <div className="dice-wars-stage">
+            <div className="dice-wars-board-center">
+              <div className="dice-wars-board-kicker">Dice Wars</div>
+              <div className="dice-wars-board-title">Waiting for armies</div>
+              <div className="dice-wars-board-subtitle">
+                The map will appear once the match begins.
+              </div>
+            </div>
+          </div>
+        </section>
+        <div className="dice-wars-action-dock">
+          <DiceWarsActionPanel
+            gameState={gameState}
+            gameSocket={gameSocket}
+            isReview={isReview}
+            isYourTurn={false}
+            players={players}
+            selectedTerritory={null}
+            stateViewing={stateViewing}
+          />
+        </div>
+      </>
     );
   }
 
   return (
+    <>
+      <section className="dice-wars-board">
+        <div className="dice-wars-statusbar">
+          <DiceWarsMetric label="Turn" value={currentTurnName} />
+          <DiceWarsMetric
+            label="Territories"
+            value={`${territoryCounts[playerId] || 0}/${
+              gameState.territories.length
+            }`}
+          />
+          <DiceWarsMetric label="My Dice" value={diceCounts[playerId] || 0} />
+          <DiceWarsMetric
+            label="Selected"
+            value={selectedTerritory ? `#${selectedTerritory.id}` : "-"}
+          />
+        </div>
+
+        <div className="dice-wars-stage">
+          <DiceWarsScoreboard
+            playerIds={playerIds}
+            players={players}
+            gameState={gameState}
+            territoryCounts={territoryCounts}
+            diceCounts={diceCounts}
+          />
+          {showIntro && (
+            <DiceWarsIntroModal onClose={() => setShowIntro(false)} />
+          )}
+          <div className="dice-wars-board-frame">
+            <svg ref={svgRef} aria-label="Dice Wars board" />
+          </div>
+        </div>
+      </section>
+
+      <div className="dice-wars-action-dock">
+        <DiceWarsActionPanel
+          gameState={gameState}
+          gameSocket={gameSocket}
+          isReview={isReview}
+          isYourTurn={isYourTurn}
+          players={players}
+          selectedTerritory={selectedTerritory}
+          stateViewing={stateViewing}
+        />
+      </div>
+    </>
+  );
+}
+
+function DiceWarsScoreboard({
+  playerIds,
+  players,
+  gameState,
+  territoryCounts,
+  diceCounts,
+}) {
+  return (
+    <div className="dice-wars-scoreboard" aria-label="Territory counts">
+      {playerIds.map((playerId) => {
+        const isTurn = playerId === gameState.currentTurnPlayerId;
+        const playerColor = gameState.playerColors?.[playerId] || "#888";
+
+        return (
+          <div
+            key={playerId}
+            className={`dice-wars-score-pill ${isTurn ? "is-turn" : ""} ${
+              territoryCounts[playerId] ? "" : "is-eliminated"
+            }`}
+          >
+            <span
+              className="dice-wars-player-color"
+              style={{ background: playerColor, color: playerColor }}
+            />
+            <span className="dice-wars-score-name">
+              {getPlayerName(players, playerId)}
+            </span>
+            <strong>{territoryCounts[playerId] || 0}</strong>
+            <em>{diceCounts[playerId] || 0} dice</em>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DiceWarsIntroModal({ onClose }) {
+  return (
+    <div className="dice-wars-intro-backdrop" onClick={onClose}>
+      <div className="dice-wars-intro" onClick={(event) => event.stopPropagation()}>
+        <h2>Dice Wars</h2>
+        <p>
+          Attack neighboring territories by rolling dice. Connected territories
+          strengthen your reinforcements at the end of your turn.
+        </p>
+        <button type="button" onClick={onClose}>
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DiceWarsMetric({ label, value }) {
+  return (
+    <div className="dice-wars-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DiceWarsActionPanel({
+  gameState,
+  gameSocket,
+  isReview,
+  isYourTurn,
+  players,
+  selectedTerritory,
+  stateViewing,
+}) {
+  const isGameOver = stateViewing === -2;
+  const currentTurnName = getPlayerName(players, gameState?.currentTurnPlayerId);
+  const canEndTurn = isYourTurn && !isReview && !isGameOver;
+  let status = "Waiting for the match to begin.";
+
+  if (isGameOver) {
+    status = "The game is over.";
+  } else if (isReview) {
+    status = "Review mode is read only.";
+  } else if (isYourTurn && selectedTerritory) {
+    status = `Territory #${selectedTerritory.id} is ready to attack.`;
+  } else if (isYourTurn) {
+    status = "Select one of your territories with at least 2 dice.";
+  } else if (gameState?.currentTurnPlayerId) {
+    status = `Waiting for ${currentTurnName}.`;
+  }
+
+  return (
     <SideMenu
-      title={getBoardTitle()}
-      scrollable
+      title="Action"
       content={
-        <div
-          style={{
-            background: "#181818",
-            border: "2px solid #222",
-            borderRadius: 8,
-            width: "100%",
-            maxWidth: 900,
-            margin: "24px auto",
-            padding: "16px",
-            boxShadow: "0 2px 8px #000a",
-          }}
-        >
-          {/* Territory count scoreboard */}
-          {gameState && gameState.turnOrder && gameState.playerColors && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: "8px",
-                flexWrap: "wrap",
-                marginBottom: "12px",
-                padding: "8px",
-                background: "#111",
-                borderRadius: 6,
-              }}
-            >
-              {gameState.turnOrder.map((pId) => (
-                <div
-                  key={pId}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "4px 10px",
-                    borderRadius: 4,
-                    border:
-                      pId === gameState.currentTurnPlayerId
-                        ? "2px solid #FFD700"
-                        : "2px solid transparent",
-                    opacity: territoryCounts[pId] ? 1 : 0.4,
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      background: gameState.playerColors[pId] || "#888",
-                    }}
-                  />
-                  <span style={{ color: "#CCC", fontSize: "13px" }}>
-                    {getPlayerName(pId)}
-                  </span>
-                  <span
-                    style={{
-                      color: "#FFF",
-                      fontSize: "14px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {territoryCounts[pId] || 0}
-                  </span>
-                </div>
-              ))}
+        <div className="dice-wars-actions">
+          <div className="dice-wars-action-status">{status}</div>
+          {selectedTerritory && (
+            <div className="dice-wars-selected-card">
+              <DiceWarsMetric label="Territory" value={`#${selectedTerritory.id}`} />
+              <DiceWarsMetric label="Dice" value={selectedTerritory.dice || 0} />
             </div>
           )}
-          {/* Intro popup */}
-          {showIntro && gameState && gameState.territories && (
-            <div
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: "rgba(0,0,0,0.7)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 1000,
-              }}
-              onClick={() => setShowIntro(false)}
-            >
-              <div
-                style={{
-                  background: "#222",
-                  border: "2px solid #444",
-                  borderRadius: 12,
-                  padding: "32px",
-                  maxWidth: 400,
-                  textAlign: "center",
-                  color: "#FFF",
-                  boxShadow: "0 4px 24px #000a",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h2 style={{ margin: "0 0 16px", fontSize: "22px" }}>
-                  Dice Wars
-                </h2>
-                <p style={{ margin: "0 0 24px", fontSize: "15px", lineHeight: 1.5, color: "#CCC" }}>
-                  Attack neighboring territories by rolling dice. Keep your
-                  territories connected to earn more reinforcements!
-                </p>
-                <button
-                  onClick={() => setShowIntro(false)}
-                  style={{
-                    padding: "10px 32px",
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                    background: "#4a90d9",
-                    color: "#FFF",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                  }}
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          )}
-          {/* Game board */}
-          <svg ref={svgRef} style={{ display: "block", margin: "0 auto", width: "100%", maxHeight: "60vh", height: "auto" }} />
-          {/* End Turn button */}
-          {!isReview &&
-            stateViewing !== -2 &&
-            gameState &&
-            gameState.currentTurnPlayerId === playerId && (
-              <button
-                onClick={() => gameSocket.send("endTurn", {})}
-                style={{
-                  display: "block",
-                  margin: "12px auto 0",
-                  padding: "10px 32px",
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                  background: "#444",
-                  color: "#FFF",
-                  border: "2px solid #666",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-              >
-                End Turn
-              </button>
-            )}
+          <button
+            type="button"
+            className="dice-wars-end-turn"
+            disabled={!canEndTurn}
+            onClick={() => gameSocket.send("endTurn", {})}
+          >
+            End Turn
+          </button>
         </div>
       }
     />
+  );
+}
+
+function DiceWarsRoster({ gameState }) {
+  const game = useContext(GameContext);
+
+  if (!gameState?.territories) return <></>;
+
+  const territoryCounts = getTerritoryCounts(gameState);
+  const diceCounts = getDiceCounts(gameState);
+  const playerIds = getPlayerIds(gameState, game.players);
+
+  return (
+    <SideMenu
+      title="Armies"
+      scrollable
+      content={
+        <div className="dice-wars-roster">
+          {playerIds.map((playerId) => (
+            <DiceWarsPlayerRow
+              key={playerId}
+              playerId={playerId}
+              player={game.players?.[playerId]}
+              playerColor={gameState.playerColors?.[playerId] || "#888"}
+              territoryCount={territoryCounts[playerId] || 0}
+              diceCount={diceCounts[playerId] || 0}
+              isCurrentPlayer={playerId === game.self}
+              isTurn={playerId === gameState.currentTurnPlayerId}
+            />
+          ))}
+        </div>
+      }
+    />
+  );
+}
+
+function DiceWarsPlayerRow({
+  playerId,
+  player,
+  playerColor,
+  territoryCount,
+  diceCount,
+  isCurrentPlayer,
+  isTurn,
+}) {
+  const displayName = isCurrentPlayer ? "You" : player?.name || "Unknown";
+  const isEliminated = territoryCount === 0;
+
+  return (
+    <button
+      type="button"
+      className={`dice-wars-player-row ${isCurrentPlayer ? "is-self" : ""} ${
+        isTurn ? "is-turn" : ""
+      } ${isEliminated ? "is-eliminated" : ""}`}
+      onClick={() => {
+        if (player?.userId) window.open(`/user/${player.userId}`, "_blank");
+      }}
+    >
+      <span
+        className="dice-wars-player-color"
+        style={{ background: playerColor, color: playerColor }}
+      />
+      <span className="dice-wars-player-avatar">
+        <Avatar
+          hasImage={player?.avatar}
+          id={player?.userId}
+          name={player?.name || "Unknown"}
+          mediumlarge
+        />
+      </span>
+      <span className="dice-wars-player-name" title={displayName}>
+        {displayName}
+      </span>
+      <span className="dice-wars-player-meta">
+        <strong>{territoryCount}</strong>
+        <em>{diceCount} dice</em>
+      </span>
+    </button>
   );
 }
