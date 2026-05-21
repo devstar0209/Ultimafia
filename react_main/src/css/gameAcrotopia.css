@@ -63,3 +63,624 @@
 .game .acrotopia-score i {
   color: #048c28;
 }
+
+.game .acrotopia-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.game .acrotopia-game .main,
+.game .acrotopia-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .acrotopia-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .acrotopia-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.game .acrotopia-action-dock {
+  flex-shrink: 0;
+}
+
+.game .acrotopia-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .acrotopia-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .acrotopia-side-chat {
+  min-height: 260px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .acrotopia-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .acrotopia-side-chat .meeting-tabs .MuiTab-root {
+  max-width: 140px;
+}
+
+.game .acrotopia-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .acrotopia-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .acrotopia-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(22, 24, 30, 0.97), rgba(34, 31, 35, 0.97)),
+    var(--scheme-color);
+  color: #f8f2e6;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .acrotopia-board-pregame {
+  min-height: 320px;
+}
+
+.game .acrotopia-statusbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.game .acrotopia-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .acrotopia-metric > span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(248, 242, 230, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .acrotopia-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .acrotopia-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 430px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(237, 179, 91, 0.28);
+  border-radius: 24px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 20%, rgba(86, 73, 92, 0.96), rgba(39, 55, 66, 0.98) 58%, rgba(21, 26, 33, 1) 100%),
+    #273742;
+  background-size: 34px 34px, 34px 34px, auto, auto;
+  box-shadow:
+    inset 0 0 0 8px rgba(64, 43, 35, 0.46),
+    inset 0 0 34px rgba(0, 0, 0, 0.44);
+}
+
+.game .acrotopia-board-pregame .acrotopia-stage {
+  grid-template-rows: 1fr;
+}
+
+.game .acrotopia-board-center {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.game .acrotopia-board-kicker {
+  color: #edb35b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .acrotopia-board-title {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.game .acrotopia-board-subtitle {
+  max-width: 34rem;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .acrotopia-prompt-panel {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background: rgba(6, 10, 14, 0.62);
+  text-align: center;
+}
+
+.game .acrotopia-acronym-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.game .acrotopia-acronym-tiles > span {
+  width: 54px;
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(237, 179, 91, 0.42);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+    rgba(237, 179, 91, 0.14);
+  color: #ffffff;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.game .acrotopia-empty-acronym {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  color: rgba(248, 242, 230, 0.62);
+  font-weight: 800;
+}
+
+.game .acrotopia-round-track {
+  width: min(100%, 520px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+  gap: 7px;
+}
+
+.game .acrotopia-round-node {
+  min-width: 0;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(248, 242, 230, 0.64);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.game .acrotopia-round-node.is-complete {
+  border-color: rgba(74, 174, 138, 0.54);
+  background: rgba(44, 132, 103, 0.2);
+  color: #ffffff;
+}
+
+.game .acrotopia-round-node.is-current {
+  border-color: #edb35b;
+  background: rgba(237, 179, 91, 0.18);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(237, 179, 91, 0.22);
+}
+
+.game .acrotopia-backronym-input {
+  width: min(100%, 640px);
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.game .acrotopia-word-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: 8px;
+}
+
+.game .acrotopia-word-field {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.game .acrotopia-word-field > span {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(237, 179, 91, 0.36);
+  border-radius: 8px;
+  background: rgba(237, 179, 91, 0.16);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.game .acrotopia-word-field .MuiInputBase-root {
+  min-height: 36px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.game .acrotopia-word-field .MuiInputBase-input {
+  padding: 8px 10px;
+  color: var(--scheme-color-text);
+  font-size: 0.92rem;
+}
+
+.game .acrotopia-backronym-submit.MuiButton-root {
+  min-width: 120px;
+  min-height: 38px;
+}
+
+.game .acrotopia-main-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 14px;
+}
+
+.game .acrotopia-entry-panel,
+.game .acrotopia-score-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+}
+
+.game .acrotopia-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.game .acrotopia-panel-heading > span {
+  color: rgba(248, 242, 230, 0.68);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .acrotopia-panel-heading > strong {
+  color: #edb35b;
+}
+
+.game .acrotopia-entry-list,
+.game .acrotopia-score-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.game .acrotopia-entry {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.game .acrotopia-entry.is-winner {
+  border-color: rgba(237, 179, 91, 0.58);
+  background: rgba(237, 179, 91, 0.12);
+  box-shadow: inset 3px 0 0 rgba(237, 179, 91, 0.8);
+}
+
+.game .acrotopia-entry-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(248, 242, 230, 0.66);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .acrotopia-entry-meta > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .acrotopia-entry-meta > strong {
+  min-width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(237, 179, 91, 0.16);
+  color: #ffffff;
+}
+
+.game .acrotopia-entry-text {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.game .acrotopia-entry-voters {
+  color: rgba(248, 242, 230, 0.6);
+  font-size: 0.8rem;
+}
+
+.game .acrotopia-score-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.game .acrotopia-score-row.has-voted {
+  border-color: rgba(74, 174, 138, 0.4);
+  background: rgba(44, 132, 103, 0.12);
+}
+
+.game .acrotopia-score-rank {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(248, 242, 230, 0.76);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.game .acrotopia-score-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .acrotopia-score-row i {
+  color: #4aae8a;
+}
+
+.game .acrotopia-score-row > strong {
+  min-width: 34px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(237, 179, 91, 0.18);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.game .acrotopia-empty-state {
+  margin: 10px;
+  padding: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: rgba(248, 242, 230, 0.62);
+  text-align: center;
+}
+
+.game .acrotopia-roster-menu .side-menu-content {
+  min-height: 0;
+}
+
+.game .acrotopia-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .acrotopia-player-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.game .acrotopia-player-row:hover {
+  border-color: rgba(237, 179, 91, 0.42);
+  background: rgba(237, 179, 91, 0.08);
+}
+
+.game .acrotopia-player-row.has-voted {
+  border-color: rgba(74, 174, 138, 0.4);
+  background: rgba(44, 132, 103, 0.12);
+}
+
+.game .acrotopia-player-row.is-dead {
+  opacity: 0.48;
+}
+
+.game .acrotopia-player-position {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.game .acrotopia-player-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .acrotopia-player-row > strong {
+  min-width: 34px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(237, 179, 91, 0.18);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.game .acrotopia-player-row em {
+  grid-column: 3 / -1;
+  justify-self: start;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(74, 174, 138, 0.14);
+  color: #4aae8a;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .game .acrotopia-board {
+    border-radius: 0;
+  }
+
+  .game .acrotopia-stage {
+    min-height: 520px;
+    border-radius: 18px;
+  }
+
+  .game .acrotopia-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .game .acrotopia-board {
+    padding: 8px;
+  }
+
+  .game .acrotopia-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .acrotopia-stage {
+    min-height: 500px;
+    padding: 12px;
+  }
+
+  .game .acrotopia-acronym-tiles > span {
+    width: 42px;
+    height: 46px;
+    font-size: 1.35rem;
+  }
+
+  .game .acrotopia-score-row {
+    grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  }
+
+  .game .acrotopia-player-row {
+    grid-template-columns: 26px auto minmax(0, 1fr) auto;
+  }
+
+  .game .acrotopia-player-row em {
+    grid-column: 3 / -1;
+  }
+
+  .game .acrotopia-score-row .avatar {
+    display: none;
+  }
+}
