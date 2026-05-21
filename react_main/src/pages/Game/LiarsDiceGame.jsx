@@ -525,7 +525,6 @@ function LiarsDiceTable() {
         </div>
 
         <div className="liars-table-center">
-          <div className="liars-table-kicker">Liars Dice</div>
           <LiarsDiceBidSummary extraInfo={extraInfo} />
         </div>
 
@@ -627,7 +626,7 @@ function LiarsDiceRoster() {
 
   return (
     <SideMenu
-      title="Dice"
+      title="Liars Dice"
       scrollable
       content={
         <div className="liars-roster">

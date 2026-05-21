@@ -103,7 +103,7 @@ export default function CreateResistanceSetup() {
   }, []);
 
   function onCreateSetup(roleData, editing, setRedirect, gameSettings) {
-    axios
+    return axios
       .post("/api/setup/create", {
         gameType: gameType,
         roles: roleData.roles,

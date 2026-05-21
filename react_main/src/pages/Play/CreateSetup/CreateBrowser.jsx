@@ -120,6 +120,7 @@ export default function CreateSetup(props) {
   const [redirect, setRedirect] = useState("");
   const [editing, setEditing] = useState(false);
   const [modifiers, setModifiers] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
   const setupFormRef = useRef(null);
 
   const location = useLocation();
@@ -129,7 +130,10 @@ export default function CreateSetup(props) {
   const isPhoneDevice = useIsPhoneDevice();
 
   const gameTypeSettings = siteInfo.gamesettings[gameType] || [];
-  const hasGameSettingsConfig = gameTypeSettings.length > 0;
+  const hiddenOnlyGameSettingNames = ["Whispers", "Whisper Leak Chance"];
+  const hasGameSettingsConfig = gameTypeSettings.some(
+    (gameSetting) => !hiddenOnlyGameSettingNames.includes(gameSetting.name)
+  );
   const isMafiaSetup = gameType === "Mafia";
 
   const [roleData, updateRoleData] = useReducer(
@@ -556,6 +560,22 @@ export default function CreateSetup(props) {
     }, 0);
   }
 
+  async function onSubmitSetup() {
+    if (submitting) return;
+
+    setSubmitting(true);
+    try {
+      const result = onCreateSetup(roleData, editing, setRedirect, gameSettings);
+      if (result && typeof result.finally === "function") {
+        await result;
+      }
+    } catch (e) {
+      errorAlert(e);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (editing && !params.get("edit")) {
     setEditing(false);
     resetFormFields();
@@ -955,9 +975,8 @@ export default function CreateSetup(props) {
               fields={formFields}
               onChange={updateFormFields}
               submitText={editing ? "Edit" : "Create"}
-              onSubmit={() =>
-                onCreateSetup(roleData, editing, setRedirect, gameSettings)
-              }
+              onSubmit={onSubmitSetup}
+              submitLoading={submitting}
             />
           </Stack>
         )}

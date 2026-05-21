@@ -7,7 +7,7 @@ import DialogContent from "@mui/material/DialogContent";
 import {
   Alert,
   Button,
-  CircularProgress,
+  LinearProgress,
   Stack,
 } from "@mui/material";
 import { SiteInfoContext, UserContext } from "Contexts";
@@ -190,18 +190,14 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
               <Button
                 onClick={onHostGameWrapper}
                 disabled={!hasEnoughCoins || hosting}
-                startIcon={
-                  hosting ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : null
-                }
                 sx={{
                   flex: "1",
                 }}
               >
-                {hosting ? "Hosting..." : "Host"}
+                Host
               </Button>
             </Stack>
+            {hosting && <LinearProgress />}
             <Setup
               setup={setup}
               backgroundColor={getSetupBackgroundColor(

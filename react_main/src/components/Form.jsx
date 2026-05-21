@@ -21,6 +21,7 @@ import {
   TextField,
   MenuItem,
   Button,
+  LinearProgress,
   IconButton,
   Stack,
   FormControlLabel,
@@ -45,6 +46,7 @@ function FormField({
   field,
   deps,
   compact = false,
+  onChange,
   forceSeparateLabel = false,
   useFormControl = false,
   additionalButtons = <></>,
@@ -162,6 +164,8 @@ export default function Form({
   compact = false,
   wrapGroupsInPaper = false,
   halfWidth = false,
+  submitLoading = false,
+  submitDisabled = false,
 }) {
   const isPhoneDevice = useIsPhoneDevice();
 
@@ -232,6 +236,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               {field.type === "text" && field.textStyle === "large" ? (
@@ -269,6 +274,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               <DeckPicker
@@ -319,6 +325,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               <Stack direction="column" spacing={1}>
@@ -343,6 +350,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               <TextField
@@ -380,6 +388,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               <FormControlLabel
@@ -400,6 +409,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               <TextField
@@ -424,6 +434,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
               forceSeparateLabel
             >
@@ -455,6 +466,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
               additionalButtons={
                 <>
@@ -512,6 +524,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
             >
               <input
@@ -529,6 +542,7 @@ export default function Form({
               field={field}
               deps={deps}
               compact={compact}
+              onChange={onFieldChange}
               key={field.ref}
               useFormControl
             >
@@ -552,6 +566,7 @@ export default function Form({
                 field={field}
                 deps={deps}
                 compact={compact}
+                onChange={onFieldChange}
                 key={field.ref}
               >
                 {field.render(deps)}
@@ -620,7 +635,12 @@ export default function Form({
       }}
     >
       {groupedFormFields}
-      {submitText && <Button onClick={onSubmit}>{submitText}</Button>}
+      {submitLoading && <LinearProgress />}
+      {submitText && (
+        <Button onClick={onSubmit} disabled={submitDisabled || submitLoading}>
+          {submitText}
+        </Button>
+      )}
     </Stack>
   );
 }
