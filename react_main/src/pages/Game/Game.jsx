@@ -181,7 +181,21 @@ export default function Game() {
   const [options, setOptions] = useState({});
   const [emojis, setEmojis] = useState({});
   const [history, updateHistory] = useHistoryReducer();
-  const [stateViewing, updateStateViewing] = useStateViewingReducer(history);
+  const [finishAnimationVisible, setFinishAnimationVisible] = useState(false);
+  const [replayPromptOpen, setReplayPromptOpen] = useState(false);
+  const [replayStatus, setReplayStatus] = useState("idle");
+  const replayPromptShownRef = useRef(false);
+  const shouldHoldPostgameBoard =
+    !review &&
+    history.currentState === -2 &&
+    (finishAnimationVisible ||
+      replayPromptOpen ||
+      replayStatus === "hosting" ||
+      !replayPromptShownRef.current);
+  const [stateViewing, updateStateViewing] = useStateViewingReducer(
+    history,
+    shouldHoldPostgameBoard
+  );
   const [players, updatePlayers] = usePlayersReducer();
   const [spectators, setSpectators] = useState();
   const [spectatorCount, setSpectatorCount] = useState(0);
@@ -259,6 +273,54 @@ export default function Game() {
     }
 
     setLeaveDialogOpen(false);
+  }
+
+  function rehostGame() {
+    if (replayStatus === "hosting") return;
+
+    noLeaveRef.current = true;
+    setReplayStatus("hosting");
+    setReplayPromptOpen(false);
+
+    if (socket.on) socket.send("leave");
+
+    setTimeout(() => {
+      var stateLengths = {};
+
+      for (let stateName in options.stateLengths || {})
+        stateLengths[stateName] = options.stateLengths[stateName] / 60000;
+
+      axios
+        .post("/api/game/leave")
+        .then(() => {
+          if (gameId === user.inGame) {
+            user.setInGame(null);
+          }
+
+          return axios.post("/api/game/host", {
+            rehost: gameId,
+            gameType: gameType,
+            setup: setup.id,
+            lobby: options.lobby,
+            private: options.private,
+            spectating: options.spectating,
+            guests: options.guests,
+            ranked: options.ranked,
+            competitive: options.competitive,
+            stateLengths: stateLengths,
+            ...options.gameTypeOptions,
+          });
+        })
+        .then((res) => {
+          window.location.href = window.location.origin + `/game/${res.data}`;
+        })
+        .catch((e) => {
+          noLeaveRef.current = false;
+          setReplayStatus("idle");
+          setReplayPromptOpen(true);
+          errorAlert(e);
+        });
+    }, 500);
   }
 
   useEffect(() => {
@@ -545,6 +607,29 @@ export default function Game() {
   useEffect(() => {
     if (stateViewing == null) updateStateViewing({ type: "current" });
   }, [history.currentState]);
+
+  useEffect(() => {
+    replayPromptShownRef.current = false;
+    setFinishAnimationVisible(false);
+    setReplayPromptOpen(false);
+    setReplayStatus("idle");
+  }, [gameId]);
+
+  useEffect(() => {
+    if (review || history.currentState !== -2 || replayPromptShownRef.current)
+      return;
+
+    replayPromptShownRef.current = true;
+    setFinishAnimationVisible(true);
+    setReplayPromptOpen(false);
+
+    const replayPromptTimer = setTimeout(() => {
+      setFinishAnimationVisible(false);
+      setReplayPromptOpen(true);
+    }, 10000);
+
+    return () => clearTimeout(replayPromptTimer);
+  }, [gameId, history.currentState, review]);
 
   useEffect(() => {
     playersRef.current = players;
@@ -919,6 +1004,32 @@ export default function Game() {
     return null;
   }
 
+  const displayHistory = useMemo(() => {
+    const postgameState = history.states?.[-2];
+
+    if (
+      !shouldHoldPostgameBoard ||
+      !postgameState ||
+      stateViewing < 0 ||
+      !history.states?.[stateViewing]
+    ) {
+      return history;
+    }
+
+    return update(history, {
+      states: {
+        [stateViewing]: {
+          extraInfo: {
+            $set: { ...postgameState.extraInfo },
+          },
+          winners: {
+            $set: postgameState.winners,
+          },
+        },
+      },
+    });
+  }, [history, shouldHoldPostgameBoard, stateViewing]);
+
   if (leave) return <Navigate to="/play" />;
   else if (!loaded || stateViewing == null)
     return (
@@ -935,7 +1046,7 @@ export default function Game() {
       setup: setup,
       getSetupGameSetting: getSetupGameSetting,
       startTime: startTime,
-      history: history,
+      history: displayHistory,
       updateHistory: updateHistory,
       unresolvedActionCount: unresolvedActionCount,
       stateViewing: stateViewing,
@@ -952,6 +1063,7 @@ export default function Game() {
       setLeave: setLeave,
       onLeaveGameClick: onLeaveGameClick,
       leaveGame: leaveGame,
+      rehostGame: rehostGame,
       finished: finished,
       settings: settings,
       selectedPanel: selectedPanel,
@@ -984,6 +1096,12 @@ export default function Game() {
     };
 
     const isUrgent = voteKickUrgency || (readyCheckInfo.active && !readyCheckInfo.readyPlayers[self]);
+    const postgameWinnersInfo = history.states?.[-2]?.winners;
+    const playerWon = getPlayerFinishedResult(
+      postgameWinnersInfo,
+      self,
+      isParticipant
+    );
 
     return (
       <GameContext.Provider value={gameContext}>
@@ -1019,6 +1137,12 @@ export default function Game() {
               <DiceWarsGame />
             )}
             {gameType === "Connect Four" && <ConnectFourGame />}
+            <GameFinishedAnimation
+              visible={finishAnimationVisible}
+              playerWon={playerWon}
+              winnersInfo={postgameWinnersInfo}
+            />
+            {replayStatus === "hosting" && <ReplayWaitingScreen />}
           </Box>
         </Stack>
         <UrgencyOverlay hidden={!isUrgent} />
@@ -1066,9 +1190,175 @@ export default function Game() {
             setChangeSetupDialogOpen(false);
           }}
         />
+        <ReplayModal
+          show={replayPromptOpen}
+          playerWon={playerWon}
+          winnersInfo={postgameWinnersInfo}
+          gameType={gameType}
+          setup={setup}
+          playerCount={Object.keys(players || {}).length}
+          isRanked={!!options.ranked}
+          isCompetitive={!!options.competitive}
+          onReplay={rehostGame}
+          onClose={leaveGame}
+        />
       </GameContext.Provider>
     );
   }
+}
+
+function getPlayerFinishedResult(winnersInfo, self, isParticipant) {
+  if (!isParticipant || !self || !winnersInfo) return null;
+
+  if (Array.isArray(winnersInfo.players)) {
+    return winnersInfo.players.includes(self);
+  }
+
+  const playersByGroup = winnersInfo.playersByGroup || {};
+
+  return Object.values(playersByGroup).some((groupPlayers) => {
+    if (!Array.isArray(groupPlayers)) return false;
+
+    return groupPlayers.some((player) => {
+      if (typeof player === "string") return player === self;
+
+      return player?.id === self || player?.userId === self;
+    });
+  });
+}
+
+function getWinnerSummary(winnersInfo) {
+  const winnerGroups = winnersInfo?.groups || [];
+
+  if (winnerGroups.length === 0) return "The game is complete.";
+  if (winnerGroups.length === 1) return `${winnerGroups[0]} won.`;
+
+  return `${winnerGroups.join(", ")} won.`;
+}
+
+function GameFinishedAnimation({ visible, playerWon, winnersInfo }) {
+  if (!visible) return null;
+
+  const isWin = playerWon === true;
+  const isLoss = playerWon === false;
+  const title = isWin ? "Victory" : isLoss ? "Failed" : "Game Over";
+
+  return (
+    <div
+      className={`game-finished-animation ${
+        isWin ? "is-win" : isLoss ? "is-loss" : "is-neutral"
+      }`}
+      aria-live="polite"
+    >
+      <div className="game-finished-burst" />
+      <div className="game-finished-result">
+        <div className="game-finished-icon">{isWin ? "W" : isLoss ? "X" : "!"}</div>
+        <div className="game-finished-title">{title}</div>
+        <div className="game-finished-subtitle">
+          {getWinnerSummary(winnersInfo)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReplayWaitingScreen() {
+  return (
+    <div className="game-replay-waiting" aria-live="polite">
+      <div className="game-replay-waiting-card">
+        <ReactLoading type="spin" color="currentColor" height={42} width={42} />
+        <div className="game-replay-waiting-title">Preparing replay</div>
+        <div className="game-replay-waiting-copy">
+          Opening the next lobby...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReplayModal({
+  show,
+  playerWon,
+  winnersInfo,
+  gameType,
+  setup,
+  playerCount,
+  isRanked,
+  isCompetitive,
+  onReplay,
+  onClose,
+}) {
+  const resultLabel =
+    playerWon === true
+      ? "Victory"
+      : playerWon === false
+      ? "Defeat"
+      : "Game Complete";
+  const resultClass =
+    playerWon === true ? "is-win" : playerWon === false ? "is-loss" : "is-neutral";
+  const winnerGroups = winnersInfo?.groups || [];
+  const modeLabel = isCompetitive ? "Competitive" : isRanked ? "Ranked" : "Casual";
+
+  return (
+    <Dialog
+      open={show}
+      onClose={onClose}
+      className="game-replay-dialog"
+      maxWidth="sm"
+      fullWidth
+    >
+      <div className={`game-replay-modal ${resultClass}`}>
+        <div className="game-replay-modal-hero">
+          <div className="game-replay-modal-emblem">
+            {playerWon === true ? "W" : playerWon === false ? "X" : "!"}
+          </div>
+          <div className="game-replay-modal-heading">
+            <span>{resultLabel}</span>
+            <strong>{getWinnerSummary(winnersInfo)}</strong>
+          </div>
+        </div>
+
+        <div className="game-replay-modal-grid">
+          <div className="game-replay-modal-stat">
+            <span>Game</span>
+            <strong>{gameType || "-"}</strong>
+          </div>
+          <div className="game-replay-modal-stat">
+            <span>Setup</span>
+            <strong>{setup?.name || "-"}</strong>
+          </div>
+          <div className="game-replay-modal-stat">
+            <span>Players</span>
+            <strong>{playerCount || "-"}</strong>
+          </div>
+          <div className="game-replay-modal-stat">
+            <span>Mode</span>
+            <strong>{modeLabel}</strong>
+          </div>
+        </div>
+
+        <div className="game-replay-modal-winners">
+          <span>Winning side</span>
+          <div>
+            {winnerGroups.length > 0
+              ? winnerGroups.map((group) => (
+                  <strong key={group}>{group}</strong>
+                ))
+              : <strong>Game finished</strong>}
+          </div>
+        </div>
+
+        <div className="game-replay-modal-actions">
+          <Button variant="outlined" onClick={onClose}>
+            Leave Game
+          </Button>
+          <Button variant="contained" onClick={onReplay}>
+            Play Again
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
 }
 
 export function useSocketListeners(listeners, socket) {
@@ -1095,38 +1385,7 @@ export function TopBar() {
   }
 
   function onRehostGameClick() {
-    game.noLeaveRef.current = true;
-
-    if (game.socket.on) game.socket.send("leave");
-
-    setTimeout(() => {
-      var stateLengths = {};
-
-      for (let stateName in game.options.stateLengths)
-        stateLengths[stateName] = game.options.stateLengths[stateName] / 60000;
-
-      axios
-        .post("/api/game/host", {
-          rehost: gameId,
-          gameType: game.gameType,
-          setup: game.setup.id,
-          lobby: game.options.lobby,
-          private: game.options.private,
-          spectating: game.options.spectating,
-          guests: game.options.guests,
-          ranked: game.options.ranked,
-          competitive: game.options.competitive,
-          stateLengths: stateLengths,
-          ...game.options.gameTypeOptions,
-        })
-        .then((res) => {
-          window.location.href = window.location.origin + `/game/${res.data}`;
-        })
-        .catch((e) => {
-          game.noLeaveRef.current = false;
-          errorAlert(e);
-        });
-    }, 500);
+    game.rehostGame();
   }
 
   function onArchiveGameClick() {
@@ -5578,7 +5837,16 @@ function useHistoryReducer() {
   );
 }
 
-export function useStateViewingReducer(history) {
+function getLastPlayableStateId(history) {
+  const stateIds = Object.keys(history.states || {})
+    .map((stateId) => Number.parseInt(stateId))
+    .filter((stateId) => stateId >= 0)
+    .sort((a, b) => a - b);
+
+  return stateIds.length > 0 ? stateIds[stateIds.length - 1] : -1;
+}
+
+export function useStateViewingReducer(history, holdPostgameBoard = false) {
   return useReducer((state, action) => {
     var newState;
 
@@ -5592,7 +5860,10 @@ export function useStateViewingReducer(history) {
         else newState = -2;
         break;
       case "current":
-        newState = history.currentState;
+        newState =
+          holdPostgameBoard && history.currentState === -2 && !action.allowPostgame
+            ? getLastPlayableStateId(history)
+            : history.currentState;
         break;
       case "first":
         newState = -1;
