@@ -1,174 +1,813 @@
-/* Styles for the SideMenu (Dice View Wrapper) */
-.liars-dice-wrapper {
-  background-color: #8b0000;
-  border-radius: 12px;
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
-  padding: 15px;
-  margin: 15px 30px 0 0;
-  max-width: 280px;
-  width: 100%;
-}
-
-.liars-dice-wrapper .side-menu-title {
-  font-size: 1.3rem;
-  font-weight: bold;
-  color: #f0f0f0;
-  margin-bottom: 15px;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-.liars-dice-players-container {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-}
-
-/* Styles for the Player Section */
-.liars-dice-player-section {
-  margin-top: 5%;
-  width: 95%;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.liars-dice-player-section:last-child {
-  margin-bottom: 0;
-}
-
-/* Styles for the Player Name Box */
-.liars-dice-player-name {
-  background-color: #a52a2a;
-  border-radius: 6px 6px 0 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  padding: 12px 15px;
-  border: 1px solid #8b0000;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #ffffff;
-  text-align: center;
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.2s ease-in-out;
-}
-
-.current-player {
-  background-color: #c01717;
-  border-color: #8b0000;
-  color: #ffffff;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.6);
-}
-
-.liars-dice-player-section:hover .liars-dice-player-name {
-  background-color: #b22222;
-}
-
-/* Styles for the Dice Container */
-.liars-dice-dice-container {
-  background-color: #1c1c1c;
-  border-radius: 0 0 6px 6px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
-  padding: 12px;
+.game .liars-dice-game {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  border: 1px solid #8b0000;
-  border-top: none;
 }
 
-/* Dice images */
-.dice {
+.game .liars-dice-game .main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .liars-dice-game .center-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game .liars-dice-game .right-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.game .liars-dice-play-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.game .liars-dice-action-dock {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.game .liars-dice-action-dock .side-menu {
+  min-height: 0;
+}
+
+.game .liars-dice-action-dock .side-menu.scrollable {
+  flex: 0 0 auto;
+  height: auto;
+}
+
+.game .liars-dice-action-dock .side-menu.scrollable .side-menu-content {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.game .liars-dice-side-chat {
+  min-height: 250px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: var(--scheme-color);
+}
+
+.game .liars-dice-side-chat .meeting-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.game .liars-dice-side-chat .meeting-tabs .MuiTabs-root {
+  min-width: 0;
+}
+
+.game .liars-dice-side-chat .meeting-tabs .MuiTab-root {
+  max-width: 128px;
+}
+
+.game .liars-dice-side-chat .speech-wrapper {
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.game .liars-dice-side-chat .speech-display {
+  min-width: 0;
+}
+
+.game .liars-dice-side-chat .message .nameplate-aligned {
+  min-width: 108px;
+  max-width: 108px;
+}
+
+.game .liars-dice-side-chat .message .time {
+  min-width: 34px;
+}
+
+.game .liars-table-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(16, 18, 22, 0.96), rgba(31, 30, 35, 0.96)),
+    var(--scheme-color);
+  color: #f8f4ec;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+.game .liars-table-stage.is-dutchman {
+  background:
+    linear-gradient(135deg, rgba(12, 24, 17, 0.96), rgba(27, 45, 31, 0.96)),
+    var(--scheme-color);
+}
+
+.game .liars-table-stage-pregame {
+  min-height: 320px;
+}
+
+.game .liars-table-statusbar,
+.game .liars-table-footer,
+.game .liars-table-quickstats {
+  display: grid;
+  gap: 8px;
+}
+
+.game .liars-table-statusbar {
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+}
+
+.game .liars-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .liars-metric > span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(248, 244, 236, 0.64);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.game .liars-metric > strong {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes liars-active-seat-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      0 0 0 2px rgba(236, 197, 108, 0.14),
+      0 0 14px rgba(236, 197, 108, 0.22);
+  }
+
+  50% {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 3px rgba(236, 197, 108, 0.24),
+      0 0 24px rgba(236, 197, 108, 0.38);
+  }
+}
+
+@keyframes liars-active-row-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(236, 197, 108, 0.14),
+      0 0 12px rgba(236, 197, 108, 0.12);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(236, 197, 108, 0.22),
+      0 0 22px rgba(236, 197, 108, 0.26);
+  }
+}
+
+.game .liars-table-felt {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 320px;
+  display: grid;
+  grid-template-rows: minmax(72px, auto) 1fr minmax(72px, auto);
+  gap: 10px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(236, 197, 108, 0.28);
+  border-radius: 44px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(122, 47, 54, 0.96), rgba(76, 25, 34, 0.98) 58%, rgba(41, 18, 24, 1) 100%),
+    #4c1922;
+  box-shadow:
+    inset 0 0 0 10px rgba(67, 43, 30, 0.66),
+    inset 0 0 36px rgba(0, 0, 0, 0.45);
+}
+
+.game .liars-table-stage.is-dutchman .liars-table-felt {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(72, 101, 78, 0.96), rgba(46, 79, 53, 0.98) 58%, rgba(24, 48, 31, 1) 100%),
+    #2e4f35;
+}
+
+.game .liars-table-felt::before {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 32px;
+}
+
+.game .liars-seat-rail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 28px;
+}
+
+.game .liars-seat-rail-top {
+  grid-row: 1;
+  align-self: start;
+}
+
+.game .liars-seat-rail-bottom {
+  grid-row: 3;
+  align-self: end;
+}
+
+.game .liars-table-center {
+  position: relative;
+  z-index: 1;
+  grid-row: 2;
+  align-self: center;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.game .liars-table-kicker {
+  color: #ecc56c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .liars-table-title {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.game .liars-table-subtitle {
+  max-width: 34rem;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.game .liars-bid-summary {
+  min-width: min(100%, 360px);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+
+.game .liars-bid-summary.is-compact {
+  min-width: 0;
+  margin: 8px;
+  padding: 10px;
+}
+
+.game .liars-bid-ring {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(18, 18, 21, 0.96) 58%, transparent 60%),
+    conic-gradient(#ecc56c var(--bid-progress), rgba(255, 255, 255, 0.14) 0);
+  color: #ffffff;
+  font-size: 1.08rem;
+}
+
+.game .liars-bid-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game .liars-bid-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.game .liars-bid-copy > span {
+  color: rgba(248, 244, 236, 0.64);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .liars-bid-copy > strong {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .liars-seat-cup {
+  position: relative;
+  width: 104px;
+  min-height: 98px;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 5px;
+  align-items: center;
+  justify-items: center;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(8, 13, 17, 0.72);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.game .liars-seat-cup.is-turn {
+  border-color: #ecc56c;
+  animation: liars-active-seat-pulse 1.45s ease-in-out infinite;
+  box-shadow:
+    0 0 0 2px rgba(236, 197, 108, 0.16),
+    0 0 18px rgba(236, 197, 108, 0.28);
+}
+
+.game .liars-seat-cup.is-turn::after,
+.game .liars-dice-player-row.is-turn::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(11, 17, 22, 0.9);
+  border-radius: 50%;
+  background: #ecc56c;
+  box-shadow: 0 0 12px rgba(236, 197, 108, 0.85);
+}
+
+.game .liars-seat-cup.is-turn::after {
+  top: -5px;
+  right: -5px;
+}
+
+.game .liars-seat-cup.is-self {
+  background: rgba(34, 87, 99, 0.78);
+}
+
+.game .liars-seat-avatar {
+  display: inline-flex;
+}
+
+.game .liars-seat-name {
+  max-width: 100%;
+  overflow: hidden;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.game .liars-seat-dice-count {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(248, 244, 236, 0.72);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.game .liars-table-footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.game .liars-hero-hand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .liars-hero-hand > span {
+  color: rgba(248, 244, 236, 0.68);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .liars-table-quickstats {
+  min-width: 110px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.game .liars-roster {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.game .liars-dice-player-row {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.game .liars-dice-player-row.is-turn {
+  border-color: rgba(236, 197, 108, 0.7);
+  animation: liars-active-row-pulse 1.45s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(236, 197, 108, 0.15),
+    0 0 18px rgba(236, 197, 108, 0.18);
+}
+
+.game .liars-dice-player-row.is-turn::after {
+  top: 7px;
+  right: 7px;
+}
+
+.game .liars-dice-player-row.is-self {
+  background: rgba(34, 87, 99, 0.2);
+}
+
+.game .liars-dice-player-name {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(10, 15, 19, 0.7);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game .liars-dice-player-name.current-player {
+  border-color: rgba(236, 197, 108, 0.28);
+  color: #ffffff;
+}
+
+.game .liars-dice-dice-container {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.game .liars-dice-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  color: rgba(248, 244, 236, 0.58);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.game .liars-dice-line.is-empty {
+  justify-content: flex-start;
+}
+
+.game .dice.liars-die {
   width: 32px;
   height: 32px;
-  margin: 4px;
+  flex: 0 0 32px;
+  margin: 0;
   background-image: url("/src/images/diceset.png");
+  background-position-x: 0;
   background-repeat: no-repeat;
   background-size: 256px 64px;
-  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  background-position-x: 0;
+  filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.24));
+  transition: transform 0.15s ease-in-out;
 }
 
-.dice:hover {
-  transform: scale(1.15) rotate(8deg);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+.game .dice.liars-die:hover {
+  transform: translateY(-2px) rotate(5deg);
+  box-shadow: none;
 }
 
-.previous-rolls .dice {
+.game .dice.liars-die.liars-die-small {
   width: 24px;
   height: 24px;
+  flex-basis: 24px;
   background-size: 192px 48px;
-  margin: 2px;
-  background-position-x: 0;
 }
 
-.previous-rolls-label {
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: #a52a2a;
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
-  margin-bottom: 8px;
-}
-
-.dice-1 {
+.game .dice.liars-die.dice-1 {
   background-position: 0 -32px;
 }
-.dice-2 {
+
+.game .dice.liars-die.dice-2 {
   background-position: -32px -32px;
 }
-.dice-3 {
+
+.game .dice.liars-die.dice-3 {
   background-position: -64px -32px;
 }
-.dice-4 {
+
+.game .dice.liars-die.dice-4 {
   background-position: -96px -32px;
 }
-.dice-5 {
+
+.game .dice.liars-die.dice-5 {
   background-position: -128px -32px;
 }
-.dice-6 {
+
+.game .dice.liars-die.dice-6 {
   background-position: -160px -32px;
 }
-.dice-unknown {
+
+.game .dice.liars-die.dice-unknown {
   background-position: -192px -32px;
 }
 
-.previous-rolls .dice-1 {
+.game .dice.liars-die.liars-die-small.dice-1 {
   background-position: 0 -24px;
 }
-.previous-rolls .dice-2 {
+
+.game .dice.liars-die.liars-die-small.dice-2 {
   background-position: -24px -24px;
 }
-.previous-rolls .dice-3 {
+
+.game .dice.liars-die.liars-die-small.dice-3 {
   background-position: -48px -24px;
 }
-.previous-rolls .dice-4 {
+
+.game .dice.liars-die.liars-die-small.dice-4 {
   background-position: -72px -24px;
 }
-.previous-rolls .dice-5 {
+
+.game .dice.liars-die.liars-die-small.dice-5 {
   background-position: -96px -24px;
 }
-.previous-rolls .dice-6 {
+
+.game .dice.liars-die.liars-die-small.dice-6 {
   background-position: -120px -24px;
 }
-.previous-rolls .dice-unknown {
+
+.game .dice.liars-die.liars-die-small.dice-unknown {
   background-position: -168px -24px;
 }
 
-.current-rolls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+.game .previous-rolls {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+  margin-top: 0;
 }
 
-.previous-rolls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 15px;
+.game .previous-rolls-label {
+  color: rgba(248, 244, 236, 0.58);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
-.previous-rolls-dice {
-  margin-left: 8px;
+.game .previous-rolls .liars-dice-line {
+  justify-content: flex-start;
+  min-height: 24px;
+}
+
+.game .liars-dice-game .action .btn.btn-theme {
+  background-color: transparent !important;
+}
+
+.game .liars-actions {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.game .liars-actions-empty {
+  color: rgba(248, 244, 236, 0.62);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.game .liars-bid-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.game .liars-amount-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.game .liars-amount-input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  outline: none;
+}
+
+.game .liars-amount-input:focus {
+  border-color: rgba(236, 197, 108, 0.7);
+  box-shadow: 0 0 0 2px rgba(236, 197, 108, 0.14);
+}
+
+.game .liars-amount-input:disabled {
+  opacity: 0.55;
+}
+
+.game .liars-amount-submit,
+.game .liars-challenge-button {
+  height: 42px;
+  min-width: 86px;
+  padding: 0 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.game .liars-amount-submit {
+  border: 1px solid rgba(236, 197, 108, 0.5);
+  background: rgba(236, 197, 108, 0.18);
+  color: #ecc56c;
+}
+
+.game .liars-amount-submit:not(:disabled):hover {
+  background: rgba(236, 197, 108, 0.26);
+}
+
+.game .liars-face-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(38px, 1fr));
+  gap: 8px;
+}
+
+.game .liars-face-button {
+  min-width: 0;
+  height: 48px;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.game .liars-face-button:not(:disabled):hover {
+  border-color: rgba(236, 197, 108, 0.58);
+  background: rgba(236, 197, 108, 0.14);
+  transform: translateY(-1px);
+}
+
+.game .liars-face-button.is-selected {
+  border-color: #ecc56c;
+  background: rgba(236, 197, 108, 0.18);
+  box-shadow: 0 0 0 2px rgba(236, 197, 108, 0.14);
+}
+
+.game .liars-face-button:disabled,
+.game .liars-amount-submit:disabled,
+.game .liars-challenge-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.game .liars-face-button .dice.liars-die:hover {
+  transform: none;
+}
+
+.game .liars-challenge-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+}
+
+.game .liars-challenge-button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.game .liars-challenge-button.is-lie {
+  background: rgba(176, 54, 54, 0.18);
+}
+
+.game .liars-challenge-button.is-spot-on {
+  background: rgba(34, 92, 154, 0.22);
+}
+
+.game .liars-challenge-button:not(:disabled):hover {
+  border-color: rgba(236, 197, 108, 0.58);
+  background: rgba(236, 197, 108, 0.14);
+}
+
+@media (max-width: 900px) {
+  .game .liars-table-statusbar,
+  .game .liars-table-footer,
+  .game .liars-table-quickstats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .liars-table-felt {
+    min-height: 360px;
+  }
+
+  .game .liars-hero-hand {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .game .liars-table-stage {
+    padding: 8px;
+    border-radius: 0;
+  }
+
+  .game .liars-table-statusbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game .liars-table-felt {
+    min-height: 330px;
+    padding: 14px 10px;
+    border-radius: 28px;
+  }
+
+  .game .liars-seat-cup {
+    width: 92px;
+  }
+
+  .game .liars-seat-rail {
+    padding-inline: 16px;
+  }
+
+  .game .liars-bid-summary {
+    min-width: 0;
+    width: min(100%, 320px);
+    grid-template-columns: auto auto minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .game .liars-face-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .game .liars-amount-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
