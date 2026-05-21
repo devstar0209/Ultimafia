@@ -45,6 +45,78 @@
   animation-delay: 1.6s;
 }
 
+.game-finished-emoticons {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.game-finished-emoticons span {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(8, 10, 12, 0.58);
+  font-size: 34px;
+  line-height: 1;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.34);
+  animation: game-finished-emoticon 2.8s ease-in-out infinite;
+}
+
+.game-finished-emoticons span:nth-child(1) {
+  top: 16%;
+  left: 18%;
+  animation-delay: 0s;
+}
+
+.game-finished-emoticons span:nth-child(2) {
+  top: 18%;
+  right: 20%;
+  animation-delay: 0.35s;
+}
+
+.game-finished-emoticons span:nth-child(3) {
+  top: 48%;
+  left: 10%;
+  animation-delay: 0.7s;
+}
+
+.game-finished-emoticons span:nth-child(4) {
+  top: 50%;
+  right: 11%;
+  animation-delay: 1.05s;
+}
+
+.game-finished-emoticons span:nth-child(5) {
+  bottom: 15%;
+  left: 25%;
+  animation-delay: 1.4s;
+}
+
+.game-finished-emoticons span:nth-child(6) {
+  right: 26%;
+  bottom: 14%;
+  animation-delay: 1.75s;
+}
+
+.is-win .game-finished-emoticons span {
+  border: 1px solid rgba(97, 224, 150, 0.38);
+  text-shadow: 0 0 18px rgba(97, 224, 150, 0.62);
+}
+
+.is-loss .game-finished-emoticons span {
+  border: 1px solid rgba(255, 101, 101, 0.38);
+  text-shadow: 0 0 18px rgba(255, 101, 101, 0.56);
+}
+
+.is-neutral .game-finished-emoticons span {
+  border: 1px solid rgba(235, 207, 109, 0.38);
+  text-shadow: 0 0 18px rgba(235, 207, 109, 0.56);
+}
+
 .game-finished-animation.is-win::before,
 .game-finished-animation.is-win::after,
 .game-finished-animation.is-win .game-finished-burst {
@@ -350,6 +422,19 @@
   }
 }
 
+@keyframes game-finished-emoticon {
+  0%,
+  100% {
+    transform: translateY(0) scale(0.9) rotate(-5deg);
+    opacity: 0.68;
+  }
+
+  50% {
+    transform: translateY(-16px) scale(1.08) rotate(6deg);
+    opacity: 1;
+  }
+}
+
 @keyframes game-finished-fade {
   0% {
     opacity: 0;
@@ -375,6 +460,12 @@
 
   .game-finished-title {
     font-size: 34px;
+  }
+
+  .game-finished-emoticons span {
+    width: 44px;
+    height: 44px;
+    font-size: 26px;
   }
 
   .game-replay-modal {
@@ -409,6 +500,7 @@
   .game-finished-animation::before,
   .game-finished-animation::after,
   .game-finished-burst,
+  .game-finished-emoticons span,
   .game-finished-result {
     animation: none;
   }

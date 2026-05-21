@@ -248,7 +248,7 @@ var deprecated = false;
                 `User ${data.userId} unable to leave game ${gameId}.`
               );
 
-            game.userLeave(data.userId);
+            await game.userLeave(data.userId);
             socket.send("gameLeft", data.userId);
           } catch (e) {
             logger.error(e);

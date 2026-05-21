@@ -79,6 +79,18 @@ router.post("/leave", async function (req, res) {
     if (req.body.key == process.env.BOT_KEY) userId = req.body.userId;
     else userId = await routeUtils.verifyLoggedIn(req);
 
+    const sourceGameId = req.body.gameId && String(req.body.gameId);
+    const nextGameId = req.body.nextGameId && String(req.body.nextGameId);
+    const currentGame = await redis.inGame(userId);
+
+    if (
+      (nextGameId && currentGame === nextGameId) ||
+      (sourceGameId && !nextGameId && currentGame !== sourceGameId)
+    ) {
+      res.sendStatus(200);
+      return;
+    }
+
     try {
       await gameLoadBalancer.leaveGame(userId);
     } catch (e) {
@@ -659,7 +671,14 @@ router.post("/host", async function (req, res) {
 
       for (let game of openGames) {
         if (game.settings.rehostId == rehostId) {
-          res.send(game.id);
+          if (req.body.returnRehostStatus) {
+            res.send({
+              id: game.id,
+              existing: true,
+            });
+          } else {
+            res.send(game.id);
+          }
           return;
         }
       }
@@ -934,7 +953,22 @@ router.post("/host", async function (req, res) {
       return;
     }
 
-    if (!scheduled && (await redis.inGame(userId))) {
+    const currentGame = await redis.inGame(userId);
+    const replayRequest = Boolean(req.body.returnRehostStatus && rehostId);
+    let canReplayFromCurrentGame = replayRequest && currentGame === rehostId;
+
+    if (replayRequest && currentGame && !canReplayFromCurrentGame) {
+      const replaySourceGame = await redis.getGameInfo(rehostId, true);
+      const replaySourcePlayers = replaySourceGame?.players || [];
+      const replaySourceSpectators = replaySourceGame?.spectators || [];
+
+      canReplayFromCurrentGame =
+        replaySourceGame?.gameState === "Postgame" &&
+        (replaySourcePlayers.includes(userId) ||
+          replaySourceSpectators.includes(userId));
+    }
+
+    if (!scheduled && currentGame && !canReplayFromCurrentGame) {
       res.status(500);
       res.send("You must leave your current game before creating a new one.");
       redis.unsetCreatingGame(userId);
@@ -990,7 +1024,14 @@ router.post("/host", async function (req, res) {
         ...settings,
       });
 
-      res.send(gameId);
+      if (req.body.returnRehostStatus) {
+        res.send({
+          id: gameId,
+          existing: false,
+        });
+      } else {
+        res.send(gameId);
+      }
       redis.unsetCreatingGame(userId);
       let ping;
       if (gameType !== "Mafia") {

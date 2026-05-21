@@ -282,37 +282,69 @@ export default function Game() {
     setReplayStatus("hosting");
     setReplayPromptOpen(false);
 
-    if (socket.on) socket.send("leave");
-
     setTimeout(() => {
       var stateLengths = {};
 
       for (let stateName in options.stateLengths || {})
         stateLengths[stateName] = options.stateLengths[stateName] / 60000;
 
-      axios
-        .post("/api/game/leave")
-        .then(() => {
-          if (gameId === user.inGame) {
-            user.setInGame(null);
+      const replayHostPayload = {
+        rehost: gameId,
+        returnRehostStatus: true,
+        gameType: gameType,
+        setup: setup.id,
+        lobby: options.lobby,
+        private: options.private,
+        spectating: options.spectating,
+        guests: options.guests,
+        ranked: options.ranked,
+        competitive: options.competitive,
+        stateLengths: stateLengths,
+        ...options.gameTypeOptions,
+      };
+
+      const hostReplayGame = (allowLeaveRetry = true) =>
+        axios.post("/api/game/host", replayHostPayload).catch((e) => {
+          const responseMessage = e?.response?.data;
+
+          if (
+            allowLeaveRetry &&
+            typeof responseMessage === "string" &&
+            responseMessage
+              .toLowerCase()
+              .includes("must leave your current game")
+          ) {
+            return axios
+              .post("/api/game/leave", { gameId })
+              .then(() => hostReplayGame(false));
           }
 
-          return axios.post("/api/game/host", {
-            rehost: gameId,
-            gameType: gameType,
-            setup: setup.id,
-            lobby: options.lobby,
-            private: options.private,
-            spectating: options.spectating,
-            guests: options.guests,
-            ranked: options.ranked,
-            competitive: options.competitive,
-            stateLengths: stateLengths,
-            ...options.gameTypeOptions,
-          });
-        })
+          throw e;
+        });
+
+      hostReplayGame()
         .then((res) => {
-          window.location.href = window.location.origin + `/game/${res.data}`;
+          const replayGame =
+            res.data && typeof res.data === "object"
+              ? res.data
+              : { id: res.data, existing: false };
+
+          if (!replayGame.existing) return replayGame;
+
+          return axios
+            .post("/api/game/leave", {
+              gameId,
+              nextGameId: replayGame.id,
+            })
+            .then(() => replayGame);
+        })
+        .then((replayGame) => {
+          if (gameId === user.inGame || replayGame.id) {
+            user.setInGame(replayGame.id || null);
+          }
+
+          window.location.href =
+            window.location.origin + `/game/${replayGame.id}`;
         })
         .catch((e) => {
           noLeaveRef.current = false;
@@ -1242,6 +1274,11 @@ function GameFinishedAnimation({ visible, playerWon, winnersInfo }) {
   const isWin = playerWon === true;
   const isLoss = playerWon === false;
   const title = isWin ? "Victory" : isLoss ? "Failed" : "Game Over";
+  const emoticons = isWin
+    ? ["🏆", "🎉", "✨", "👏", "⭐", "💎"]
+    : isLoss
+      ? ["💀", "💔", "😵", "⚠️", "🥀", "✖️"]
+      : ["🎲", "⭐", "!", "?", "✨", "•"];
 
   return (
     <div
@@ -1251,8 +1288,15 @@ function GameFinishedAnimation({ visible, playerWon, winnersInfo }) {
       aria-live="polite"
     >
       <div className="game-finished-burst" />
+      <div className="game-finished-emoticons" aria-hidden="true">
+        {emoticons.map((emoticon, index) => (
+          <span key={`${emoticon}-${index}`}>{emoticon}</span>
+        ))}
+      </div>
       <div className="game-finished-result">
-        <div className="game-finished-icon">{isWin ? "W" : isLoss ? "X" : "!"}</div>
+        <div className="game-finished-icon">
+          {isWin ? "🏆" : isLoss ? "💀" : "🎲"}
+        </div>
         <div className="game-finished-title">{title}</div>
         <div className="game-finished-subtitle">
           {getWinnerSummary(winnersInfo)}
