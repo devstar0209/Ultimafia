@@ -22,7 +22,6 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
@@ -417,11 +416,13 @@ export default function LobbyBrowser() {
         <Button
           variant="contained"
           size="small"
-          href="/play/create"
-          startIcon={<AddRoundedIcon />}
+          onClick={() =>
+            navigate(`/play/host?game=${encodeURIComponent(selectedGameType)}`)
+          }
+          startIcon={<SportsEsportsRoundedIcon />}
           sx={{ mt: 2 }}
         >
-          Create Host
+          Host
         </Button>
       )}
     </Paper>
@@ -528,10 +529,14 @@ export default function LobbyBrowser() {
               {user.loggedIn && (
                 <Button
                   variant="contained"
-                  href="/play/create"
-                  startIcon={<AddRoundedIcon />}
+                  onClick={() =>
+                    navigate(
+                      `/play/host?game=${encodeURIComponent(selectedGameType)}`
+                    )
+                  }
+                  startIcon={<SportsEsportsRoundedIcon />}
                 >
-                  Create Host
+                  Host
                 </Button>
               )}
             </Stack>

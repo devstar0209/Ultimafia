@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useContext } from "react";
+import React, { useCallback, useEffect, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Dialog from "@mui/material/Dialog";
@@ -7,6 +7,7 @@ import DialogContent from "@mui/material/DialogContent";
 import {
   Alert,
   Button,
+  CircularProgress,
   Stack,
 } from "@mui/material";
 import { SiteInfoContext, UserContext } from "Contexts";
@@ -37,6 +38,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
   const errorAlert = useErrorAlert();
   const isPhoneDevice = useIsPhoneDevice();
   const navigate = useNavigate();
+  const [hosting, setHosting] = useState(false);
 
   const GameTypeHostForm = useCallback((gameType, catalogItem) => {
     switch (gameType) {
@@ -117,12 +119,17 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
     for (let field of formFields) if (field.ref === ref) return field.value;
   }
 
-  const onHostGameWrapper = () => {
-    onHostGame(setup.id, getFormFieldValue)
-      .then((res) => {
-        navigate(`/game/${res.data}`);
-      })
-      .catch(errorAlert);
+  const onHostGameWrapper = async () => {
+    if (hosting) return;
+
+    setHosting(true);
+    try {
+      const res = await onHostGame(setup.id, getFormFieldValue);
+      navigate(`/game/${res.data}`);
+    } catch (e) {
+      setHosting(false);
+      errorAlert(e);
+    }
   };
 
   const lobby = getFormFieldValue("lobby");
@@ -156,7 +163,9 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
     <>
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (!hosting) setOpen(false);
+        }}
         scroll="body"
         fullScreen={isPhoneDevice}
       >
@@ -170,6 +179,7 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
               <Button
                 variant="outlined"
                 onClick={() => setOpen(false)}
+                disabled={hosting}
                 sx={{
                   flex: "1",
                 }}
@@ -179,12 +189,17 @@ export default function HostGameDialogue({ open, setOpen, setup, preSelectedDeck
               <div style={{ flex: "1" }} />
               <Button
                 onClick={onHostGameWrapper}
-                disabled={!hasEnoughCoins}
+                disabled={!hasEnoughCoins || hosting}
+                startIcon={
+                  hosting ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : null
+                }
                 sx={{
                   flex: "1",
                 }}
               >
-                Host
+                {hosting ? "Hosting..." : "Host"}
               </Button>
             </Stack>
             <Setup

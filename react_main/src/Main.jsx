@@ -344,14 +344,23 @@ function Header({ setShowAnnouncementTemporarily }) {
             alignItems: "center",
             width: "100%",
           }}>
-            <NavDropdown
-              label="Play"
-              items={[
-                { text: "Play", path: "/play" },
-                { text: "Host", path: "/play/host", hide: !user.loggedIn },
-                { text: "Decks", path: "/play/decks", hide: !user.loggedIn },
-              ]}
-            />
+            <NavLink
+              to="/play"
+              style={({ isActive }) => ({
+                textTransform: "uppercase",
+                color: "inherit",
+                padding: "0 var(--mui-spacing)",
+                backgroundColor: isActive
+                  ? "rgba(var(--mui-palette-primary-mainChannel) / 0.14)"
+                  : undefined,
+                borderRadius: 999,
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 36,
+              })}
+              >
+              <Typography variant="h3">Play</Typography>
+            </NavLink>
             <NavDropdown
               label="Community"
               items={[
