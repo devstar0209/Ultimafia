@@ -128,7 +128,8 @@ export default function CreateSetup(props) {
   const theme = useTheme();
   const isPhoneDevice = useIsPhoneDevice();
 
-  const gameTypeSettings = siteInfo.gamesettings[gameType];
+  const gameTypeSettings = siteInfo.gamesettings[gameType] || [];
+  const hasGameSettingsConfig = gameTypeSettings.length > 0;
   const isMafiaSetup = gameType === "Mafia";
 
   const [roleData, updateRoleData] = useReducer(
@@ -561,10 +562,8 @@ export default function CreateSetup(props) {
     updateRoleData({ type: "reset" });
   }
 
-  let usingRoleGroups = roleData.closed && roleData.useRoleGroups;
-  let showAddRoleSet =
-    (!roleData.closed && roleData.roles.length < 10) || usingRoleGroups;
-  let showMoveOptions = roleData.roles.length > 1;
+  const usingRoleGroups = roleData.closed && roleData.useRoleGroups;
+  const showMoveOptions = roleData.roles.length > 1;
 
   const roleSets = roleData.roles.map((roleSet, i) => {
     let roles = [];
@@ -706,29 +705,6 @@ export default function CreateSetup(props) {
               >
                 <i
                   className="fa-arrow-circle-down fas"
-                  aria-hidden="true"
-                  style={{ fontSize: isPhoneDevice ? "0.5em" : "1em" }}
-                />
-              </Button>
-            )}
-            {showAddRoleSet && (
-              <Button
-                onClick={() => {
-                  updateRoleData({
-                    type: "copyRoleSet",
-                    index: i,
-                  });
-                }}
-                sx={{
-                  padding: 1,
-                  bgcolor: "#d350e4ff",
-                  alignSelf: "stretch",
-                  minwidth: "0px",
-                  ml: 1,
-                }}
-              >
-                <i
-                  className="fa-copy fas"
                   aria-hidden="true"
                   style={{ fontSize: isPhoneDevice ? "0.5em" : "1em" }}
                 />
@@ -884,77 +860,46 @@ export default function CreateSetup(props) {
         </StickyStateViewer>
       )}
       {roleSets}
-      <Paper
-        sx={{
-          p: 1,
-          width: "80%",
-          mx: "auto !important",
-        }}
-      >
-        <Grid2 container columns={3} spacing={1}>
-          <Grid2 size={{ xs: 1 }}></Grid2>
-          <Grid2 size={{ xs: 1 }}>
-            {showAddRoleSet && (
-              <Stack
-                direction="row"
-                sx={{
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: "100%",
-                }}
-              >
-                <Button
-                  onClick={() => updateRoleData({ type: "addRoleSet" })}
-                  sx={{
-                    padding: 1,
-                    bgcolor: "#62a0db",
-                    alignSelf: "stretch",
-                    minwidth: "0px",
-                    ml: 1,
-                  }}
-                >
-                  <i className="fa-plus fas" aria-hidden="true" />
-                </Button>
-              </Stack>
-            )}
-          </Grid2>
-          <Grid2 size={{ xs: 1 }}>
-            {usingRoleGroups && (
-              <Stack
-                direction="row"
-                sx={{
-                  justifyContent: "right",
-                  alignItems: "center",
-                  height: "100%",
-                }}
-              >
-                <Typography>
-                  {"Total Size: "}
-                  {roleData.roleGroupSizes.reduce((a, b) => a + b)}
-                </Typography>
-              </Stack>
-            )}
-          </Grid2>
-        </Grid2>
-      </Paper>
-      <GameSettingSearch
-        onAddClick={(gameSetting) =>
-          updateGameSettings({ type: "add", gameSetting: gameSetting })
-        }
-        gameType={gameType}
-        curMods={gameSettings}
-      />
-      <Paper
-        sx={{
-          p: 1,
-        }}
-      >
-        <Stack direction="column" spacing={1}>
-          <Typography variant="h3">Enabled Game Settings</Typography>
-          {Object.keys(gameSettings).length === 0 && (
-            <Typography>No game settings enabled</Typography>
-          )}
-          {Object.keys(gameSettings).length > 0 && (
+      {usingRoleGroups && (
+        <Paper
+          sx={{
+            p: 1,
+            width: "80%",
+            mx: "auto !important",
+          }}
+        >
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "right",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
+            <Typography>
+              {"Total Size: "}
+              {roleData.roleGroupSizes.reduce((a, b) => a + b)}
+            </Typography>
+          </Stack>
+        </Paper>
+      )}
+      {hasGameSettingsConfig && (
+        <GameSettingSearch
+          onAddClick={(gameSetting) =>
+            updateGameSettings({ type: "add", gameSetting: gameSetting })
+          }
+          gameType={gameType}
+          curMods={gameSettings}
+        />
+      )}
+      {hasGameSettingsConfig && Object.keys(gameSettings).length > 0 && (
+        <Paper
+          sx={{
+            p: 1,
+          }}
+        >
+          <Stack direction="column" spacing={1}>
+            <Typography variant="h3">Enabled Game Settings</Typography>
             <Grid2
               container
               columns={4}
@@ -993,9 +938,9 @@ export default function CreateSetup(props) {
                 );
               })}
             </Grid2>
-          )}
-        </Stack>
-      </Paper>
+          </Stack>
+        </Paper>
+      )}
       <Paper
         ref={setupFormRef}
         sx={{
