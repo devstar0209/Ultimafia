@@ -152,7 +152,17 @@ module.exports = class ResistanceGame extends Game {
       };
     }
 
-    info.extraInfo = this.missionRecord;
+    info.extraInfo = {
+      ...this.missionRecord,
+      mission: this.mission,
+      numMissions: this.numMissions,
+      currentTeam: this.currentMissionHistory?.team || [],
+      currentTeamSize: this.currentTeamSize,
+      teamFails: this.teamFails,
+      teamFailLimit: this.teamFailLimit,
+      currentLeaderId: this.currentLeader?.id,
+      currentLeaderName: this.currentLeader?.name,
+    };
 
     return info;
   }
