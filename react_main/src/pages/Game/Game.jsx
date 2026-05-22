@@ -1346,7 +1346,10 @@ function ReplayModal({
   return (
     <Dialog
       open={show}
-      onClose={onClose}
+      onClose={(event, reason) => {
+        if (reason === "backdropClick" || reason === "escapeKeyDown") return;
+        onClose();
+      }}
       className="game-replay-dialog"
       maxWidth="sm"
       fullWidth
