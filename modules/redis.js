@@ -8,11 +8,23 @@ const Random = require("./../lib/Random");
 const utils = require("../lib/Utils");
 
 var client = redis.createClient({ url: "redis://127.0.0.1:6379" });
+const LOBBY_UPDATE_CHANNEL = "lobbyUpdates";
 
 client.on("error", (e) => {
   throw e;
 });
 client.select(process.env.REDIS_DB || 0);
+
+function publishLobbyUpdate(type, gameId) {
+  client.publish(
+    LOBBY_UPDATE_CHANNEL,
+    JSON.stringify({
+      type,
+      gameId,
+      date: Date.now(),
+    })
+  );
+}
 
 async function getUserDbId(userId) {
   const key = `user:${userId}:dbId`;
@@ -1008,10 +1020,13 @@ async function setGameStatus(gameId, status) {
 
   if (status == "In Progress")
     await client.setAsync(`game:${gameId}:startTime`, Date.now());
+
+  publishLobbyUpdate("status", gameId);
 }
 
 async function setGameHost(gameId, hostId) {
   await client.setAsync(`game:${gameId}:hostId`, hostId);
+  publishLobbyUpdate("host", gameId);
 }
 
 async function setGameSetup(gameId, setupID) {
@@ -1021,6 +1036,7 @@ async function setGameSetup(gameId, setupID) {
   info.setup = setupID;
   //JSON.stringify(info);
   await client.setAsync(`game:${gameId}:settings`, JSON.stringify(info));
+  publishLobbyUpdate("setup", gameId);
 }
 
 async function getOpenGames(gameType) {
@@ -1126,6 +1142,7 @@ async function createGame(gameId, info) {
   await client.setAsync(`game:${gameId}:winnersInfo`, "[]");
 
   await client.saddAsync("games", gameId);
+  publishLobbyUpdate("create", gameId);
 
   if (info.settings.scheduled) {
     await client.saddAsync("scheduledGames", gameId);
@@ -1184,6 +1201,7 @@ async function joinGame(userId, gameId, ranked, competitive) {
     await ban.save();
   }
   await cacheUserPermissions(userId);
+  publishLobbyUpdate("join", gameId);
 }
 
 async function leaveGame(userId) {
@@ -1196,6 +1214,8 @@ async function leaveGame(userId) {
 
   await models.Ban.deleteMany({ userId, type: "gameAuto" }).exec();
   await cacheUserPermissions(userId);
+
+  if (gameId) publishLobbyUpdate("leave", gameId);
 }
 
 async function reserveGame(userId, gameId) {
@@ -1246,6 +1266,7 @@ async function deleteGame(gameId, game) {
   await client.delAsync(`game:${gameId}:createTime`);
   await client.delAsync(`game:${gameId}:startTime`);
   await client.delAsync(`game:${gameId}:webhookPublished`);
+  publishLobbyUpdate("delete", gameId);
 }
 
 async function breakGame(gameId) {
@@ -1291,10 +1312,12 @@ async function breakGame(gameId) {
 
 async function setSpectatorCount(gameId, spectatorCount) {
   await client.setAsync(`game:${gameId}:spectatorCount`, spectatorCount);
+  publishLobbyUpdate("spectators", gameId);
 }
 
 async function setGameState(gameId, gameState) {
   await client.setAsync(`game:${gameId}:gameState`, gameState);
+  publishLobbyUpdate("state", gameId);
 }
 
 async function setWinnersInfo(gameId, winnersInfo) {
@@ -1302,6 +1325,7 @@ async function setWinnersInfo(gameId, winnersInfo) {
     `game:${gameId}:winnersInfo`,
     JSON.stringify(winnersInfo)
   );
+  publishLobbyUpdate("winners", gameId);
 }
 
 async function gameWebhookPublished(gameId) {
@@ -1535,6 +1559,7 @@ async function setAutoApprovalEnabled(enabled) {
 
 module.exports = {
   client,
+  LOBBY_UPDATE_CHANNEL,
   getUserDbId,
   cacheSetups,
   getFavSetups,

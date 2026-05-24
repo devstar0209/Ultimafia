@@ -311,6 +311,19 @@ router.get("/list", async function (req, res) {
   }
 });
 
+router.get("/lobby/connect", async function (req, res) {
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const token = await redis.createAuthToken(userId);
+
+    res.send(token);
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error connecting to lobby.");
+  }
+});
+
 router.get("/:id/connect", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {

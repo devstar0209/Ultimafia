@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext, useCallback, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import { UserContext, SiteInfoContext } from "Contexts";
-import { getPageNavFilterArg, PageNav } from "components/Nav";
+import { ClientSocket as Socket } from "../../../Socket";
+import { PageNav } from "components/Nav";
 import { useErrorAlert } from "components/Alerts";
 import { camelCase } from "../../../utils";
 import Comments from "../../Community/Comments";
@@ -39,6 +40,21 @@ import GameIcon from "components/GameIcon";
 
 const LOBBY_GAMES_PER_PAGE = 6;
 
+function getLobbySocketURL() {
+  if (import.meta.env.REACT_APP_USE_PORT === "true") {
+    const lobbyPort =
+      import.meta.env.REACT_APP_LOBBY_PORT || "2998";
+
+    return `${import.meta.env.REACT_APP_SOCKET_PROTOCOL}://${
+      import.meta.env.REACT_APP_SOCKET_URI
+    }:${lobbyPort}`;
+  }
+
+  return `${import.meta.env.REACT_APP_SOCKET_PROTOCOL}://${
+    import.meta.env.REACT_APP_SOCKET_URI
+  }/lobbySocket`;
+}
+
 export default function LobbyBrowser() {
   const theme = useTheme();
   const siteInfo = useContext(SiteInfoContext);
@@ -56,6 +72,10 @@ export default function LobbyBrowser() {
   const location = useLocation();
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
+  const lobbySocketRef = useRef(null);
+  const pendingLobbyCallbackRef = useRef(null);
+  const lobbyViewRef = useRef({ listType, page });
+  const gamesRef = useRef(games);
 
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
@@ -65,6 +85,7 @@ export default function LobbyBrowser() {
       localStorage.getItem("lobbyGameType") ||
       defaultGameType
   );
+  const selectedGameTypeRef = useRef(selectedGameType);
 
   const glowingHostButton = user.canPlayRanked
     ? !hasOneOpenGame
@@ -79,6 +100,120 @@ export default function LobbyBrowser() {
       }
     };
   }, [refreshTimeoutId]);
+
+  useEffect(() => {
+    lobbyViewRef.current = { listType, page };
+  }, [listType, page]);
+
+  useEffect(() => {
+    gamesRef.current = games;
+  }, [games]);
+
+  useEffect(() => {
+    selectedGameTypeRef.current = selectedGameType;
+  }, [selectedGameType]);
+
+  useEffect(() => {
+    const lobbySocket = new Socket(getLobbySocketURL(), true);
+    lobbySocketRef.current = lobbySocket;
+
+    lobbySocket.on("connected", () => {
+      requestLobbyData(listType, page, null, { silent: true });
+
+      if (user.loggedIn) {
+        axios
+          .get("/api/game/lobby/connect")
+          .then(({ data }) => lobbySocket.send("auth", data))
+          .catch(() => {});
+      }
+    });
+
+    lobbySocket.on("lobbyData", (payload) => {
+      const lobbyGames = payload.games || [];
+
+      if (payload.gameType !== selectedGameTypeRef.current) return;
+
+      setOpenGamesCounts(payload.openGamesCounts || {});
+      setHasOneOpenGame(Boolean(payload.hasOneOpenGame));
+      setHasOneOpenUrankedGame(Boolean(payload.hasOneOpenUrankedGame));
+
+      if (lobbyGames.length > 0 || payload.page === 1) {
+        setListType(payload.listType || "All");
+        setPage(payload.page || 1);
+        setGames(lobbyGames);
+      }
+
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+
+      if (pendingLobbyCallbackRef.current) {
+        pendingLobbyCallbackRef.current();
+        pendingLobbyCallbackRef.current = null;
+      }
+    });
+
+    lobbySocket.on("error", (error) => {
+      if (error) errorAlert(error);
+    });
+
+    return () => {
+      if (lobbySocketRef.current === lobbySocket) {
+        lobbySocketRef.current = null;
+      }
+
+      lobbySocket.clear();
+    };
+  }, [user.loggedIn]);
+
+  function getLobbyCursor(_page) {
+    const currentGames = gamesRef.current;
+    const currentView = lobbyViewRef.current;
+
+    if (_page === 1) return { last: "Infinity" };
+    if (_page < currentView.page && currentGames.length !== 0) {
+      return { first: currentGames[0].endTime };
+    }
+    if (_page >= currentView.page && currentGames.length !== 0) {
+      return { last: currentGames[currentGames.length - 1].endTime };
+    }
+
+    return null;
+  }
+
+  function requestLobbyData(
+    _listType,
+    _page,
+    finallyCallback = null,
+    options = {}
+  ) {
+    const { silent = false } = options;
+    const socket = lobbySocketRef.current;
+    const cursor = getLobbyCursor(_page);
+
+    if (!cursor || !socket || socket.readyState >= 2) {
+      if (finallyCallback) finallyCallback();
+      return false;
+    }
+
+    if (!silent) {
+      setLoading(true);
+    }
+
+    pendingLobbyCallbackRef.current = finallyCallback;
+    socket.send("watchLobby", {
+      list: camelCase(_listType),
+      listType: _listType,
+      lobby: "All",
+      gameType: selectedGameTypeRef.current,
+      page: _page,
+      pageSize: LOBBY_GAMES_PER_PAGE,
+      ...cursor,
+    });
+
+    return true;
+  }
+
   useEffect(() => {
     const gameKeys = gameCatalog.map(g => g.key);
     const safeGameType = gameKeys.includes(selectedGameType)
@@ -102,66 +237,15 @@ export default function LobbyBrowser() {
     setHasOneOpenGame(false);
     setHasOneOpenUrankedGame(false);
     getGameList(listType, 1);
-    getOpenGameCounts();
   }, [location.pathname, selectedGameType]);
 
-  const getOpenGameCounts = useCallback(async () => {
-    return axios.get(`/api/game/list?list=open`).then(({ data }) => {
-      if (!isMountedRef.current) return;
-
-      const result = {};
-      data.forEach((game) => {
-        const gameType = game?.setup?.gameType;
-        if (!gameType) return;
-        if (result[gameType] === undefined) {
-          result[gameType] = 0;
-        }
-        result[gameType]++;
-
-        if (!hasOneOpenGame) setHasOneOpenGame(true);
-        if (!hasOneOpenUrankedGame && !game.ranked)
-          setHasOneOpenUrankedGame(true);
-      });
-      setOpenGamesCounts(result);
-    });
-  }, []);
-
-  const getGameList = async (_listType, _page, finallyCallback = null) => {
-    var filterArg = getPageNavFilterArg(_page, page, games, "endTime");
-
-    if (filterArg == null) return;
-
-    setLoading(true);
-    filterArg += `&page=${_page}`;
-    try {
-      const res = await axios.get(
-        `/api/game/list?list=${camelCase(
-          _listType
-        )}&lobby=All&gameType=${encodeURIComponent(
-          selectedGameType
-        )}&pageSize=${LOBBY_GAMES_PER_PAGE}&${filterArg}`
-      );
-      if (!isMountedRef.current) return;
-
-      const filteredGames = res.data || [];
-
-      if (filteredGames.length > 0 || _page === 1) {
-        setListType(_listType);
-        setPage(_page);
-        setGames(filteredGames);
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        errorAlert();
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-      if (isMountedRef.current && finallyCallback) {
-        finallyCallback();
-      }
-    }
+  const getGameList = async (
+    _listType,
+    _page,
+    finallyCallback = null,
+    options = {}
+  ) => {
+    requestLobbyData(_listType, _page, finallyCallback, options);
   };
 
   const refreshGames = async () => {
@@ -195,7 +279,6 @@ export default function LobbyBrowser() {
       }
     };
     getGameList(listType, page, callback);
-    getOpenGameCounts();
   };
 
   const showOpenGames = () => {
