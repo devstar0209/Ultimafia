@@ -701,12 +701,15 @@ router.post("/host", async function (req, res) {
     var stateLengths = {};
 
     for (let stateName in constants.configurableStates[gameType]) {
-      let min = constants.configurableStates[gameType][stateName].min;
-      let max = constants.configurableStates[gameType][stateName].max;
-      let stateLength = Number(configuredStateLengths[stateName]) * 60 * 1000;
+      let stateConfig = constants.configurableStates[gameType][stateName];
+      let min = stateConfig.min;
+      let max = stateConfig.max;
+      let inputMultiplier = stateConfig.inputMultiplier || 60 * 1000;
+      let stateLength =
+        Number(configuredStateLengths[stateName]) * inputMultiplier;
 
       if (isNaN(stateLength) || stateLength < min || stateLength > max)
-        stateLength = constants.configurableStates[gameType][stateName].default;
+        stateLength = stateConfig.default;
 
       stateLengths[stateName] = stateLength;
     }

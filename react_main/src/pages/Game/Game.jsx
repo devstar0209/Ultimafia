@@ -284,9 +284,12 @@ export default function Game() {
 
     setTimeout(() => {
       var stateLengths = {};
+      const stateLengthDivisor =
+        gameType === "Dice Wars" || gameType === "DiceWars" ? 1000 : 60000;
 
       for (let stateName in options.stateLengths || {})
-        stateLengths[stateName] = options.stateLengths[stateName] / 60000;
+        stateLengths[stateName] =
+          options.stateLengths[stateName] / stateLengthDivisor;
 
       const replayHostPayload = {
         rehost: gameId,

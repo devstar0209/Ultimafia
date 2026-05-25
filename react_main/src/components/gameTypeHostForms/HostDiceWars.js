@@ -90,7 +90,7 @@ export default function HostDiceWars() {
       min: Date.now(),
     },
     {
-      label: "Play Length (minutes)",
+      label: "Play Length (seconds)",
       ref: "playLength",
       type: "number",
       min: 5,

@@ -10,6 +10,7 @@ module.exports = class DiceWarsGame extends Game {
     this.Player = Player;
     this.mapSize = parseInt(options.settings.mapSize) || 30;
     this.maxDicePerTerritory = parseInt(options.settings.maxDice) || 8;
+    this.turnLength = options.settings.stateLengths["Play"] ?? 30 * 1000;
     this.gameStarted = false;
     this.states = [
       {
@@ -18,7 +19,7 @@ module.exports = class DiceWarsGame extends Game {
       { name: "Pregame" },
       {
         name: "Play",
-        length: options.settings.stateLengths["Play"] ?? 300,
+        length: this.turnLength,
       },
     ];
 
@@ -39,6 +40,15 @@ module.exports = class DiceWarsGame extends Game {
     const state = this.getStateInfo().name;
     if (state === "Play" && previousState === "Pregame") {
       this.startGame();
+    }
+  }
+
+  createNextStateTimer(stateInfo) {
+    if (stateInfo.name === "Play") {
+      this.startTurnTimer();
+      this.checkAllMeetingsReady();
+    } else {
+      super.createNextStateTimer(stateInfo);
     }
   }
 
@@ -544,22 +554,16 @@ module.exports = class DiceWarsGame extends Game {
     }
 
     this.sendGameState();
-    this.startTurnTimer();
   }
 
   startTurnTimer() {
-    this.clearTimer("turnInactivity");
-    this.createTimer("turnInactivity", 60 * 1000, () => {
-      if (this.currentTurnPlayerId && this.getStateName() === "Play") {
-        this.endTurn(this.currentTurnPlayerId);
+    this.clearTimer("main");
+    this.createTimer("main", this.turnLength, () => {
+      const turnPlayerId = this.currentTurnPlayerId;
+      if (turnPlayerId && this.getStateName() === "Play") {
+        this.endTurn(turnPlayerId);
       }
     });
-  }
-
-  resetTurnTimer() {
-    if (this.timers["turnInactivity"]) {
-      this.startTurnTimer();
-    }
   }
 
   /**
@@ -668,9 +672,6 @@ module.exports = class DiceWarsGame extends Game {
     if (fromTerritory.dice < 2) {
       return { success: false, message: "Need at least 2 dice to attack" };
     }
-
-    // Reset inactivity timer on valid attack
-    this.resetTurnTimer();
 
     // Roll dice
     const attackRoll = this.rollDice(fromTerritory.dice);
@@ -873,7 +874,6 @@ module.exports = class DiceWarsGame extends Game {
     const stateInfo = this.getStateInfo();
     this.addStateExtraInfoToHistories(stateInfo.extraInfo);
 
-    this.sendGameState();
     this.startTurnTimer();
     const nextPlayer = this.players
       .array()
@@ -881,6 +881,7 @@ module.exports = class DiceWarsGame extends Game {
     this.sendAlert(
       `Round ${this.roundNumber}, Turn ${this.turnNumber}: ${nextPlayer?.name}'s turn`
     );
+    this.sendGameState();
 
     return { success: true };
   }

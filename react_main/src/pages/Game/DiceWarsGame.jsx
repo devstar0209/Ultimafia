@@ -32,7 +32,8 @@ const HEX_SIZE = 25;
 export default function DiceWarsGame() {
   const game = useContext(GameContext);
   const { history, stateViewing, updateStateViewing, self, players } = game;
-  const [gameState, setGameState] = useState(null);
+  const [liveGameState, setLiveGameState] = useState(null);
+  const [turnTimer, setTurnTimer] = useState(null);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState(null);
 
   useEffect(() => {
@@ -45,17 +46,66 @@ export default function DiceWarsGame() {
 
   useSocketListeners((socket) => {
     socket.on("gameState", (state) => {
-      setGameState(state);
+      setLiveGameState(state);
+    });
+
+    socket.on("timerInfo", (info) => {
+      if (info?.name !== "main") return;
+
+      setTurnTimer({
+        delay: info.delay,
+        time: 0,
+        lastSyncTime: 0,
+        lastSyncTimestamp: Date.now(),
+      });
+    });
+
+    socket.on("clearTimer", (name) => {
+      if (name === "main") setTurnTimer(null);
+    });
+
+    socket.on("time", (info) => {
+      if (info?.name !== "main") return;
+
+      setTurnTimer((current) => {
+        if (!current?.delay) return current;
+
+        return {
+          ...current,
+          time: info.time,
+          lastSyncTime: info.time,
+          lastSyncTimestamp: Date.now(),
+        };
+      });
     });
   }, game.socket);
 
   useEffect(() => {
-    const extraInfo = history.states?.[stateViewing]?.extraInfo;
+    const timerInterval = setInterval(() => {
+      setTurnTimer((current) => {
+        if (!current?.delay || current.lastSyncTimestamp == null) {
+          return current;
+        }
 
-    if (extraInfo?.territories) {
-      setGameState(extraInfo);
-    }
-  }, [history.states, stateViewing]);
+        return {
+          ...current,
+          time: current.lastSyncTime + Date.now() - current.lastSyncTimestamp,
+        };
+      });
+    }, 200);
+
+    return () => clearInterval(timerInterval);
+  }, []);
+
+  const historyGameState = history.states?.[stateViewing]?.extraInfo;
+  const isViewingLiveState =
+    !game.review && stateViewing === history.currentState;
+  const gameState =
+    isViewingLiveState && liveGameState?.territories
+      ? liveGameState
+      : historyGameState?.territories
+      ? historyGameState
+      : liveGameState;
 
   const playerList = (
     <>
@@ -72,7 +122,7 @@ export default function DiceWarsGame() {
         players={players}
         gameSocket={game.socket}
         gameState={gameState}
-        stateViewing={stateViewing}
+        turnTimer={turnTimer}
         isReview={game.review}
         selectedTerritoryId={selectedTerritoryId}
         setSelectedTerritoryId={setSelectedTerritoryId}
@@ -312,7 +362,7 @@ function DiceWarsBoardWrapper({
   players,
   gameSocket,
   gameState,
-  stateViewing,
+  turnTimer,
   isReview,
   selectedTerritoryId,
   setSelectedTerritoryId,
@@ -328,10 +378,6 @@ function DiceWarsBoardWrapper({
   const selectedTerritory = getSelectedTerritory(gameState, selectedTerritoryId);
   const playerIds = getPlayerIds(gameState, players);
   const currentTurnName = getPlayerName(players, gameState?.currentTurnPlayerId);
-  const isYourTurn =
-    !isReview &&
-    stateViewing !== -2 &&
-    gameState?.currentTurnPlayerId === playerId;
 
   const handleHexClick = useCallback(
     (hex) => {
@@ -546,80 +592,86 @@ function DiceWarsBoardWrapper({
 
   if (!gameState?.territories) {
     return (
-      <>
-        <section className="dice-wars-board dice-wars-board-pregame">
-          <div className="dice-wars-stage">
-            <div className="dice-wars-board-center">
-              <div className="dice-wars-board-kicker">Dice Wars</div>
-              <div className="dice-wars-board-title">Waiting for armies</div>
-              <div className="dice-wars-board-subtitle">
-                The map will appear once the match begins.
-              </div>
+      <section className="dice-wars-board dice-wars-board-pregame">
+        <div className="dice-wars-stage">
+          <div className="dice-wars-board-center">
+            <div className="dice-wars-board-kicker">Dice Wars</div>
+            <div className="dice-wars-board-title">Waiting for armies</div>
+            <div className="dice-wars-board-subtitle">
+              The map will appear once the match begins.
             </div>
           </div>
-        </section>
-        <div className="dice-wars-action-dock">
-          <DiceWarsActionPanel
-            gameState={gameState}
-            gameSocket={gameSocket}
-            isReview={isReview}
-            isYourTurn={false}
-            players={players}
-            selectedTerritory={null}
-            stateViewing={stateViewing}
-          />
         </div>
-      </>
+      </section>
     );
   }
 
   return (
-    <>
-      <section className="dice-wars-board">
-        <div className="dice-wars-statusbar">
-          <DiceWarsMetric label="Turn" value={currentTurnName} />
-          <DiceWarsMetric
-            label="Territories"
-            value={`${territoryCounts[playerId] || 0}/${
-              gameState.territories.length
-            }`}
-          />
-          <DiceWarsMetric label="My Dice" value={diceCounts[playerId] || 0} />
-          <DiceWarsMetric
-            label="Selected"
-            value={selectedTerritory ? `#${selectedTerritory.id}` : "-"}
-          />
-        </div>
+    <section className="dice-wars-board">
+      <DiceWarsTimerFlow timer={turnTimer} hidden={isReview} />
 
-        <div className="dice-wars-stage">
-          <DiceWarsScoreboard
-            playerIds={playerIds}
-            players={players}
-            gameState={gameState}
-            territoryCounts={territoryCounts}
-            diceCounts={diceCounts}
-          />
-          {showIntro && (
-            <DiceWarsIntroModal onClose={() => setShowIntro(false)} />
-          )}
-          <div className="dice-wars-board-frame">
-            <svg ref={svgRef} aria-label="Dice Wars board" />
-          </div>
-        </div>
-      </section>
-
-      <div className="dice-wars-action-dock">
-        <DiceWarsActionPanel
-          gameState={gameState}
-          gameSocket={gameSocket}
-          isReview={isReview}
-          isYourTurn={isYourTurn}
-          players={players}
-          selectedTerritory={selectedTerritory}
-          stateViewing={stateViewing}
+      <div className="dice-wars-statusbar">
+        <DiceWarsMetric label="Turn" value={currentTurnName} />
+        <DiceWarsMetric
+          label="Territories"
+          value={`${territoryCounts[playerId] || 0}/${
+            gameState.territories.length
+          }`}
+        />
+        <DiceWarsMetric label="My Dice" value={diceCounts[playerId] || 0} />
+        <DiceWarsMetric
+          label="Selected"
+          value={selectedTerritory ? `#${selectedTerritory.id}` : "-"}
         />
       </div>
-    </>
+
+      <div className="dice-wars-stage">
+        <DiceWarsScoreboard
+          playerIds={playerIds}
+          players={players}
+          gameState={gameState}
+          territoryCounts={territoryCounts}
+          diceCounts={diceCounts}
+        />
+        {showIntro && (
+          <DiceWarsIntroModal onClose={() => setShowIntro(false)} />
+        )}
+        <div className="dice-wars-board-frame">
+          <svg ref={svgRef} aria-label="Dice Wars board" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatDiceWarsTimerTime(time) {
+  const totalSeconds = Math.max(0, Math.ceil(time / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+
+  return `${minutes}:${seconds}`;
+}
+
+function DiceWarsTimerFlow({ timer, hidden }) {
+  if (hidden || !timer?.delay) return null;
+
+  const remaining = Math.max(0, timer.delay - (timer.time || 0));
+  const percentage = Math.max(0, Math.min(100, (remaining / timer.delay) * 100));
+  const isUrgent = remaining <= 5000;
+
+  return (
+    <div className={`dice-wars-timer-flow ${isUrgent ? "is-urgent" : ""}`}>
+      <div className="dice-wars-timer-flow-meta">
+        <span>Turn Timer</span>
+        <strong>{formatDiceWarsTimerTime(remaining)}</strong>
+      </div>
+      <div className="dice-wars-timer-flow-track" aria-hidden="true">
+        <div
+          className="dice-wars-timer-flow-fill"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -682,58 +734,6 @@ function DiceWarsMetric({ label, value }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
-  );
-}
-
-function DiceWarsActionPanel({
-  gameState,
-  gameSocket,
-  isReview,
-  isYourTurn,
-  players,
-  selectedTerritory,
-  stateViewing,
-}) {
-  const isGameOver = stateViewing === -2;
-  const currentTurnName = getPlayerName(players, gameState?.currentTurnPlayerId);
-  const canEndTurn = isYourTurn && !isReview && !isGameOver;
-  let status = "Waiting for the match to begin.";
-
-  if (isGameOver) {
-    status = "The game is over.";
-  } else if (isReview) {
-    status = "Review mode is read only.";
-  } else if (isYourTurn && selectedTerritory) {
-    status = `Territory #${selectedTerritory.id} is ready to attack.`;
-  } else if (isYourTurn) {
-    status = "Select one of your territories with at least 2 dice.";
-  } else if (gameState?.currentTurnPlayerId) {
-    status = `Waiting for ${currentTurnName}.`;
-  }
-
-  return (
-    <SideMenu
-      title="Action"
-      content={
-        <div className="dice-wars-actions">
-          <div className="dice-wars-action-status">{status}</div>
-          {selectedTerritory && (
-            <div className="dice-wars-selected-card">
-              <DiceWarsMetric label="Territory" value={`#${selectedTerritory.id}`} />
-              <DiceWarsMetric label="Dice" value={selectedTerritory.dice || 0} />
-            </div>
-          )}
-          <button
-            type="button"
-            className="dice-wars-end-turn"
-            disabled={!canEndTurn}
-            onClick={() => gameSocket.send("endTurn", {})}
-          >
-            End Turn
-          </button>
-        </div>
-      }
-    />
   );
 }
 

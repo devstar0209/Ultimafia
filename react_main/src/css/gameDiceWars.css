@@ -30,27 +30,6 @@
   padding-right: 2px;
 }
 
-.game .dice-wars-action-dock {
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.game .dice-wars-action-dock .side-menu {
-  min-height: 0;
-}
-
-.game .dice-wars-action-dock .side-menu.scrollable {
-  flex: 0 0 auto;
-  height: auto;
-}
-
-.game .dice-wars-action-dock .side-menu.scrollable .side-menu-content {
-  flex: 0 0 auto;
-  overflow: visible;
-}
-
 .game .dice-wars-side-chat {
   min-height: 250px;
   flex: 1 1 0;
@@ -113,6 +92,60 @@
 
 .game .dice-wars-board-pregame {
   min-height: 320px;
+}
+
+.game .dice-wars-timer-flow {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid rgba(230, 194, 101, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.game .dice-wars-timer-flow-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.game .dice-wars-timer-flow-meta span {
+  color: rgba(247, 241, 223, 0.68);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game .dice-wars-timer-flow-meta strong {
+  color: #ffffff;
+  font-size: 0.96rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.game .dice-wars-timer-flow-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(7, 13, 17, 0.76);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.game .dice-wars-timer-flow-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #65d6c3, #e6c265);
+  transition: width 0.18s linear, background 0.18s ease;
+}
+
+.game .dice-wars-timer-flow.is-urgent {
+  border-color: rgba(238, 96, 85, 0.48);
+}
+
+.game .dice-wars-timer-flow.is-urgent .dice-wars-timer-flow-fill {
+  background: linear-gradient(90deg, #ee6055, #f0a34f);
 }
 
 .game .dice-wars-statusbar,
@@ -364,8 +397,7 @@
   line-height: 1.5;
 }
 
-.game .dice-wars-intro button,
-.game .dice-wars-end-turn {
+.game .dice-wars-intro button {
   height: 42px;
   min-width: 86px;
   padding: 0 16px;
@@ -384,40 +416,6 @@
 
 .game .dice-wars-intro button:hover {
   background: rgba(230, 194, 101, 0.26);
-}
-
-.game .dice-wars-actions {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-}
-
-.game .dice-wars-action-status {
-  color: rgba(247, 241, 223, 0.68);
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.35;
-  text-align: center;
-}
-
-.game .dice-wars-selected-card {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.game .dice-wars-end-turn {
-  border: 1px solid rgba(230, 194, 101, 0.5);
-  background: rgba(230, 194, 101, 0.18);
-  color: #e6c265;
-}
-
-.game .dice-wars-end-turn:not(:disabled):hover {
-  background: rgba(230, 194, 101, 0.26);
-  transform: translateY(-1px);
-}
-
-.game .dice-wars-end-turn:disabled {
-  cursor: default;
-  opacity: 0.55;
 }
 
 @keyframes dice-wars-active-row-pulse {
