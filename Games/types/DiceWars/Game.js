@@ -10,6 +10,7 @@ module.exports = class DiceWarsGame extends Game {
     this.Player = Player;
     this.mapSize = parseInt(options.settings.mapSize) || 30;
     this.maxDicePerTerritory = parseInt(options.settings.maxDice) || 8;
+    this.MaxRounds = parseInt(options.settings.MaxRounds) || 5;
     this.turnLength = options.settings.stateLengths["Play"] ?? 30 * 1000;
     this.gameStarted = false;
     this.states = [
@@ -28,6 +29,7 @@ module.exports = class DiceWarsGame extends Game {
     this.turnNumber = 0;
     this.roundNumber = 0;
     this.hasAttacked = false;
+    this.turnsWithoutAttack = 0;
     this.turnOrder = [];
     this.turnIndex = 0;
     this.surplusDice = {};
@@ -45,6 +47,14 @@ module.exports = class DiceWarsGame extends Game {
 
   createNextStateTimer(stateInfo) {
     if (stateInfo.name === "Play") {
+      const skippedTurns = this.resolveBlockedTurns();
+      if (this.finished) return;
+
+      if (skippedTurns > 0) {
+        this.syncCurrentTurn();
+        return;
+      }
+
       this.startTurnTimer();
       this.checkAllMeetingsReady();
     } else {
@@ -533,6 +543,7 @@ module.exports = class DiceWarsGame extends Game {
     this.turnIndex = 0;
     this.roundNumber = 1;
     this.turnNumber = 1;
+    this.turnsWithoutAttack = 0;
 
     this.distributeInitialTerritories();
 
@@ -566,6 +577,25 @@ module.exports = class DiceWarsGame extends Game {
     });
   }
 
+  syncCurrentTurn(announce = true) {
+    const stateInfo = this.getStateInfo();
+    this.addStateExtraInfoToHistories(stateInfo.extraInfo);
+
+    this.startTurnTimer();
+
+    if (announce) {
+      const nextPlayer = this.players
+        .array()
+        .find((p) => p.id === this.currentTurnPlayerId);
+      this.sendAlert(
+        `Round ${this.roundNumber}, Turn ${this.turnNumber}: ${nextPlayer?.name}'s turn`
+      );
+    }
+
+    this.sendGameState();
+    this.checkAllMeetingsReady();
+  }
+
   /**
    * Override getStateInfo to include game state in extraInfo
    * This allows the history system to track game progression
@@ -589,6 +619,7 @@ module.exports = class DiceWarsGame extends Game {
         playerColors: this.getPlayerColors(),
         surplusDice: this.surplusDice,
         maxDicePerTerritory: this.maxDicePerTerritory,
+        MaxRounds: this.MaxRounds,
       };
     }
 
@@ -614,6 +645,7 @@ module.exports = class DiceWarsGame extends Game {
       playerColors: this.getPlayerColors(),
       surplusDice: this.surplusDice,
       maxDicePerTerritory: this.maxDicePerTerritory,
+      MaxRounds: this.MaxRounds,
     };
 
     this.broadcast("gameState", state);
@@ -640,6 +672,91 @@ module.exports = class DiceWarsGame extends Game {
       colorMap[player.id] = colors[index % colors.length];
     });
     return colorMap;
+  }
+
+  playerHasLegalAttack(playerId) {
+    const alivePlayerIds = new Set(this.alivePlayers().map((p) => p.id));
+
+    return this.territories.some((territory) => {
+      if (territory.playerId !== playerId || territory.dice < 2) {
+        return false;
+      }
+
+      return territory.neighbors.some((neighborId) => {
+        const neighbor = this.territories.find((t) => t.id === neighborId);
+        return (
+          neighbor &&
+          neighbor.playerId !== playerId &&
+          alivePlayerIds.has(neighbor.playerId)
+        );
+      });
+    });
+  }
+
+  anyAlivePlayerHasLegalAttack() {
+    return this.alivePlayers().some((player) =>
+      this.playerHasLegalAttack(player.id)
+    );
+  }
+
+  endStalemate() {
+    const winners = new Winners(this);
+    winners.addGroup("No one");
+
+    this.sendAlert("No legal attacks remain. The game ends in a draw.");
+    this.endGame(winners);
+  }
+
+  getRoundLimitWinners() {
+    const alivePlayers = this.alivePlayers();
+    const territoryCounts = {};
+    const diceCounts = {};
+
+    for (let territory of this.territories) {
+      if (!territory.playerId) continue;
+
+      territoryCounts[territory.playerId] =
+        (territoryCounts[territory.playerId] || 0) + 1;
+      diceCounts[territory.playerId] =
+        (diceCounts[territory.playerId] || 0) + Number(territory.dice || 0);
+    }
+
+    let bestTerritories = -1;
+    let bestDice = -1;
+    let winners = [];
+
+    for (let player of alivePlayers) {
+      const territories = territoryCounts[player.id] || 0;
+      const dice = diceCounts[player.id] || 0;
+
+      if (
+        territories > bestTerritories ||
+        (territories === bestTerritories && dice > bestDice)
+      ) {
+        bestTerritories = territories;
+        bestDice = dice;
+        winners = [player];
+      } else if (territories === bestTerritories && dice === bestDice) {
+        winners.push(player);
+      }
+    }
+
+    return winners;
+  }
+
+  endMaxRounds() {
+    const winners = new Winners(this);
+    const winningPlayers = this.getRoundLimitWinners();
+
+    if (winningPlayers.length === 1) {
+      winners.addPlayer(winningPlayers[0], winningPlayers[0].name);
+    } else {
+      winners.addGroup("No one");
+    }
+
+    winners.determinePlayers();
+    this.sendAlert(`Round ${this.MaxRounds} is complete. The game has ended.`);
+    this.endGame(winners);
   }
 
   attack(playerId, fromId, toId) {
@@ -830,10 +947,12 @@ module.exports = class DiceWarsGame extends Game {
     return [finished, winners];
   }
 
-  endTurn(playerId) {
+  endTurn(playerId, options = {}) {
     if (playerId !== this.currentTurnPlayerId) {
       return { success: false, message: "Not your turn!" };
     }
+
+    const turnHadAttack = this.hasAttacked;
 
     // Award reinforcement dice to the player ending their turn
     this.awardBonusDice(playerId);
@@ -854,6 +973,21 @@ module.exports = class DiceWarsGame extends Game {
       return { success: true };
     }
 
+    if (turnHadAttack) {
+      this.turnsWithoutAttack = 0;
+    } else {
+      this.turnsWithoutAttack++;
+    }
+
+    if (this.turnsWithoutAttack >= this.turnOrder.length) {
+      if (this.anyAlivePlayerHasLegalAttack()) {
+        this.turnsWithoutAttack = 0;
+      } else {
+        this.endStalemate();
+        return { success: true, stalemate: true };
+      }
+    }
+
     // Find current player's position in the updated turn order and advance
     const currentIndex = this.turnOrder.indexOf(playerId);
     this.turnIndex =
@@ -864,26 +998,54 @@ module.exports = class DiceWarsGame extends Game {
     // Check if round is complete (wrapped back to start)
     if (this.turnIndex === 0) {
       this.roundNumber++;
+
+      if (this.MaxRounds > 0 && this.roundNumber > this.MaxRounds) {
+        this.endMaxRounds();
+        return { success: true, maxRounds: true };
+      }
     }
 
     this.currentTurnPlayerId = this.turnOrder[this.turnIndex];
     this.hasAttacked = false;
     this.turnNumber++;
 
-    // Update history with new turn state
-    const stateInfo = this.getStateInfo();
-    this.addStateExtraInfoToHistories(stateInfo.extraInfo);
+    if (!options.deferSync) {
+      this.resolveBlockedTurns();
+      if (this.finished) return { success: true };
 
-    this.startTurnTimer();
-    const nextPlayer = this.players
-      .array()
-      .find((p) => p.id === this.currentTurnPlayerId);
-    this.sendAlert(
-      `Round ${this.roundNumber}, Turn ${this.turnNumber}: ${nextPlayer?.name}'s turn`
-    );
-    this.sendGameState();
+      this.syncCurrentTurn();
+    }
 
     return { success: true };
+  }
+
+  resolveBlockedTurns() {
+    let skippedTurns = 0;
+    const maxSkips = this.turnOrder.length;
+
+    while (
+      !this.finished &&
+      skippedTurns < maxSkips &&
+      this.currentTurnPlayerId &&
+      this.getStateName() === "Play" &&
+      !this.playerHasLegalAttack(this.currentTurnPlayerId)
+    ) {
+      const blockedPlayer = this.players
+        .array()
+        .find((p) => p.id === this.currentTurnPlayerId);
+      this.sendAlert(
+        `${blockedPlayer?.name} has no legal attacks. Turn skipped.`
+      );
+
+      const result = this.endTurn(this.currentTurnPlayerId, {
+        deferSync: true,
+      });
+      skippedTurns++;
+
+      if (!result.success || result.stalemate) break;
+    }
+
+    return skippedTurns;
   }
 
   awardBonusDice(playerId) {

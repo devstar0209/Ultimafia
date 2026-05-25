@@ -57,6 +57,7 @@ export default function DiceWarsGame() {
         time: 0,
         lastSyncTime: 0,
         lastSyncTimestamp: Date.now(),
+        hiddenUntil: Date.now() + 250,
       });
     });
 
@@ -90,6 +91,7 @@ export default function DiceWarsGame() {
         return {
           ...current,
           time: current.lastSyncTime + Date.now() - current.lastSyncTimestamp,
+          now: Date.now(),
         };
       });
     }, 200);
@@ -620,6 +622,14 @@ function DiceWarsBoardWrapper({
         />
         <DiceWarsMetric label="My Dice" value={diceCounts[playerId] || 0} />
         <DiceWarsMetric
+          label="Round"
+          value={
+            gameState.MaxRounds
+              ? `${gameState.roundNumber}/${gameState.MaxRounds}`
+              : gameState.roundNumber
+          }
+        />
+        <DiceWarsMetric
           label="Selected"
           value={selectedTerritory ? `#${selectedTerritory.id}` : "-"}
         />
@@ -654,6 +664,7 @@ function formatDiceWarsTimerTime(time) {
 
 function DiceWarsTimerFlow({ timer, hidden }) {
   if (hidden || !timer?.delay) return null;
+  if (timer.hiddenUntil && Date.now() < timer.hiddenUntil) return null;
 
   const remaining = Math.max(0, timer.delay - (timer.time || 0));
   const percentage = Math.max(0, Math.min(100, (remaining / timer.delay) * 100));

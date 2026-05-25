@@ -255,6 +255,7 @@ var schemas = {
       pointsCorrectVote: { type: Number, default: 10 },
       pointsRoleSuccess: { type: Number, default: 15 },
       startingChips: { type: Number, default: 0 },
+      maxRounds: { type: Number, default: 0 },
       updatedAt: { type: Number, default: Date.now },
       updatedBy: { type: String, default: "" },
     },

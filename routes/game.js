@@ -42,11 +42,15 @@ async function getGameCatalogSettings(gameType) {
       { slug: gameCatalogUtils.slugifyGameTitle(gameType) },
     ],
   })
-    .select("startingChips -_id")
+    .select("startingChips maxRounds -_id")
     .lean();
 
   return {
     startingChips: Number(gameCatalog?.startingChips || 0),
+    maxRounds:
+      gameCatalogUtils.slugifyGameTitle(gameType) === "dice-wars"
+        ? Number(gameCatalog?.maxRounds || 5)
+        : Number(gameCatalog?.maxRounds || 0),
   };
 }
 
@@ -1450,13 +1454,15 @@ const settingsChecks = {
       deadSnakeObstacles,
     };
   },
-  "Dice Wars": (settings, setup) => {
+  "Dice Wars": (settings, setup, gameCatalogSettings = {}) => {
     const mapSize = settings.mapSize;
     const maxDice = settings.maxDice;
+    const MaxRounds = Number(gameCatalogSettings.maxRounds || 5);
 
     return {
       mapSize,
       maxDice,
+      MaxRounds,
     };
   },
   "Connect Four": (settings, setup) => {

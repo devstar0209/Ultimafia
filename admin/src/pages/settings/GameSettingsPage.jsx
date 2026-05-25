@@ -51,6 +51,7 @@ function buildModalState(item) {
     pointsWin: item?.pointsWin ?? 25,
     pointsCorrectVote: item?.pointsCorrectVote ?? 10,
     pointsRoleSuccess: item?.pointsRoleSuccess ?? 15,
+    maxRounds: item?.maxRounds ?? 0,
     logoUrl: item?.logoUrl || "",
     logoFile: null,
     logoMarkedForRemoval: false,
@@ -60,6 +61,15 @@ function buildModalState(item) {
 function isMafiaCatalog(item) {
   return ["key", "title", "slug"].some(
     (prop) => String(item?.[prop] || "").toLowerCase() === "mafia"
+  );
+}
+
+function isDiceWarsCatalog(item) {
+  return ["key", "title", "slug"].some(
+    (prop) =>
+      String(item?.[prop] || "")
+        .toLowerCase()
+        .replace(/-/g, " ") === "dice wars"
   );
 }
 
@@ -253,6 +263,10 @@ export default function GameCatalogSettingsPage() {
         payload.pointsRoleSuccess = Number(modalValues.pointsRoleSuccess || 0);
       }
 
+      if (editingItem && isDiceWarsCatalog(editingItem)) {
+        payload.maxRounds = Number(modalValues.maxRounds || 5);
+      }
+
       let result = editingItem
         ? await updateAdminManagedGameCatalog(editingItem.key, payload)
         : await createAdminManagedGameCatalog(payload);
@@ -365,6 +379,7 @@ export default function GameCatalogSettingsPage() {
   );
   const reorderPending = pendingKey === "reorder";
   const showMafiaPointOptions = Boolean(editingItem && isMafiaCatalog(editingItem));
+  const showDiceWarsOptions = Boolean(editingItem && isDiceWarsCatalog(editingItem));
 
   return (
     <>
@@ -535,6 +550,12 @@ export default function GameCatalogSettingsPage() {
                                     </strong>
                                   </Typography>
                                 )}
+                                {isDiceWarsCatalog(item) && (
+                                  <Typography color="text.secondary" variant="body2">
+                                    Max rounds:{" "}
+                                    <strong>{item.maxRounds ?? 5}</strong>
+                                  </Typography>
+                                )}
                               </Stack>
                             </Box>
 
@@ -690,6 +711,21 @@ export default function GameCatalogSettingsPage() {
                   />
                 </Grid>
               </Grid>
+            )}
+
+            {showDiceWarsOptions && (
+              <TextField
+                label="Max Rounds"
+                type="number"
+                value={modalValues.maxRounds}
+                onChange={(event) =>
+                  updateModalField("maxRounds", Number(event.target.value) || 5)
+                }
+                disabled={modalPending}
+                fullWidth
+                inputProps={{ min: 1, max: 25, step: 1 }}
+                helperText="Dice Wars ends after this round completes."
+              />
             )}
 
             <Box

@@ -960,6 +960,17 @@ export function parseGamePopover(game) {
         </InfoSection>
       );
       break;
+    case "Dice Wars":
+      result.push(
+        <InfoSection title="Dice Wars specific settings">
+          <InfoRow
+            title="Max Rounds"
+            content={game.settings.gameTypeOptions.MaxRounds}
+            key="MaxRounds"
+          />
+        </InfoSection>
+      );
+      break;
   }
 
   return result;

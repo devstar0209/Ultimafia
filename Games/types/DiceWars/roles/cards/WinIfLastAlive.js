@@ -8,7 +8,7 @@ module.exports = class WinIfLastAlive extends Card {
       priority: 0,
       check: function (counts, winners, aliveCount) {
         if (aliveCount <= 1 && this.player.alive) {
-          winners.addPlayer(this.player, this.name);
+          winners.addPlayer(this.player, this.player.name);
         }
       },
     };
