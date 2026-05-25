@@ -184,6 +184,13 @@ export async function updateAdminManagedGameCatalog(key, payload) {
   return response.data;
 }
 
+export async function reorderAdminManagedGameCatalogs(keys) {
+  const response = await axios.patch("/api/admin/settings/gamecatalogs/order", {
+    keys,
+  });
+  return response.data;
+}
+
 export async function toggleAdminManagedGameCatalogHidden(key, hidden) {
   const response = await axios.patch(
     `/api/admin/settings/gamecatalogs/${encodeURIComponent(key)}/hidden`,

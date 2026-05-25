@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
@@ -25,6 +26,7 @@ import {
   deleteAdminManagedGameCatalog,
   getAdminManagedGameCatalogs,
   removeAdminManagedGameCatalogLogo,
+  reorderAdminManagedGameCatalogs,
   toggleAdminManagedGameCatalogHidden,
   updateAdminManagedGameCatalog,
   uploadAdminManagedGameCatalogLogo,
@@ -61,6 +63,24 @@ function isMafiaCatalog(item) {
   );
 }
 
+function moveCatalogItem(items, sourceKey, targetKey) {
+  const sourceIndex = items.findIndex((item) => item.key === sourceKey);
+  const targetIndex = items.findIndex((item) => item.key === targetKey);
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(sourceIndex, 1);
+  nextItems.splice(targetIndex, 0, movedItem);
+
+  return nextItems.map((item, index) => ({
+    ...item,
+    sortOrder: index,
+  }));
+}
+
 export default function GameCatalogSettingsPage() {
   const { data, loading, error } = useAdminQuery(getAdminManagedGameCatalogs);
   const [gameCatalogs, setGameCatalogs] = useState([]);
@@ -71,19 +91,12 @@ export default function GameCatalogSettingsPage() {
   const [modalValues, setModalValues] = useState(buildModalState(null));
   const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
+  const [draggingKey, setDraggingKey] = useState("");
+  const [dragOverKey, setDragOverKey] = useState("");
 
   useEffect(() => {
     setGameCatalogs(data?.items || []);
   }, [data]);
-
-  const configuredLogoCount = useMemo(
-    () => gameCatalogs.filter((item) => Boolean(item.logoUrl)).length,
-    [gameCatalogs]
-  );
-  const hiddenCount = useMemo(
-    () => gameCatalogs.filter((item) => Boolean(item.hidden)).length,
-    [gameCatalogs]
-  );
 
   if (loading) {
     return (
@@ -151,6 +164,44 @@ export default function GameCatalogSettingsPage() {
 
       return nextValues;
     });
+  }
+
+  async function handleCatalogDrop(sourceKey, targetKey) {
+    const reorderedItems = moveCatalogItem(gameCatalogs, sourceKey, targetKey);
+
+    if (reorderedItems === gameCatalogs) {
+      setDraggingKey("");
+      setDragOverKey("");
+      return;
+    }
+
+    const previousItems = gameCatalogs;
+    setGameCatalogs(reorderedItems);
+    setPendingKey("reorder");
+    setFeedback(null);
+
+    try {
+      const result = await reorderAdminManagedGameCatalogs(
+        reorderedItems.map((item) => item.key)
+      );
+      setGameCatalogs(result.items || reorderedItems);
+      setFeedback({
+        severity: "success",
+        message: "Game catalog order saved.",
+      });
+    } catch (reorderError) {
+      setGameCatalogs(previousItems);
+      setFeedback({
+        severity: "error",
+        message:
+          reorderError?.response?.data ||
+          "Could not save the game catalog order right now.",
+      });
+    } finally {
+      setPendingKey("");
+      setDraggingKey("");
+      setDragOverKey("");
+    }
   }
 
   function handleModalLogoFileSelect(file) {
@@ -312,6 +363,7 @@ export default function GameCatalogSettingsPage() {
     pendingKey === "create" ||
       (editingItem && pendingKey === `save:${editingItem.key}`)
   );
+  const reorderPending = pendingKey === "reorder";
   const showMafiaPointOptions = Boolean(editingItem && isMafiaCatalog(editingItem));
 
   return (
@@ -346,16 +398,44 @@ export default function GameCatalogSettingsPage() {
                     const logoPending = pendingKey === `logo:${item.key}`;
                     const hiddenPending = pendingKey === `hidden:${item.key}`;
                     const deletePending = pendingKey === `delete:${item.key}`;
+                    const itemBusy =
+                      reorderPending || logoPending || hiddenPending || deletePending;
+                    const isDragging = draggingKey === item.key;
+                    const isDragTarget =
+                      dragOverKey === item.key && draggingKey !== item.key;
 
                     return (
                       <Paper
                         key={item.slug || item.key}
+                        onDragOver={(event) => {
+                          if (!draggingKey || reorderPending || draggingKey === item.key) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          setDragOverKey(item.key);
+                        }}
+                        onDragLeave={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget)) {
+                            setDragOverKey("");
+                          }
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const sourceKey =
+                            event.dataTransfer.getData("text/plain") || draggingKey;
+                          handleCatalogDrop(sourceKey, item.key);
+                        }}
                         sx={{
                           p: 2,
                           backgroundColor: item.hidden
                             ? "rgba(255,255,255,0.01)"
                             : "rgba(255,255,255,0.02)",
-                          opacity: item.hidden ? 0.72 : 1,
+                          border: isDragTarget
+                            ? "1px solid rgba(94, 234, 212, 0.65)"
+                            : "1px solid rgba(255,255,255,0.08)",
+                          opacity: item.hidden || isDragging ? 0.72 : 1,
                         }}
                       >
                         <Stack spacing={1.5}>
@@ -364,6 +444,31 @@ export default function GameCatalogSettingsPage() {
                             spacing={2}
                             alignItems={{ xs: "stretch", md: "center" }}
                           >
+                            <Tooltip title="Drag to reorder">
+                              <span>
+                                <IconButton
+                                  aria-label={`Drag ${item.title}`}
+                                  disabled={Boolean(pendingKey)}
+                                  draggable={!pendingKey}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", item.key);
+                                    setDraggingKey(item.key);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggingKey("");
+                                    setDragOverKey("");
+                                  }}
+                                  sx={{
+                                    cursor: pendingKey ? "default" : "grab",
+                                    alignSelf: { xs: "flex-start", md: "center" },
+                                  }}
+                                >
+                                  <Icon icon="solar:hamburger-menu-outline" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+
                             <Box
                               sx={{
                                 width: 84,
@@ -397,7 +502,7 @@ export default function GameCatalogSettingsPage() {
                               )}
                             </Box>
 
-                            <Box sx={{ flex: 1, minwidth: 0 }}>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Stack
                                 direction="row"
                                 spacing={2}
@@ -443,7 +548,7 @@ export default function GameCatalogSettingsPage() {
                               <Button
                                 variant="contained"
                                 onClick={() => openEditModal(item)}
-                                disabled={logoPending || hiddenPending || deletePending}
+                                disabled={itemBusy}
                               >
                                 Edit
                               </Button>
@@ -451,7 +556,7 @@ export default function GameCatalogSettingsPage() {
                                 variant="outlined"
                                 color={item.hidden ? "success" : "warning"}
                                 onClick={() => handleHideToggle(item)}
-                                disabled={logoPending || hiddenPending || deletePending}
+                                disabled={itemBusy}
                               >
                                 {hiddenPending
                                   ? "Saving..."
@@ -462,7 +567,7 @@ export default function GameCatalogSettingsPage() {
                               <IconButton
                                 color="error"
                                 onClick={() => handleDelete(item)}
-                                disabled={logoPending || hiddenPending || deletePending}
+                                disabled={itemBusy}
                                 aria-label={`Delete ${item.title}`}
                               >
                                 <Icon icon="solar:trash-bin-trash-bold-duotone" />
@@ -597,7 +702,7 @@ export default function GameCatalogSettingsPage() {
             >
               <Box
                 sx={{
-                  minwidth: 112,
+                  minWidth: 112,
                   width: 112,
                   borderRadius: 2,
                   border: "1px dashed rgba(255,255,255,0.12)",
@@ -637,7 +742,7 @@ export default function GameCatalogSettingsPage() {
                 </Box>
               </Box>
 
-              <Stack spacing={1} sx={{ flex: 1, minwidth: 0 }}>
+              <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
                 <Button
                   variant="outlined"
                   component="label"

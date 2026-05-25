@@ -1613,6 +1613,63 @@ router.post("/settings/gamecatalogs", async function (req, res) {
   }
 });
 
+router.patch("/settings/gamecatalogs/order", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const requestedOrder = Array.isArray(req.body?.keys)
+      ? req.body.keys.map((key) => String(key || "").trim()).filter(Boolean)
+      : [];
+    const existingGames = await getManagedGames();
+    const existingKeys = existingGames.map((game) => game.key);
+    const existingKeySet = new Set(existingKeys);
+    const requestedKeySet = new Set(requestedOrder);
+
+    if (
+      requestedOrder.length !== existingKeys.length ||
+      requestedKeySet.size !== existingKeys.length ||
+      requestedOrder.some((key) => !existingKeySet.has(key))
+    ) {
+      res.status(400).send("Game catalog order must include every catalog once.");
+      return;
+    }
+
+    const updatedAt = Date.now();
+    await models.GameCatalog.bulkWrite(
+      requestedOrder.map((key, index) => ({
+        updateOne: {
+          filter: { key },
+          update: {
+            $set: {
+              sortOrder: index,
+              updatedAt,
+              updatedBy: sessionInfo.user.id,
+            },
+          },
+        },
+      }))
+    );
+
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      "Reordered Game Catalogs",
+      requestedOrder
+    );
+
+    const updatedGames = await getManagedGames();
+
+    res.send({
+      ok: true,
+      items: gameCatalogUtils.buildGameCatalogPayload(updatedGames),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error reordering game catalogs.");
+  }
+});
+
 router.patch("/settings/gamecatalogs/:key", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {
