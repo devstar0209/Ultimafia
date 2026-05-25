@@ -8,7 +8,7 @@ function getStorageKey(gameType) {
 const HOST_OPTIONS_VERSIONS = {
   Mafia: 4,
   Acrotopia: 2,
-  Jotto: 2,
+  Jotto: 3,
   "Liars Dice": 2,
   Battlesnakes: 2,
   "Texas Hold Em": 3,
@@ -89,8 +89,8 @@ var defaultOptions = {
     forbiddenMode: false,
     winOnAnagrams: true,
     numAnagramsRequired: 3,
-    selectWordLength: 1,
-    guessWordLength: 1,
+    selectWordLength: 0.5,
+    guessWordLength: 0.5,
   },
   "Liars Dice": existingHostOptions["Liars Dice"] || {
     ...commonHostOptions,

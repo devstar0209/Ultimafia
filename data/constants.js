@@ -162,12 +162,12 @@ module.exports = {
       "Select Word": {
         min: 30 * 1000,
         max: 5 * 60 * 1000,
-        default: 1 * 60 * 1000,
+        default: 30 * 1000,
       },
       "Guess Word": {
         min: 30 * 1000,
         max: 5 * 60 * 1000,
-        default: 1 * 60 * 1000,
+        default: 30 * 1000,
       },
     },
     Acrotopia: {
