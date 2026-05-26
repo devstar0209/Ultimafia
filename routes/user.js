@@ -147,7 +147,7 @@ async function buildPointCatalogBalances(pointsByGameCatalog) {
         points: entry.points,
         sortOrder: Number(catalog?.sortOrder || 0),
         logoUrl: catalog?.logoPath
-          ? `/uploads/${catalog.logoPath}?t=${catalog.updatedAt || 0}`
+          ? `${catalog.logoPath}?t=${catalog.updatedAt || 0}`
           : "",
       };
     })
