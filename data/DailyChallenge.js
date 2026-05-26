@@ -8,6 +8,22 @@
 //Currently thinking 2/5/7 for coin rewards
 
 const DailyChallengeData = {
+  "Play One Game": {
+    ID: "Basic0",
+    tier: 0,
+    internal: ["PlayOneGame"],
+    description: "Complete one game.",
+    reward: 0,
+    rewardSetting: "dailyPlayOneGameBonus",
+  },
+  "Host One Game": {
+    ID: "BasicHost1",
+    tier: 0,
+    internal: ["HostOneGame"],
+    description: "Host and complete one game.",
+    reward: 0,
+    rewardSetting: "dailyHostOneGameBonus",
+  },
   "Play a game of ExtraData": {
     ID: "Basic1",
     tier: 1,

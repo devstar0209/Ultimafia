@@ -4,7 +4,6 @@ import { UserContext } from "Contexts";
 import { DailyChallengeData } from "constants/DailyChallenge";
 import { RoleCount } from "components/Roles";
 
-import umcoin from "images/umcoin.png";
 import LobbySidebarPanel from "./LobbySidebarPanel";
 
 export const DailyChallenges = () => {
@@ -23,7 +22,9 @@ export const DailyChallenges = () => {
     );
     let name = thing[0][0].replace(`ExtraData`, quest[2]);
     let description = thing[0][1].description.replace(`ExtraData`, quest[2]);
-    let reward = thing[0][1].reward;
+    let reward = Number.isFinite(Number(quest[3]))
+      ? Number(quest[3])
+      : thing[0][1].reward;
     let isRole = thing[0][1].extraData === "Role Name";
 
     return (

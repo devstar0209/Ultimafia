@@ -266,6 +266,8 @@ var schemas = {
       key: { type: String, index: true, unique: true, default: "default" },
       registerCoinsReward: { type: Number, default: 0 },
       coinsPerDollar: { type: Number, default: 100 },
+      dailyPlayOneGameBonus: { type: Number, default: 0 },
+      dailyHostOneGameBonus: { type: Number, default: 0 },
       // Ranked/Competitive Settings
       minimumGamesForRanked: { type: Number, default: 5 },
       minimumPointsForCompetitive: { type: Number, default: 150 },

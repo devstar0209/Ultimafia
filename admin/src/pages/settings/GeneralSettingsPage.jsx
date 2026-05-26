@@ -38,6 +38,8 @@ export default function GeneralSettingsPage() {
   // Coin Rewards
   const [registerCoinsReward, setRegisterCoinsReward] = useState(0);
   const [coinsPerDollar, setCoinsPerDollar] = useState(100);
+  const [dailyPlayOneGameBonus, setDailyPlayOneGameBonus] = useState(0);
+  const [dailyHostOneGameBonus, setDailyHostOneGameBonus] = useState(0);
 
   // Ranked/Competitive
   const [minimumGamesForRanked, setMinimumGamesForRanked] = useState(5);
@@ -56,6 +58,8 @@ export default function GeneralSettingsPage() {
     if (data?.defaultSettings) {
       setRegisterCoinsReward(data.defaultSettings.registerCoinsReward || 0);
       setCoinsPerDollar(data.defaultSettings.coinsPerDollar || 100);
+      setDailyPlayOneGameBonus(data.defaultSettings.dailyPlayOneGameBonus || 0);
+      setDailyHostOneGameBonus(data.defaultSettings.dailyHostOneGameBonus || 0);
       setMinimumGamesForRanked(data.defaultSettings.minimumGamesForRanked || 5);
       setMinimumPointsForCompetitive(data.defaultSettings.minimumPointsForCompetitive || 150);
       setPointsNominalAmount(data.defaultSettings.pointsNominalAmount || 60);
@@ -117,6 +121,8 @@ export default function GeneralSettingsPage() {
       await updateAdminDefaultSettings({
         registerCoinsReward: Number(registerCoinsReward || 0),
         coinsPerDollar: Number(coinsPerDollar || 100),
+        dailyPlayOneGameBonus: Number(dailyPlayOneGameBonus || 0),
+        dailyHostOneGameBonus: Number(dailyHostOneGameBonus || 0),
         minimumGamesForRanked: Number(minimumGamesForRanked || 5),
         minimumPointsForCompetitive: Number(minimumPointsForCompetitive || 150),
         pointsNominalAmount: Number(pointsNominalAmount || 60),
@@ -260,6 +266,26 @@ export default function GeneralSettingsPage() {
                   placeholder="100"
                   helperText="Number of coins granted for each dollar spent"
                   inputProps={{ min: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Daily Play One Game Bonus"
+                  type="number"
+                  value={dailyPlayOneGameBonus}
+                  onChange={(e) => setDailyPlayOneGameBonus(e.target.value)}
+                  placeholder="0"
+                  helperText="Coins awarded for the daily Play One Game challenge"
+                  inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Daily Host One Game Bonus"
+                  type="number"
+                  value={dailyHostOneGameBonus}
+                  onChange={(e) => setDailyHostOneGameBonus(e.target.value)}
+                  placeholder="0"
+                  helperText="Coins awarded for the daily Host One Game challenge"
+                  inputProps={{ min: 0 }}
                 />
               </Stack>
 

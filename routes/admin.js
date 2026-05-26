@@ -20,6 +20,16 @@ const EMOTE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 const EMOTE_GROUP_MAX_UPLOADS = 100;
 const EMOTE_GROUP_BATCH_MAX_BYTES =
   EMOTE_IMAGE_MAX_BYTES * EMOTE_GROUP_MAX_UPLOADS;
+const DAILY_BONUS_CHALLENGES = [
+  {
+    id: "Basic0",
+    settingKey: "dailyPlayOneGameBonus",
+  },
+  {
+    id: "BasicHost1",
+    settingKey: "dailyHostOneGameBonus",
+  },
+];
 
 function isAvatarItem(item = {}) {
   return String(item.key || "").startsWith("avatar-");
@@ -27,6 +37,82 @@ function isAvatarItem(item = {}) {
 
 function isEmoteCatalogItem(item = {}) {
   return String(item.key || "").startsWith("emote-");
+}
+
+function normalizeDailyBonusChallenge(challenge = "", reward = 0) {
+  const parts = String(challenge).split(":");
+  const id = parts[0];
+  const progress = parts[1] ?? 0;
+  const extraData = parts[2] ?? null;
+
+  return `${id}:${progress}:${extraData}:${reward}`;
+}
+
+function syncDailyBonusChallengeList(challenges = [], settings = {}) {
+  const bonusIds = new Set(DAILY_BONUS_CHALLENGES.map((challenge) => challenge.id));
+  const existingBonusChallenges = new Map();
+  const nonBonusChallenges = [];
+
+  for (const challenge of challenges || []) {
+    const id = String(challenge).split(":")[0];
+    if (bonusIds.has(id)) {
+      existingBonusChallenges.set(id, challenge);
+    } else {
+      nonBonusChallenges.push(challenge);
+    }
+  }
+
+  const bonusChallenges = DAILY_BONUS_CHALLENGES.reduce((items, challenge) => {
+    const reward = Number(settings[challenge.settingKey] || 0);
+    if (reward > 0) {
+      items.push(
+        normalizeDailyBonusChallenge(
+          existingBonusChallenges.get(challenge.id) ||
+            `${challenge.id}:0:null`,
+          reward
+        )
+      );
+    }
+
+    return items;
+  }, []);
+
+  return [...bonusChallenges, ...nonBonusChallenges];
+}
+
+async function syncDailyBonusChallenges(settings) {
+  const users = await models.User.find({ deleted: false }).select(
+    "id dailyChallenges -_id"
+  );
+  const updates = [];
+  const updatedUserIds = [];
+
+  for (const user of users) {
+    const currentChallenges = user.dailyChallenges || [];
+    const nextChallenges = syncDailyBonusChallengeList(
+      currentChallenges,
+      settings
+    );
+
+    if (JSON.stringify(currentChallenges) === JSON.stringify(nextChallenges)) {
+      continue;
+    }
+
+    updates.push({
+      updateOne: {
+        filter: { id: user.id },
+        update: { $set: { dailyChallenges: nextChallenges } },
+      },
+    });
+    updatedUserIds.push(user.id);
+  }
+
+  if (updates.length > 0) {
+    await models.User.bulkWrite(updates);
+    await Promise.all(
+      updatedUserIds.map((userId) => redis.cacheUserInfo(userId, true))
+    );
+  }
 }
 
 function hasAdminAccess(permissionInfo) {
@@ -1992,6 +2078,8 @@ router.get("/settings/general", async function (req, res) {
       defaultSettings: {
         registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
         coinsPerDollar: defaultSettings?.coinsPerDollar || 100,
+        dailyPlayOneGameBonus: defaultSettings?.dailyPlayOneGameBonus || 0,
+        dailyHostOneGameBonus: defaultSettings?.dailyHostOneGameBonus || 0,
         minimumGamesForRanked: defaultSettings?.minimumGamesForRanked || 5,
         minimumPointsForCompetitive: defaultSettings?.minimumPointsForCompetitive || 150,
         openDaysPerCompetitiveRound: defaultSettings?.openDaysPerCompetitiveRound || 9,
@@ -2013,6 +2101,8 @@ router.patch("/settings/defaults", async function (req, res) {
     const {
       registerCoinsReward,
       coinsPerDollar,
+      dailyPlayOneGameBonus,
+      dailyHostOneGameBonus,
       minimumGamesForRanked,
       minimumPointsForCompetitive,
       openDaysPerCompetitiveRound,
@@ -2025,6 +2115,8 @@ router.patch("/settings/defaults", async function (req, res) {
       {
         registerCoinsReward: Number(registerCoinsReward || 0),
         coinsPerDollar: Number(coinsPerDollar || 100),
+        dailyPlayOneGameBonus: Number(dailyPlayOneGameBonus || 0),
+        dailyHostOneGameBonus: Number(dailyHostOneGameBonus || 0),
         minimumGamesForRanked: Number(minimumGamesForRanked || 5),
         minimumPointsForCompetitive: Number(minimumPointsForCompetitive || 150),
         openDaysPerCompetitiveRound: Number(openDaysPerCompetitiveRound || 9),
@@ -2038,11 +2130,14 @@ router.patch("/settings/defaults", async function (req, res) {
 
     // Invalidate cache so next request picks up new values
     defaultSettings.invalidateCache();
+    await syncDailyBonusChallenges(updated);
 
     res.send({
       defaultSettings: {
         registerCoinsReward: updated.registerCoinsReward,
         coinsPerDollar: updated.coinsPerDollar,
+        dailyPlayOneGameBonus: updated.dailyPlayOneGameBonus,
+        dailyHostOneGameBonus: updated.dailyHostOneGameBonus,
         minimumGamesForRanked: updated.minimumGamesForRanked,
         minimumPointsForCompetitive: updated.minimumPointsForCompetitive,
         openDaysPerCompetitiveRound: updated.openDaysPerCompetitiveRound,

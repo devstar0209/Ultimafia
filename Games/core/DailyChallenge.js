@@ -14,6 +14,26 @@ module.exports = class DailyChallenge {
     this.listeners = {};
   }
 
+  getReward() {
+    const challenge = this.player.user.dailyChallenges.find(
+      (dailyChallenge) => dailyChallenge[0] == this.ID
+    );
+    const rewardOverride = Number(challenge?.[3]);
+
+    if (Number.isFinite(rewardOverride) && rewardOverride >= 0) {
+      return rewardOverride;
+    }
+
+    const settingKey = DailyChallengeData[this.name].rewardSetting;
+    const settingReward = Number(this.game.defaultSettings?.[settingKey]);
+
+    if (settingKey && Number.isFinite(settingReward) && settingReward >= 0) {
+      return settingReward;
+    }
+
+    return this.reward;
+  }
+
   start() {
     for (let eventName in this.listeners) {
       this.listeners[eventName] = this.listeners[eventName].bind(this);

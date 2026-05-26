@@ -25,6 +25,7 @@ const gameSettingData = require("../../data/gamesettings");
 const protips = require("../../data/protips");
 const logger = require("../../modules/logging")("games");
 const constants = require("../../data/constants");
+const defaultSettings = require("../../lib/defaultSettings");
 const renamedRoleMapping = require("../../data/renamedRoles");
 const renamedModifierMapping = require("../../data/renamedModifiers");
 const routeUtils = require("../../routes/utils");
@@ -3230,6 +3231,7 @@ module.exports = class Game {
       redis.setGameState(this.id, stateInfo.name);
       redis.setWinnersInfo(this.id, winnersInfo);
 
+      this.defaultSettings = await defaultSettings.getSettings(models);
       this.events.emit("aboutToFinish");
 
       this.history.recordAllRoles();
@@ -3962,7 +3964,10 @@ module.exports = class Game {
             {
               $set: {
                 dailyChallenges: player.user.dailyChallenges.map(
-                  (day) => `${day[0]}:${day[1]}:${day[2]}`
+                  (day) =>
+                    `${day[0]}:${day[1]}:${day[2]}${
+                      day[3] !== undefined ? `:${day[3]}` : ""
+                    }`
                 ),
               },
               $inc: {

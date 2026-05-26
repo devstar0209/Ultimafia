@@ -5,6 +5,7 @@ const child_process = require("child_process");
 const Random = require("../lib/Random");
 const constants = require("../data/constants");
 const DailyChallengeData = require("../data/DailyChallenge");
+const defaultSettings = require("../lib/defaultSettings");
 const roleData = require("../data/roles");
 const models = require("../db/models");
 const redis = require("./redis");
@@ -115,6 +116,13 @@ module.exports = function () {
           when: { $lt: now },
         });
         for (let refreshedHeart of refreshedHearts) {
+          const settings = await defaultSettings.getSettings(models);
+          const dailyPlayOneGameBonus = Number(
+            settings.dailyPlayOneGameBonus || 0
+          );
+          const dailyHostOneGameBonus = Number(
+            settings.dailyHostOneGameBonus || 0
+          );
           //let  Object.entries(DailyChallengeData);
 
           let tierOne = Random.randArrayVal(
@@ -133,8 +141,15 @@ module.exports = function () {
               .map((c) => [c[1].ID, 0, c[1].extraData || null])
           );
           //let tierFour = Random.randArrayVal(Object.entries(DailyChallengeData).filter((c) => c[1].tier == 4));
-          //Format is [ID, progress, extraData]
-          let Challenges = [tierOne, tierTwo, tierThree];
+          //Format is [ID, progress, extraData, rewardOverride]
+          let Challenges = [];
+          if (dailyPlayOneGameBonus > 0) {
+            Challenges.push(["Basic0", 0, null, dailyPlayOneGameBonus]);
+          }
+          if (dailyHostOneGameBonus > 0) {
+            Challenges.push(["BasicHost1", 0, null, dailyHostOneGameBonus]);
+          }
+          Challenges.push(tierOne, tierTwo, tierThree);
           for (let c of Challenges) {
             if (c[2] != null) {
               if (c[2] == "Game Type") {
@@ -151,7 +166,10 @@ module.exports = function () {
               }
             }
           }
-          Challenges = Challenges.map((p) => `${p[0]}:${p[1]}:${p[2]}`);
+          Challenges = Challenges.map(
+            (p) =>
+              `${p[0]}:${p[1]}:${p[2]}${p[3] !== undefined ? `:${p[3]}` : ""}`
+          );
 
           // Refresh the user's heart type to capacity
 
