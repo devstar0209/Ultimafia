@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Navigate, Link, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import {
@@ -27,6 +27,7 @@ export default function Inbox() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalNotifications, setTotalNotifications] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [friendActionLoading, setFriendActionLoading] = useState({});
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
@@ -83,6 +84,55 @@ export default function Inbox() {
     }
   };
 
+  const handleFriendRequestAction = async (notif, action) => {
+    const requestUserId = notif.friendRequestUserId;
+
+    if (!requestUserId) return;
+
+    setFriendActionLoading((prev) => ({
+      ...prev,
+      [notif.id]: action,
+    }));
+
+    try {
+      const endpoint =
+        action === "accept" ? "/api/user/friend" : "/api/user/friend/reject";
+      const res = await axios.post(endpoint, { user: requestUserId });
+
+      if (!notif.read) {
+        try {
+          await axios.post(`/api/notifs/read/${notif.id}`);
+        } catch {}
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+
+      setNotifications((prev) =>
+        (prev || []).map((item) =>
+          item.id === notif.id
+            ? {
+                ...item,
+                read: true,
+                friendRequestUserId: null,
+                friendRequestStatus:
+                  action === "accept" ? "accepted" : "rejected",
+              }
+            : item
+        )
+      );
+      siteInfo.showAlert(res.data, "success");
+    } catch (err) {
+      errorAlert(err);
+    } finally {
+      setFriendActionLoading((prev) => {
+        const next = { ...prev };
+
+        delete next[notif.id];
+
+        return next;
+      });
+    }
+  };
+
   const handleDelete = async (notifId) => {
     try {
       await axios.delete(`/api/notifs/${notifId}`);
@@ -106,6 +156,12 @@ export default function Inbox() {
     } catch (err) {
       errorAlert(err);
     }
+  };
+
+  const getIconClassName = (icon) => {
+    if (!icon) return "";
+
+    return icon.includes(" ") ? icon : `fas fa-${icon}`;
   };
 
   const handleNotificationClick = (notif) => {
@@ -194,8 +250,8 @@ export default function Inbox() {
                     >
                       {notif.icon && (
                         <i
-                          className={`fas fa-${notif.icon}`}
-                          style={{ fontSize: "20px", minwidth: "20px" }}
+                          className={getIconClassName(notif.icon)}
+                          style={{ fontSize: "20px", minWidth: "20px" }}
                         />
                       )}
                       <Stack direction="column" spacing={0.5} flex={1}>
@@ -219,7 +275,58 @@ export default function Inbox() {
                       </Stack>
                     </Stack>
 
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {notif.friendRequestUserId && (
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            disabled={Boolean(friendActionLoading[notif.id])}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendRequestAction(notif, "accept");
+                            }}
+                          >
+                            {friendActionLoading[notif.id] === "accept"
+                              ? "Accepting..."
+                              : "Accept"}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            disabled={Boolean(friendActionLoading[notif.id])}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendRequestAction(notif, "reject");
+                            }}
+                          >
+                            {friendActionLoading[notif.id] === "reject"
+                              ? "Rejecting..."
+                              : "Reject"}
+                          </Button>
+                        </Stack>
+                      )}
+                      {notif.friendRequestStatus && (
+                        <Chip
+                          size="small"
+                          color={
+                            notif.friendRequestStatus === "accepted"
+                              ? "success"
+                              : "default"
+                          }
+                          label={
+                            notif.friendRequestStatus === "accepted"
+                              ? "Accepted"
+                              : "Rejected"
+                          }
+                        />
+                      )}
                       {!notif.read && (
                         <IconButton
                           size="small"
@@ -230,7 +337,7 @@ export default function Inbox() {
                           }}
                           title="Mark as read"
                         >
-                          <i className="fas-fa mail" />
+                          <i className="fas fa-envelope-open" />
                         </IconButton>
                       )}
                       <IconButton

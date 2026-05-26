@@ -5,6 +5,14 @@ const routeUtils = require("./utils");
 const { models } = require("mongoose");
 const router = express.Router();
 
+function getProfileUserIdFromLink(link) {
+  if (typeof link !== "string") return null;
+
+  const match = link.match(/^\/user\/([^/?#]+)/);
+
+  return match ? match[1] : null;
+}
+
 // Legacy endpoint for bell icon - returns only unread notifications
 router.get("/", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
@@ -68,6 +76,33 @@ router.get("/inbox", async function (req, res) {
     var allNotifs = globalNotifs
       .concat(userNotifs)
       .sort((a, b) => b.date - a.date);
+
+    const pendingFriendRequests = await models.FriendRequest.find({
+      targetId: userId,
+    })
+      .select("userId -_id")
+      .lean();
+    const pendingFriendRequestUserIds = new Set(
+      pendingFriendRequests.map((request) => String(request.userId))
+    );
+
+    allNotifs = allNotifs.map((notif) => {
+      const profileUserId = getProfileUserIdFromLink(notif.link);
+
+      if (
+        profileUserId &&
+        pendingFriendRequestUserIds.has(profileUserId) &&
+        typeof notif.content === "string" &&
+        notif.content.includes("sent a friend request")
+      ) {
+        return {
+          ...notif,
+          friendRequestUserId: profileUserId,
+        };
+      }
+
+      return notif;
+    });
 
     const totalNotifs = allNotifs.length;
     const totalPages = Math.ceil(totalNotifs / limit);

@@ -33,6 +33,7 @@ import Comments from "../Community/Comments";
 
 import "css/user.css";
 import { Modal } from "components/Modal";
+import ConfirmDialog from "components/ConfirmDialog";
 import CustomMarkdown from "components/CustomMarkdown";
 import ReportDialog from "../../components/ReportDialog";
 import RapSheet from "../../components/RapSheet";
@@ -177,6 +178,8 @@ export default function Profile() {
   const [editingPronouns, setEditingPronouns] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
   const [isFriendRequested, setIsFriendRequested] = useState(false);
+  const [friendConfirm, setFriendConfirm] = useState(null);
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
   const [isLove, setIsLove] = useState(false);
   const [isMarried, setIsMarried] = useState(false);
   const [kudos, setKudos] = useState(0);
@@ -565,43 +568,72 @@ export default function Profile() {
       });
   }
 
-  function onFriendUserClick() {
-    if (isFriend || isFriendRequested) {
-      var shouldUnfriend = window.confirm(
-        "Are you sure you wish to unfriend or cancel your friend request?"
-      );
-      if (!shouldUnfriend) return;
-    }
-
+  function submitFriendAction(targetUserId, source) {
+    setFriendActionLoading(true);
     axios
-      .post("/api/user/friend", { user: profileUserId })
+      .post("/api/user/friend", { user: targetUserId })
       .then((res) => {
-        if (isFriend) {
+        const message = String(res.data || "");
+
+        if (source === "friend-list") {
+          setFriends((prev) =>
+            prev.filter((friend) => friend.id !== targetUserId)
+          );
           setIsFriend(false);
-        } else if (isFriendRequested) {
+          setIsFriendRequested(false);
+        } else if (message.includes("accepted")) {
+          setIsFriend(true);
+          setIsFriendRequested(false);
+        } else if (message.includes("sent")) {
+          setIsFriend(false);
+          setIsFriendRequested(true);
+        } else if (message.includes("cancelled")) {
+          setIsFriend(false);
+          setIsFriendRequested(false);
+        } else if (message.includes("Unfriended")) {
+          setIsFriend(false);
           setIsFriendRequested(false);
         } else {
-          setIsFriendRequested(true);
+          setIsFriendRequested(!isFriendRequested);
         }
         siteInfo.showAlert(res.data, "success");
       })
-      .catch(errorAlert);
+      .catch(errorAlert)
+      .finally(() => {
+        setFriendActionLoading(false);
+        setFriendConfirm(null);
+      });
+  }
+
+  function onFriendUserClick() {
+    if (isFriend || isFriendRequested) {
+      setFriendConfirm({
+        title: isFriend ? "Unfriend user" : "Cancel friend request",
+        message: isFriend
+          ? `Are you sure you want to unfriend ${name}?`
+          : `Cancel your friend request to ${name}?`,
+        confirmLabel: isFriend ? "Unfriend" : "Cancel request",
+        userId: profileUserId,
+        source: "profile",
+      });
+      return;
+    }
+
+    submitFriendAction(profileUserId, "profile");
   }
 
   function onDeleteFriend(friendId) {
     return () => {
-      var shouldUnfriend = window.confirm(
-        "Are you sure you wish to delete this friend?"
-      );
-      if (!shouldUnfriend) return;
+      const friend = friends.find((item) => item.id === friendId);
+      const friendName = friend?.name || "this friend";
 
-      axios
-        .post("/api/user/friend", { user: friendId })
-        .then((res) => {
-          setIsFriend(false);
-          siteInfo.showAlert(res.data, "success");
-        })
-        .catch(errorAlert);
+      setFriendConfirm({
+        title: "Delete friend",
+        message: `Are you sure you want to delete ${friendName}?`,
+        confirmLabel: "Delete friend",
+        userId: friendId,
+        source: "friend-list",
+      });
     };
   }
 
@@ -1357,6 +1389,15 @@ export default function Profile() {
 
   if (!profileLoaded || !user.loaded) return <Loading small />;
 
+  const friendIconClass = isFriend
+    ? "fas fa-user-check sel"
+    : `fas ${isFriendRequested ? "fa-user-clock sel" : "fa-user-plus"}`;
+  const friendButtonTitle = isFriend
+    ? "Unfriend"
+    : isFriendRequested
+      ? "Cancel friend request"
+      : "Send friend request";
+
   const buttonsBox = (
     <Grid
       item
@@ -1371,10 +1412,14 @@ export default function Profile() {
         <Stack direction="row" className="options">
           {!isSelf && user.loggedIn && (
             <>
-              <IconButton aria-label="friend user">
+              <IconButton
+                aria-label="friend user"
+                title={friendButtonTitle}
+                disabled={friendActionLoading}
+                onClick={onFriendUserClick}
+              >
                 <i
-                  className={`fas fa-user-plus ${isFriend || isFriendRequested ? "sel" : ""}`}
-                  onClick={onFriendUserClick}
+                  className={friendIconClass}
                 />
               </IconButton>
               {userFamily &&
@@ -1743,6 +1788,19 @@ export default function Profile() {
           setShow={setShowStatsModal}
         />
       )}
+      <ConfirmDialog
+        open={Boolean(friendConfirm)}
+        title={friendConfirm?.title || ""}
+        message={friendConfirm?.message || ""}
+        confirmLabel={friendConfirm?.confirmLabel || "Confirm"}
+        confirmColor="error"
+        loading={friendActionLoading}
+        onClose={() => setFriendConfirm(null)}
+        onConfirm={() => {
+          if (!friendConfirm) return;
+          submitFriendAction(friendConfirm.userId, friendConfirm.source);
+        }}
+      />
       <Modal
         show={avatarSelectionOpen}
         onBgClick={closeAvatarSelectionDialog}

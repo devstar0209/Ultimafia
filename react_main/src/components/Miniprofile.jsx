@@ -1,13 +1,19 @@
-import React, { useState, useContext, useRef, useEffect, useMemo } from "react";
+import React, { useState, useContext, useEffect, useMemo } from "react";
 import axios from "axios";
 
-import { Box, Button, IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import {
+  Button,
+  IconButton,
+  Stack,
+  Tooltip,
+} from "@mui/material";
 import { Link } from "react-router-dom";
 
 import { KUDOS_ICON, KARMA_ICON, ACHIEVEMENTS_ICON } from "pages/User/Profile";
 import { PieChart } from "pages/User/PieChart";
 import { Avatar } from "pages/User/User";
 import { UserContext, SiteInfoContext } from "Contexts";
+import ConfirmDialog from "components/ConfirmDialog";
 import ReportDialog from "components/ReportDialog";
 import { useErrorAlert } from "components/Alerts";
 
@@ -47,6 +53,11 @@ function Miniprofile(props) {
 
   const isSelf = currentUser.loggedIn && currentUser.id === id;
   const [isFriend, setIsFriend] = useState(user.isFriend || false);
+  const [isFriendRequested, setIsFriendRequested] = useState(
+    user.isFriendRequested || false
+  );
+  const [friendConfirmOpen, setFriendConfirmOpen] = useState(false);
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const gameId = game?.gameId || null;
 
@@ -62,28 +73,59 @@ function Miniprofile(props) {
   // Update friend status when user prop changes
   useEffect(() => {
     setIsFriend(user.isFriend || false);
-  }, [user.isFriend]);
+    setIsFriendRequested(user.isFriendRequested || false);
+  }, [user.isFriend, user.isFriendRequested]);
 
-  function onFriendUserClick() {
-    if (isFriend) {
-      var shouldUnfriend = window.confirm(
-        "Are you sure you wish to unfriend or cancel your friend request?"
-      );
-      if (!shouldUnfriend) return;
-    }
-
+  function submitFriendAction() {
+    setFriendActionLoading(true);
     axios
       .post("/api/user/friend", { user: id })
       .then((res) => {
-        setIsFriend(!isFriend);
+        const message = String(res.data || "");
+
+        if (message.includes("accepted")) {
+          setIsFriend(true);
+          setIsFriendRequested(false);
+        } else if (message.includes("sent")) {
+          setIsFriend(false);
+          setIsFriendRequested(true);
+        } else if (message.includes("cancelled")) {
+          setIsFriend(false);
+          setIsFriendRequested(false);
+        } else if (message.includes("Unfriended")) {
+          setIsFriend(false);
+          setIsFriendRequested(false);
+        }
         siteInfo.showAlert(res.data, "success");
       })
-      .catch(errorAlert);
+      .catch(errorAlert)
+      .finally(() => {
+        setFriendActionLoading(false);
+        setFriendConfirmOpen(false);
+      });
+  }
+
+  function onFriendUserClick() {
+    if (isFriend || isFriendRequested) {
+      setFriendConfirmOpen(true);
+      return;
+    }
+
+    submitFriendAction();
   }
 
   function onReportClick() {
     setReportDialogOpen(true);
   }
+
+  const friendIconClass = isFriend
+    ? "fas fa-user-check sel"
+    : `fas ${isFriendRequested ? "fa-user-clock sel" : "fa-user-plus"}`;
+  const friendTooltip = isFriend
+    ? "Unfriend"
+    : isFriendRequested
+      ? "Cancel Friend Request"
+      : "Send Friend Request";
 
   return (
     <div className="miniprofile">
@@ -124,15 +166,19 @@ function Miniprofile(props) {
           </Link>
           {!isSelf && currentUser.loggedIn && (
             <Stack direction="row" spacing={0.5}>
-              <Tooltip title={isFriend ? "Unfriend" : "Send Friend Request"}>
+              <Tooltip title={friendTooltip}>
                 <IconButton
                   size="small"
                   onClick={onFriendUserClick}
+                  disabled={friendActionLoading}
                   sx={{
-                    color: isFriend ? "primary.main" : "text.secondary",
+                    color:
+                      isFriend || isFriendRequested
+                        ? "primary.main"
+                        : "text.secondary",
                   }}
                 >
-                  <i className={`fas fa-user-plus ${isFriend ? "sel" : ""}`} />
+                  <i className={friendIconClass} />
                 </IconButton>
               </Tooltip>
               <Button
@@ -150,6 +196,20 @@ function Miniprofile(props) {
         open={reportDialogOpen}
         onClose={() => setReportDialogOpen(false)}
         prefilledArgs={reportPrefilledArgs}
+      />
+      <ConfirmDialog
+        open={friendConfirmOpen}
+        title={isFriend ? "Unfriend user" : "Cancel friend request"}
+        message={
+          isFriend
+            ? `Are you sure you want to unfriend ${name}?`
+            : `Cancel your friend request to ${name}?`
+        }
+        confirmLabel={isFriend ? "Unfriend" : "Cancel request"}
+        confirmColor="error"
+        loading={friendActionLoading}
+        onClose={() => setFriendConfirmOpen(false)}
+        onConfirm={submitFriendAction}
       />
       {!hasDefaultPronouns && <div className="pronouns">({pronouns})</div>}
       {pieChart}
