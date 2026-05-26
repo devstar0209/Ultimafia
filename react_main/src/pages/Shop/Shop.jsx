@@ -22,6 +22,7 @@ import {
   DialogActions,
   InputAdornment,
   IconButton,
+  Alert,
 } from "@mui/material";
 
 import { Loading } from "../../components/Loading";
@@ -185,6 +186,9 @@ export default function Shop() {
   const [stampSuggestions, setStampSuggestions] = useState([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [itemToBuy, setItemToBuy] = useState(null);
+  const [buyStatus, setBuyStatus] = useState("idle");
+  const [buyError, setBuyError] = useState("");
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
@@ -259,42 +263,98 @@ export default function Shop() {
 
   function onBuyItem(index) {
     const item = shopInfo.shopItems[index];
-    const itemPrice = formatItemPrice(item);
-    const shouldBuy = window.confirm(
-      `Are you sure you wish to buy ${item.name} for ${itemPrice}?`
-    );
+    openBuyModal(item, index);
+  }
 
-    if (!shouldBuy) return;
+  function openBuyModal(item, index, options = {}) {
+    if (!item) return;
+    setItemToBuy({
+      item,
+      index,
+      ...options,
+    });
+    setBuyStatus("idle");
+    setBuyError("");
+  }
 
+  function closeBuyModal() {
+    if (buyStatus === "buying") return;
+    if (itemToBuy?.item?.key === "stamp") {
+      setStampGameUrl("");
+      setSelectedSuggestion(null);
+      setStampSuggestions([]);
+    }
+    setItemToBuy(null);
+    setBuyStatus("idle");
+    setBuyError("");
+  }
+
+  function confirmBuyItem() {
+    if (!itemToBuy || buyStatus === "buying") return;
+
+    const { item, index, gameId } = itemToBuy;
+    setBuyStatus("buying");
+    setBuyError("");
     axios
-      .post("/api/shop/purchaseShopItem", { key: item.key, item: item.shopIndex ?? index })
+      .post("/api/shop/purchaseShopItem", {
+        key: item.key,
+        item: item.shopIndex ?? index,
+        ...(gameId ? { gameId } : {}),
+      })
       .then((res) => {
-        siteInfo.showAlert("Item purchased.", "success");
+        siteInfo.showAlert(
+          item.key === "stamp"
+            ? `Stamp purchased: ${res.data.role}!`
+            : "Item purchased.",
+          "success"
+        );
 
         setShopInfo((prev) => ({
-          ...prev
+          ...prev,
+          balance: res.data.balance,
+          balanceDollar: res.data.balanceDollar,
         }));
 
-        let itemsOwnedChanges = {
-          [item.key]: {
-            $set: Number(user.itemsOwned?.[item.key] || 0) + 1,
-          },
-        };
-
-        for (let k in item.propagateItemUpdates || {}) {
-          let change = item.propagateItemUpdates[k];
-          itemsOwnedChanges[k] = {
-            $set: Number(user.itemsOwned?.[k] || 0) + change,
-          };
-        }
-        const userUpdate = {
-          itemsOwned: itemsOwnedChanges,
+        let userUpdate = {
           coins: { $set: res.data.balance },
           balanceDollar: { $set: res.data.balanceDollar },
         };
+
+        if (item.key !== "stamp") {
+          let itemsOwnedChanges = {
+            [item.key]: {
+              $set: Number(user.itemsOwned?.[item.key] || 0) + 1,
+            },
+          };
+
+          for (let k in item.propagateItemUpdates || {}) {
+            let change = item.propagateItemUpdates[k];
+            itemsOwnedChanges[k] = {
+              $set: Number(user.itemsOwned?.[k] || 0) + change,
+            };
+          }
+
+          userUpdate.itemsOwned = itemsOwnedChanges;
+        }
+
         user.set(update(user.state, userUpdate));
+        if (item.key === "stamp") {
+          setStampGameUrl("");
+          setSelectedSuggestion(null);
+          setStampSuggestions([]);
+        }
+        setItemToBuy(null);
+        setBuyStatus("idle");
+        setBuyError("");
       })
-      .catch(errorAlert);
+      .catch((e) => {
+        const message =
+          typeof e?.response?.data === "string"
+            ? e.response.data
+            : e?.message || "Unable to complete purchase.";
+        setBuyError(message);
+        setBuyStatus("failed");
+      });
   }
 
   const shopItems = shopInfo.shopItems.map((item, i) => {
@@ -492,7 +552,12 @@ export default function Shop() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Buy Scrapbook Stamp</DialogTitle>
+        <DialogTitle>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Box component="i" className="fas fa-stamp" aria-hidden="true" />
+            <span>Buy Scrapbook Stamp</span>
+          </Stack>
+        </DialogTitle>
         <DialogContent sx={{ overflow: "visible" }}>
           <Typography variant="body2" sx={{ mb: 2 }}>
             Enter the URL or ID of a Mafia game you won. You will receive a
@@ -590,12 +655,14 @@ export default function Shop() {
               setSelectedSuggestion(null);
               setStampSuggestions([]);
             }}
+            startIcon={<Box component="i" className="fas fa-times" />}
           >
             Cancel
           </Button>
           <Button
             variant="contained"
             disabled={!parseGameId(stampGameUrl)}
+            startIcon={<Box component="i" className="fas fa-search" />}
             onClick={() => {
               const gameId = parseGameId(stampGameUrl);
               if (!gameId) {
@@ -607,41 +674,132 @@ export default function Shop() {
               axios
                 .post("/api/shop/checkStampEligibility", { gameId })
                 .then((eligibility) => {
-                  const shouldBuy = window.confirm(
-                    `You will receive a stamp for ${eligibility.data.role}. Purchase for ${formatItemPrice(stampItem)}?`
-                  );
-                  if (!shouldBuy) return;
-                  return axios.post("/api/shop/purchaseShopItem", {
-                    key: stampItem.key,
-                    item: stampItem.shopIndex ?? stampIndex,
-                    gameId: eligibility.data.gameId,
-                  });
-                })
-                .then((res) => {
-                  if (!res) return;
-                  siteInfo.showAlert(
-                    `Stamp purchased: ${res.data.role}!`,
-                    "success"
-                  );
-                  setStampGameUrl("");
-                  setSelectedSuggestion(null);
-                  setStampSuggestions([]);
                   setStampDialogOpen(false);
-                  setShopInfo((prev) => ({
-                    ...prev,
-                    balance: res.data.balance,
-                    balanceDollar: res.data.balanceDollar,
-                  }));
-                  user.set((prev) => ({
-                    ...prev,
-                    coins: res.data.balance,
-                    balanceDollar: res.data.balanceDollar,
-                  }));
+                  openBuyModal(stampItem, stampIndex, {
+                    gameId: eligibility.data.gameId,
+                    stampRole: eligibility.data.role,
+                  });
                 })
                 .catch(errorAlert);
             }}
           >
             Check Eligibility
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(itemToBuy)}
+        onClose={closeBuyModal}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Box
+              component="i"
+              className={
+                itemToBuy?.item?.key === "stamp"
+                  ? "fas fa-stamp"
+                  : "fas fa-shopping-cart"
+              }
+              aria-hidden="true"
+            />
+            <span>Confirm Purchase</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          {itemToBuy && (
+            <Stack direction="column" spacing={2} sx={{ pt: 0.5 }}>
+              <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                <Box
+                  component="i"
+                  className="fas fa-question-circle"
+                  aria-hidden="true"
+                  sx={{ color: "primary.main" }}
+                />
+                <Typography variant="body2">
+                  Are you sure you want to buy {itemToBuy.item.name} for{" "}
+                  {formatItemPrice(itemToBuy.item)}?
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <ShopItemIcon item={itemToBuy.item} cacheVal={siteInfo.cacheVal} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="h3">{itemToBuy.item.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {itemToBuy.item.desc}
+                  </Typography>
+                </Box>
+              </Stack>
+
+              {itemToBuy.stampRole && (
+                <Alert severity="info">
+                  You will receive a stamp for {itemToBuy.stampRole}.
+                </Alert>
+              )}
+
+              <Box
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 1,
+                  px: 2,
+                  py: 1.5,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Price
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <Typography variant="h4">
+                    {formatItemPrice(itemToBuy.item)}
+                  </Typography>
+                  <Box
+                    component="i"
+                    className={
+                      isDollarBalanceItem(itemToBuy.item)
+                        ? "fas fa-wallet"
+                        : "fas fa-coins"
+                    }
+                    aria-hidden="true"
+                    sx={{
+                      color: isDollarBalanceItem(itemToBuy.item)
+                        ? "success.main"
+                        : "#f5c542",
+                    }}
+                  />
+                </Stack>
+              </Box>
+
+              {buyStatus === "failed" && (
+                <Alert severity="error">Purchase failed. {buyError}</Alert>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={closeBuyModal}
+            disabled={buyStatus === "buying"}
+            startIcon={<Box component="i" className="fas fa-times" />}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={confirmBuyItem}
+            disabled={!itemToBuy || buyStatus === "buying"}
+            startIcon={
+              <Box
+                component="i"
+                className={
+                  buyStatus === "buying" ? "fas fa-spinner fa-spin" : "fas fa-check"
+                }
+              />
+            }
+          >
+            {buyStatus === "buying" ? "Purchasing..." : "Confirm Purchase"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -681,6 +839,7 @@ export default function Shop() {
           />
           <Button
             onClick={handleTransferCoins}
+            startIcon={<Box component="i" className="fas fa-paper-plane" />}
             sx={{
               alignSelf: "stretch",
             }}
