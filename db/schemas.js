@@ -899,6 +899,9 @@ var schemas = {
       default: "checker",
       enum: ["checker", "stretch"],
     },
+    applicationsOpen: { type: Boolean, default: true, index: true },
+    treasury: { type: Number, default: 0, index: true },
+    perks: { type: [String], default: [] },
     bio: {
       type: String,
       default: "",
@@ -931,6 +934,12 @@ var schemas = {
       ref: "Family",
       index: true,
     },
+    role: {
+      type: String,
+      enum: ["leader", "officer", "member"],
+      default: "member",
+      index: true,
+    },
   }),
   FamilyJoinRequest: new mongoose.Schema({
     familyId: { type: String, index: true },
@@ -945,6 +954,52 @@ var schemas = {
       ref: "User",
       index: true,
     },
+    createdAt: { type: Number, index: true, default: Date.now },
+  }),
+  FamilyApplication: new mongoose.Schema({
+    familyId: { type: String, index: true },
+    family: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Family",
+      index: true,
+    },
+    applicantId: { type: String, index: true },
+    applicant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    message: { type: String, default: "", maxlength: 500 },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    createdAt: { type: Number, index: true, default: Date.now },
+    resolvedAt: { type: Number, index: true },
+    resolvedBy: { type: String, index: true },
+  }),
+  FamilyLedger: new mongoose.Schema({
+    familyId: { type: String, index: true },
+    family: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Family",
+      index: true,
+    },
+    userId: { type: String, index: true },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    type: {
+      type: String,
+      enum: ["deposit", "perk"],
+      index: true,
+    },
+    amount: { type: Number, default: 0 },
+    description: { type: String, default: "" },
     createdAt: { type: Number, index: true, default: Date.now },
   }),
   CompetitiveSeason: new mongoose.Schema({

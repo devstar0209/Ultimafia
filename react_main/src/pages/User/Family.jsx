@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useRef,
+} from "react";
 import { useParams, Navigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -10,19 +16,21 @@ import {
   Button,
   IconButton,
   Tooltip,
+  TextField,
+  LinearProgress,
+  Chip,
 } from "@mui/material";
 
 import { UserContext, SiteInfoContext } from "Contexts";
 import { useErrorAlert } from "components/Alerts";
 import { filterProfanity } from "components/Basic";
 import { TextEditor } from "components/Form";
-import { Avatar, NameWithAvatar } from "./User";
+import { NameWithAvatar } from "./User";
 import Comments from "../Community/Comments";
 import { Loading } from "components/Loading";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import CustomMarkdown from "components/CustomMarkdown";
 import TrophyCase from "components/TrophyCase";
-import { capitalize } from "utils";
 
 export default function Family() {
   const { familyId } = useParams();
@@ -32,31 +40,82 @@ export default function Family() {
   const [oldBio, setOldBio] = useState("");
   const [editingBio, setEditingBio] = useState(false);
   const [pendingInvite, setPendingInvite] = useState(null);
+  const [applications, setApplications] = useState([]);
+  const [ledger, setLedger] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [applyMessage, setApplyMessage] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
+  const errorAlertRef = useRef(errorAlert);
   const isPhoneDevice = useIsPhoneDevice();
 
   useEffect(() => {
+    errorAlertRef.current = errorAlert;
+  }, [errorAlert]);
+
+  const loadFamilyApplications = useCallback(() => {
+    axios
+      .get(`/api/family/${familyId}/applications`)
+      .then((res) => {
+        setApplications(res.data.applications || []);
+      })
+      .catch(() => {
+        setApplications([]);
+      });
+  }, [familyId]);
+
+  const loadFamilyProfile = useCallback(() => {
+    setFamilyLoaded(false);
+    axios
+      .get(`/api/family/${familyId}/profile`)
+      .then((res) => {
+        setFamily(res.data);
+        setBio(res.data.bio || "");
+        setFamilyLoaded(true);
+        document.title = `${res.data.name} | PassionMafia`;
+
+        if (res.data.canManageApplications) {
+          loadFamilyApplications();
+        } else {
+          setApplications([]);
+        }
+      })
+      .catch((e) => {
+        errorAlertRef.current(e);
+        setFamilyLoaded(true);
+      });
+  }, [familyId, loadFamilyApplications]);
+
+  const loadFamilyLedger = useCallback(() => {
+    axios
+      .get(`/api/family/${familyId}/ledger`)
+      .then((res) => {
+        setLedger(res.data.ledger || []);
+      })
+      .catch(() => {
+        setLedger([]);
+      });
+  }, [familyId]);
+
+  const loadFamilyLeaderboard = useCallback(() => {
+    axios
+      .get("/api/family/leaderboard")
+      .then((res) => {
+        setLeaderboard(res.data.leaderboard || []);
+      })
+      .catch(() => {
+        setLeaderboard([]);
+      });
+  }, []);
+
+  useEffect(() => {
     if (familyId) {
-      setFamilyLoaded(false);
-      axios
-        .get(`/api/family/${familyId}/profile`)
-        .then((res) => {
-          setFamily(res.data);
-          setBio(res.data.bio || "");
-          setFamilyLoaded(true);
-          document.title = `${res.data.name} | PassionMafia`;
-          // Debug: log trophies to console
-          if (res.data.trophies && res.data.trophies.length > 0) {
-            console.log("Family trophies:", res.data.trophies);
-          }
-        })
-        .catch((e) => {
-          errorAlert(e);
-          setFamilyLoaded(true);
-        });
+      loadFamilyProfile();
+      loadFamilyLedger();
+      loadFamilyLeaderboard();
 
       // Check for pending invite
       if (user.loggedIn) {
@@ -72,15 +131,21 @@ export default function Family() {
           });
       }
     }
-  }, [familyId]);
+  }, [
+    familyId,
+    loadFamilyLedger,
+    loadFamilyLeaderboard,
+    loadFamilyProfile,
+    user.loggedIn,
+  ]);
 
   // Apply family background to site-wrapper when viewing a family page with custom background
   // This replaces the default diamond pattern background ONLY on the Family page
   useEffect(() => {
     const siteWrapper = document.querySelector(".site-wrapper");
-    if (!siteWrapper || !family) return;
+    if (!siteWrapper) return;
 
-    if (family.background && family.backgroundRepeatMode) {
+    if (family?.background && family?.backgroundRepeatMode) {
       const backgroundUrl = typeof family.background === "string"
         ? family.background
         : `/uploads/${familyId}_familyBackground.webp?t=${
@@ -207,6 +272,73 @@ export default function Family() {
       .catch(errorAlert);
   }
 
+  function refreshFamilyTools() {
+    loadFamilyProfile();
+    loadFamilyLedger();
+    loadFamilyLeaderboard();
+    if (family?.canManageApplications) loadFamilyApplications();
+  }
+
+  function onApplyToFamily() {
+    axios
+      .post(`/api/family/${familyId}/apply`, { message: applyMessage })
+      .then(() => {
+        siteInfo.showAlert("Application submitted", "success");
+        setApplyMessage("");
+      })
+      .catch(errorAlert);
+  }
+
+  function onApplicationAction(applicationId, action) {
+    axios
+      .post(`/api/family/${familyId}/applications/${applicationId}/${action}`)
+      .then(() => {
+        siteInfo.showAlert(
+          action === "accept" ? "Application accepted" : "Application rejected",
+          "success"
+        );
+        refreshFamilyTools();
+      })
+      .catch(errorAlert);
+  }
+
+  function onDeposit() {
+    const amount = Math.floor(Number(depositAmount));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      siteInfo.showAlert("Enter a positive coin amount", "error");
+      return;
+    }
+
+    axios
+      .post(`/api/family/${familyId}/treasury/deposit`, { amount })
+      .then(() => {
+        siteInfo.showAlert("Coins deposited", "success");
+        setDepositAmount("");
+        refreshFamilyTools();
+      })
+      .catch(errorAlert);
+  }
+
+  function onBuyPerk(perkKey) {
+    axios
+      .post(`/api/family/${familyId}/perks/${perkKey}/buy`)
+      .then(() => {
+        siteInfo.showAlert("Family perk bought", "success");
+        refreshFamilyTools();
+      })
+      .catch(errorAlert);
+  }
+
+  function onChangeMemberRole(memberId, role) {
+    axios
+      .post(`/api/family/${familyId}/member/${memberId}/role`, { role })
+      .then(() => {
+        siteInfo.showAlert("Family role updated", "success");
+        refreshFamilyTools();
+      })
+      .catch(errorAlert);
+  }
+
   if (!familyLoaded) return <Loading small />;
   if (!family) return <Navigate to="/play" />;
 
@@ -221,6 +353,13 @@ export default function Family() {
     fontWeight: 600,
     marginBottom: "8px",
   };
+  const isFamilyMember = Boolean(family.userRole);
+  const canApply =
+    user.loggedIn &&
+    !isFamilyMember &&
+    family.applicationsOpen &&
+    family.members.length < family.memberLimit;
+  const ownedPerks = (family.perks || []).filter((perk) => perk.owned);
 
   const membersList = family.members.map((member) => (
     <Box
@@ -253,6 +392,28 @@ export default function Family() {
             title="Founder"
           />
         )}
+        <Chip
+          size="small"
+          label={member.role || "member"}
+          variant="outlined"
+        />
+        {family.isLeader &&
+          user.loggedIn &&
+          member.id !== user.id &&
+          !member.isLeader && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() =>
+                onChangeMemberRole(
+                  member.id,
+                  member.role === "officer" ? "member" : "officer"
+                )
+              }
+            >
+              {member.role === "officer" ? "Demote" : "Promote"}
+            </Button>
+          )}
         {family.isLeader && user.loggedIn && member.id !== user.id && (
           <Tooltip title="Remove member">
             <IconButton
@@ -357,6 +518,40 @@ export default function Family() {
                 )}
               </div>
             </Paper>
+            <Paper sx={panelStyle}>
+              <Typography variant="h3" sx={headingStyle}>
+                Family Progress
+              </Typography>
+              <Stack direction="column" spacing={2}>
+                {(family.quests || []).map((quest) => (
+                  <Box key={quest.id}>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                      sx={{ mb: 0.5 }}
+                    >
+                      <Typography variant="body2">{quest.name}</Typography>
+                      <Typography variant="caption">
+                        {quest.current}/{quest.target}
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(
+                        100,
+                        (Number(quest.current || 0) /
+                          Number(quest.target || 1)) *
+                          100
+                      )}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {quest.description}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
             {family.trophies && family.trophies.length > 0 && (
               <Paper sx={panelStyle}>
                 <TrophyCase
@@ -392,12 +587,16 @@ export default function Family() {
                       color="success"
                       onClick={onAcceptJoin}
                       disabled={
-                        family && family.members && family.members.length >= 20
+                        family &&
+                        family.members &&
+                        family.members.length >= family.memberLimit
                       }
                       sx={{ flex: 1 }}
                       title={
-                        family && family.members && family.members.length >= 20
-                          ? "This family has reached the maximum of 20 members."
+                        family &&
+                        family.members &&
+                        family.members.length >= family.memberLimit
+                          ? "This family has reached its member limit."
                           : ""
                       }
                     >
@@ -415,6 +614,158 @@ export default function Family() {
                 </Stack>
               </Paper>
             )}
+            {canApply && (
+              <Paper sx={panelStyle}>
+                <Typography variant="h3" sx={headingStyle}>
+                  Apply
+                </Typography>
+                <Stack direction="column" spacing={1}>
+                  <TextField
+                    multiline
+                    minRows={3}
+                    value={applyMessage}
+                    onChange={(e) => setApplyMessage(e.target.value)}
+                    placeholder="Optional message"
+                    inputProps={{ maxLength: 500 }}
+                    helperText={`${applyMessage.length}/500 characters`}
+                  />
+                  <Button variant="contained" onClick={onApplyToFamily}>
+                    Submit Application
+                  </Button>
+                </Stack>
+              </Paper>
+            )}
+            {family.canManageApplications && applications.length > 0 && (
+              <Paper sx={panelStyle}>
+                <Typography variant="h3" sx={headingStyle}>
+                  Applications
+                </Typography>
+                <Stack direction="column" spacing={1}>
+                  {applications.map((application) => (
+                    <Box key={application.id}>
+                      <NameWithAvatar
+                        id={application.applicant.id}
+                        name={application.applicant.name}
+                        avatar={application.applicant.avatar}
+                        vanityUrl={application.applicant.vanityUrl}
+                      />
+                      {application.message && (
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {application.message}
+                        </Typography>
+                      )}
+                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() =>
+                            onApplicationAction(application.id, "accept")
+                          }
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() =>
+                            onApplicationAction(application.id, "reject")
+                          }
+                        >
+                          Reject
+                        </Button>
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
+            <Paper sx={panelStyle}>
+              <Typography variant="h3" sx={headingStyle}>
+                Treasury
+              </Typography>
+              <Typography variant="h4">
+                {Number(family.treasury || 0).toLocaleString()} coins
+              </Typography>
+              {isFamilyMember && (
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    placeholder="Amount"
+                  />
+                  <Button variant="outlined" onClick={onDeposit}>
+                    Deposit
+                  </Button>
+                </Stack>
+              )}
+            </Paper>
+            <Paper sx={panelStyle}>
+              <Typography variant="h3" sx={headingStyle}>
+                Perks
+              </Typography>
+              <Stack direction="column" spacing={1}>
+                {(family.perks || []).map((perk) => (
+                  <Box key={perk.key}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      spacing={1}
+                    >
+                      <Box>
+                        <Typography variant="body2">{perk.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {perk.description}
+                        </Typography>
+                      </Box>
+                      {perk.owned ? (
+                        <Chip size="small" label="Owned" color="success" />
+                      ) : (
+                        family.canManageApplications && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => onBuyPerk(perk.key)}
+                          >
+                            {perk.cost}
+                          </Button>
+                        )
+                      )}
+                    </Stack>
+                  </Box>
+                ))}
+                {ownedPerks.length === 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    No perks bought yet.
+                  </Typography>
+                )}
+              </Stack>
+            </Paper>
+            {ledger.length > 0 && (
+              <Paper sx={panelStyle}>
+                <Typography variant="h3" sx={headingStyle}>
+                  History
+                </Typography>
+                <Stack direction="column" spacing={1}>
+                  {ledger.slice(0, 5).map((entry) => (
+                    <Box key={entry.id}>
+                      <Typography variant="body2">
+                        {entry.description}
+                      </Typography>
+                      {entry.user && (
+                        <Typography variant="caption" color="text.secondary">
+                          by {entry.user.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
             <Paper sx={panelStyle}>
               <Typography variant="h3" sx={headingStyle}>
                 Members
@@ -423,6 +774,30 @@ export default function Family() {
                 {membersList}
               </Stack>
             </Paper>
+            {leaderboard.length > 0 && (
+              <Paper sx={panelStyle}>
+                <Typography variant="h3" sx={headingStyle}>
+                  Leaderboard
+                </Typography>
+                <Stack direction="column" spacing={1}>
+                  {leaderboard.slice(0, 5).map((entry) => (
+                    <Stack
+                      key={entry.id}
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                    >
+                      <Typography variant="body2">
+                        {entry.rank}. {entry.name}
+                      </Typography>
+                      <Typography variant="caption">
+                        {entry.score} pts
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
           </Stack>
         </Grid>
         {isPhoneDevice && (

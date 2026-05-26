@@ -1087,7 +1087,7 @@ export default function Profile() {
     axios
       .get("/api/family/user/family")
       .then((res) => {
-        if (res.data.family && res.data.family.isLeader) {
+        if (res.data.family && res.data.family.canManageApplications) {
           setUserFamily(res.data.family);
         }
       })
@@ -1492,8 +1492,8 @@ export default function Profile() {
                 />
               </IconButton>
               {userFamily &&
-                userFamily.isLeader &&
-                userFamily.memberCount < 20 && (
+                userFamily.canManageApplications &&
+                userFamily.memberCount < userFamily.memberLimit && (
                   <IconButton
                     aria-label="request to join family"
                     title={`Invite to ${userFamily.name}`}
