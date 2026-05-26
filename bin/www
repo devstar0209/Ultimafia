@@ -36,6 +36,11 @@ app.set("port", port);
 
 		server = http.createServer(app);
 
+		/*
+		 * Run startup jobs
+		 */
+		await startup();
+
 		/**
 		 * Listen on provided port, on all network interfaces.
 		 */
@@ -48,11 +53,6 @@ app.set("port", port);
 		 * Start periodic scripts
 		 */
 		periodic();
-
-		/*
-		 * Run startup jobs
-		 */
-		startup();
 	}
 	catch (e) {
 		logger.error(e);

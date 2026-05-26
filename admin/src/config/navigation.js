@@ -72,6 +72,12 @@ export const menuGroups = [
         description: "Approve setups for competitive play",
       },
       {
+        key: "games-daily-changes",
+        label: "Daily Changes",
+        path: "/admin/games/daily-changes",
+        description: "Manage daily challenge definitions",
+      },
+      {
         key: "games-competitive-seasons",
         label: "Competitive Seasons",
         path: "/admin/games/competitive-seasons",

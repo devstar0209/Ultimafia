@@ -2,7 +2,6 @@ const express = require("express");
 const shortid = require("shortid");
 const constants = require("../data/constants");
 const trophyData = require("../data/trophies");
-const DailyChallengeData = require("../data/DailyChallenge");
 const roleData = require("../data/roles");
 const Random = require("../lib/Random");
 const fbAdmin = require("firebase-admin");

@@ -9,6 +9,7 @@ const models = require("../db/models");
 const redis = require("../modules/redis");
 const gameCatalogUtils = require("../lib/gameCatalog");
 const brandingUtils = require("../lib/platformBranding");
+const dailyChallengeUtils = require("../lib/dailyChallenges");
 const utils = require("../lib/Utils");
 const routeUtils = require("./utils");
 const defaultSettings = require("../lib/defaultSettings");
@@ -20,17 +21,6 @@ const EMOTE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 const EMOTE_GROUP_MAX_UPLOADS = 100;
 const EMOTE_GROUP_BATCH_MAX_BYTES =
   EMOTE_IMAGE_MAX_BYTES * EMOTE_GROUP_MAX_UPLOADS;
-const DAILY_BONUS_CHALLENGES = [
-  {
-    id: "Basic0",
-    settingKey: "dailyPlayOneGameBonus",
-  },
-  {
-    id: "BasicHost1",
-    settingKey: "dailyHostOneGameBonus",
-  },
-];
-
 function isAvatarItem(item = {}) {
   return String(item.key || "").startsWith("avatar-");
 }
@@ -48,8 +38,8 @@ function normalizeDailyBonusChallenge(challenge = "", reward = 0) {
   return `${id}:${progress}:${extraData}:${reward}`;
 }
 
-function syncDailyBonusChallengeList(challenges = [], settings = {}) {
-  const bonusIds = new Set(DAILY_BONUS_CHALLENGES.map((challenge) => challenge.id));
+function syncDailyBonusChallengeList(challenges = [], settings = {}, bonusChallenges = []) {
+  const bonusIds = new Set(bonusChallenges.map((challenge) => challenge.ID));
   const existingBonusChallenges = new Map();
   const nonBonusChallenges = [];
 
@@ -62,13 +52,13 @@ function syncDailyBonusChallengeList(challenges = [], settings = {}) {
     }
   }
 
-  const bonusChallenges = DAILY_BONUS_CHALLENGES.reduce((items, challenge) => {
-    const reward = Number(settings[challenge.settingKey] || 0);
+  const normalizedBonusChallenges = bonusChallenges.reduce((items, challenge) => {
+    const reward = Number(settings[challenge.rewardSetting] || 0);
     if (reward > 0) {
       items.push(
         normalizeDailyBonusChallenge(
-          existingBonusChallenges.get(challenge.id) ||
-            `${challenge.id}:0:null`,
+          existingBonusChallenges.get(challenge.ID) ||
+            `${challenge.ID}:0:null`,
           reward
         )
       );
@@ -77,10 +67,15 @@ function syncDailyBonusChallengeList(challenges = [], settings = {}) {
     return items;
   }, []);
 
-  return [...bonusChallenges, ...nonBonusChallenges];
+  return [...normalizedBonusChallenges, ...nonBonusChallenges];
 }
 
 async function syncDailyBonusChallenges(settings) {
+  const dailyChallengeData =
+    await dailyChallengeUtils.refreshDailyChallengeCache(models);
+  const bonusChallenges = Object.values(dailyChallengeData).filter(
+    (challenge) => challenge.rewardSetting && !challenge.disabled
+  );
   const users = await models.User.find({ deleted: false }).select(
     "id dailyChallenges -_id"
   );
@@ -91,7 +86,8 @@ async function syncDailyBonusChallenges(settings) {
     const currentChallenges = user.dailyChallenges || [];
     const nextChallenges = syncDailyBonusChallengeList(
       currentChallenges,
-      settings
+      settings,
+      bonusChallenges
     );
 
     if (JSON.stringify(currentChallenges) === JSON.stringify(nextChallenges)) {
@@ -313,6 +309,42 @@ async function createBrandingModAction(userId, name, args = []) {
 
 async function getManagedGames() {
   return gameCatalogUtils.syncGameCatalog(models);
+}
+
+function normalizeDailyChallengeInternal(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeDailyChallengeId(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+function buildDailyChallengeAdminPayload(challenge) {
+  const normalized = dailyChallengeUtils.normalizeDailyChallenge(challenge);
+
+  return {
+    id: normalized.ID,
+    name: normalized.name,
+    tier: normalized.tier,
+    internal: normalized.internal,
+    description: normalized.description,
+    extraData: normalized.extraData || "",
+    reward: normalized.reward,
+    rewardSetting: normalized.rewardSetting || "",
+    disabled: normalized.disabled,
+    sortOrder: normalized.sortOrder,
+    updatedAt: normalized.updatedAt,
+    updatedBy: normalized.updatedBy,
+  };
 }
 
 function parseUploadForm(form, req) {
@@ -837,6 +869,319 @@ router.get("/games/incidents", async function (req, res) {
   } catch (e) {
     logger.error(e);
     res.status(500).send("Error loading game incidents.");
+  }
+});
+
+router.get("/games/daily-changes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    if (!(await verifyAdminAccess(req, res))) return;
+
+    const challenges = await dailyChallengeUtils.getDailyChallengeEntries(models, {
+      includeDisabled: true,
+    });
+
+    res.send({
+      items: challenges.map(buildDailyChallengeAdminPayload),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading daily changes.");
+  }
+});
+
+router.post("/games/daily-changes", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const id = normalizeDailyChallengeId(req.body?.id);
+    const name = String(req.body?.name || "").trim();
+    const internal = normalizeDailyChallengeInternal(req.body?.internal);
+
+    if (!id) {
+      res.status(400).send("Daily change id is required.");
+      return;
+    }
+
+    if (!name) {
+      res.status(400).send("Daily change name is required.");
+      return;
+    }
+
+    if (internal.length <= 0) {
+      res.status(400).send("At least one internal tracker is required.");
+      return;
+    }
+
+    const existing = await models.DailyChallenge.findOne({
+      $or: [{ id }, { name }],
+    })
+      .select("id name -_id")
+      .lean();
+
+    if (existing) {
+      res.status(400).send("Daily change id and name must be unique.");
+      return;
+    }
+
+    const lastChallenge = await models.DailyChallenge.findOne({})
+      .sort("-sortOrder")
+      .select("sortOrder -_id")
+      .lean();
+
+    const created = await models.DailyChallenge.create({
+      id,
+      name,
+      tier: Number(req.body?.tier || 0),
+      internal,
+      description: String(req.body?.description || "").trim(),
+      extraData: String(req.body?.extraData || "").trim(),
+      reward: Number(req.body?.reward || 0),
+      rewardSetting: String(req.body?.rewardSetting || "").trim(),
+      disabled: Boolean(req.body?.disabled),
+      sortOrder: Number(lastChallenge?.sortOrder || 0) + 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      updatedBy: sessionInfo.user.id,
+    });
+
+    await dailyChallengeUtils.refreshDailyChallengeCache(models);
+    await routeUtils.createModAction(sessionInfo.user.id, "Created Daily Change", [
+      id,
+    ]);
+
+    res.send({
+      ok: true,
+      item: buildDailyChallengeAdminPayload(created),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error creating daily change.");
+  }
+});
+
+router.patch("/games/daily-changes/order", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const requestedOrder = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((id) => normalizeDailyChallengeId(id)).filter(Boolean)
+      : [];
+    const existingChallenges = await models.DailyChallenge.find({})
+      .select("id -_id")
+      .lean();
+    const existingIds = existingChallenges.map((challenge) => challenge.id);
+    const existingIdSet = new Set(existingIds);
+    const requestedIdSet = new Set(requestedOrder);
+
+    if (
+      requestedOrder.length !== existingIds.length ||
+      requestedIdSet.size !== existingIds.length ||
+      requestedOrder.some((id) => !existingIdSet.has(id))
+    ) {
+      res.status(400).send("Daily change order must include every change once.");
+      return;
+    }
+
+    const updatedAt = Date.now();
+    await models.DailyChallenge.bulkWrite(
+      requestedOrder.map((id, index) => ({
+        updateOne: {
+          filter: { id },
+          update: {
+            $set: {
+              sortOrder: index,
+              updatedAt,
+              updatedBy: sessionInfo.user.id,
+            },
+          },
+        },
+      }))
+    );
+
+    await dailyChallengeUtils.refreshDailyChallengeCache(models);
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      "Reordered Daily Changes",
+      requestedOrder
+    );
+
+    const challenges = await dailyChallengeUtils.getDailyChallengeEntries(models, {
+      includeDisabled: true,
+    });
+
+    res.send({
+      ok: true,
+      items: challenges.map(buildDailyChallengeAdminPayload),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error reordering daily changes.");
+  }
+});
+
+router.patch("/games/daily-changes/:id", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const id = normalizeDailyChallengeId(req.params.id);
+    const name = String(req.body?.name || "").trim();
+    const internal = normalizeDailyChallengeInternal(req.body?.internal);
+
+    if (!name) {
+      res.status(400).send("Daily change name is required.");
+      return;
+    }
+
+    if (internal.length <= 0) {
+      res.status(400).send("At least one internal tracker is required.");
+      return;
+    }
+
+    const existing = await models.DailyChallenge.findOne({ id })
+      .select("id -_id")
+      .lean();
+
+    if (!existing) {
+      res.status(404).send("Daily change not found.");
+      return;
+    }
+
+    const nameConflict = await models.DailyChallenge.findOne({
+      name,
+      id: { $ne: id },
+    })
+      .select("id -_id")
+      .lean();
+
+    if (nameConflict) {
+      res.status(400).send("Daily change name must be unique.");
+      return;
+    }
+
+    const updated = await models.DailyChallenge.findOneAndUpdate(
+      { id },
+      {
+        $set: {
+          name,
+          tier: Number(req.body?.tier || 0),
+          internal,
+          description: String(req.body?.description || "").trim(),
+          extraData: String(req.body?.extraData || "").trim(),
+          reward: Number(req.body?.reward || 0),
+          rewardSetting: String(req.body?.rewardSetting || "").trim(),
+          disabled: Boolean(req.body?.disabled),
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    await dailyChallengeUtils.refreshDailyChallengeCache(models);
+    await routeUtils.createModAction(sessionInfo.user.id, "Updated Daily Change", [
+      id,
+    ]);
+
+    res.send({
+      ok: true,
+      item: buildDailyChallengeAdminPayload(updated),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating daily change.");
+  }
+});
+
+router.patch("/games/daily-changes/:id/disabled", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const id = normalizeDailyChallengeId(req.params.id);
+    const disabled = Boolean(req.body?.disabled);
+    const updated = await models.DailyChallenge.findOneAndUpdate(
+      { id },
+      {
+        $set: {
+          disabled,
+          updatedAt: Date.now(),
+          updatedBy: sessionInfo.user.id,
+        },
+      },
+      { new: true }
+    ).lean();
+
+    if (!updated) {
+      res.status(404).send("Daily change not found.");
+      return;
+    }
+
+    await dailyChallengeUtils.refreshDailyChallengeCache(models);
+    await routeUtils.createModAction(
+      sessionInfo.user.id,
+      disabled ? "Disabled Daily Change" : "Enabled Daily Change",
+      [id]
+    );
+
+    res.send({
+      ok: true,
+      item: buildDailyChallengeAdminPayload(updated),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error updating daily change status.");
+  }
+});
+
+router.delete("/games/daily-changes/:id", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const sessionInfo = await verifyAdminAccess(req, res);
+    if (!sessionInfo) return;
+
+    const id = normalizeDailyChallengeId(req.params.id);
+    const existing = await models.DailyChallenge.findOne({ id })
+      .select("id name -_id")
+      .lean();
+
+    if (!existing) {
+      res.status(404).send("Daily change not found.");
+      return;
+    }
+
+    const assignedCount = await models.User.countDocuments({
+      dailyChallenges: new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`),
+    });
+
+    if (assignedCount > 0) {
+      res
+        .status(400)
+        .send("This daily change is currently assigned to users. Disable it instead.");
+      return;
+    }
+
+    await models.DailyChallenge.deleteOne({ id });
+    await dailyChallengeUtils.refreshDailyChallengeCache(models);
+    await routeUtils.createModAction(sessionInfo.user.id, "Deleted Daily Change", [
+      id,
+    ]);
+
+    res.send({
+      ok: true,
+      id,
+      name: existing.name,
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error deleting daily change.");
   }
 });
 

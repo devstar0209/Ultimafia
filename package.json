@@ -11,7 +11,8 @@
     "stop": "pm2 kill",
     "logs": "pm2 logs www",
     "test": "mocha --recursive --parallel --exit",
-    "seed:shop": "node ./migrations/seedShopItems.js"
+    "seed:shop": "node ./migrations/seedShopItems.js",
+    "seed:daily-challenges": "node ./migrations/seedDailyChallenges.js"
   },
   "dependencies": {
     "@octokit/core": "^7.0.3",

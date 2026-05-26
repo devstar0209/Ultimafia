@@ -1,13 +1,33 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
+import axios from "axios";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { UserContext } from "Contexts";
-import { DailyChallengeData } from "constants/DailyChallenge";
 import { RoleCount } from "components/Roles";
 
 import LobbySidebarPanel from "./LobbySidebarPanel";
 
 export const DailyChallenges = () => {
   const user = useContext(UserContext);
+  const [dailyChallengeData, setDailyChallengeData] = useState({});
+
+  useEffect(() => {
+    let mounted = true;
+
+    axios
+      .get("/api/game/daily-challenges")
+      .then((response) => {
+        if (!mounted) return;
+        setDailyChallengeData(response.data?.byId || {});
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setDailyChallengeData({});
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   let dailys = user.dailyChallenges?.map((m) => m.split(":"));
 
@@ -16,16 +36,15 @@ export const DailyChallenges = () => {
   }
 
   const dailyRows = dailys.map((quest, index) => {
-    //quest[0]
-    let thing = Object.entries(DailyChallengeData).filter(
-      (DailyChallenge) => quest[0] === DailyChallenge[1].ID
-    );
-    let name = thing[0][0].replace(`ExtraData`, quest[2]);
-    let description = thing[0][1].description.replace(`ExtraData`, quest[2]);
+    const challenge = dailyChallengeData[quest[0]];
+    if (!challenge) return null;
+
+    let name = challenge.name.replace(`ExtraData`, quest[2]);
+    let description = challenge.description.replace(`ExtraData`, quest[2]);
     let reward = Number.isFinite(Number(quest[3]))
       ? Number(quest[3])
-      : thing[0][1].reward;
-    let isRole = thing[0][1].extraData === "Role Name";
+      : challenge.reward;
+    let isRole = challenge.extraData === "Role Name";
 
     return (
       <Box
@@ -72,7 +91,11 @@ export const DailyChallenges = () => {
         <Typography> {description}</Typography>
       </Box>
     );
-  });
+  }).filter(Boolean);
+
+  if (dailyRows.length <= 0) {
+    return "";
+  }
 
   return (
     <LobbySidebarPanel title="Daily Challenges">

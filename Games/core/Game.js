@@ -19,7 +19,7 @@ const gameCatalogUtils = require("../../lib/gameCatalog");
 const redis = require("../../modules/redis");
 const roleData = require("../../data/roles");
 const gameAchievements = require("../../data/Achievements");
-const dailyChallengesData = require("../../data/DailyChallenge");
+const dailyChallengeUtils = require("../../lib/dailyChallenges");
 const modifierData = require("../../data/modifiers");
 const gameSettingData = require("../../data/gamesettings");
 const protips = require("../../data/protips");
@@ -2112,16 +2112,7 @@ module.exports = class Game {
   }
 
   getDailyChallenge(ID, extraData) {
-    for (let daily of Object.entries(dailyChallengesData).filter(
-      (day) => ID == day[1].ID
-    )) {
-      return `${daily[0].replace(
-        `ExtraData`,
-        extraData
-      )}- ${daily[1].description.replace(`ExtraData`, extraData)} (${
-        daily[1].reward
-      } Coins)`;
-    }
+    return dailyChallengeUtils.formatDailyChallenge(ID, extraData);
   }
 
   getAchievementReward(ID) {

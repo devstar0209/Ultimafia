@@ -2,9 +2,11 @@ const shortid = require("shortid");
 const constants = require("../data/constants");
 const models = require("../db/models");
 const redis = require("./redis");
+const dailyChallengeUtils = require("../lib/dailyChallenges");
 
 module.exports = async function () {
   await redis.clearPermissionCache();
+  await dailyChallengeUtils.refreshDailyChallengeCache(models);
 
   for (let groupName in constants.defaultGroups) {
     let groupInfo = constants.defaultGroups[groupName];

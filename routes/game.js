@@ -9,6 +9,7 @@ const logger = require("../modules/logging")(".");
 const router = express.Router();
 const axios = require("axios");
 const gameCatalogUtils = require("../lib/gameCatalog");
+const dailyChallengeUtils = require("../lib/dailyChallenges");
 
 async function userCanPlayCompetitive(userId, minimumPoints = constants.minimumPointsForCompetitive) {
   const user = await redis.getUserInfo(userId);
@@ -174,6 +175,19 @@ router.get("/mostPlayedRecently", async (req, res) => {
   } catch (err) {
     logger.error(err);
     res.status(500).end();
+  }
+});
+
+router.get("/daily-challenges", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const challenges = await dailyChallengeUtils.getDailyChallengeEntries(models, {
+      includeDisabled: true,
+    });
+    res.send(dailyChallengeUtils.buildPublicDailyChallengePayload(challenges));
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading daily challenges.");
   }
 });
 

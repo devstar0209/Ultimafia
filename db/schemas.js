@@ -841,6 +841,24 @@ var schemas = {
   DailyChallengeRefresh: new mongoose.Schema({
     when: { type: Number, index: true },
   }),
+  DailyChallenge: new mongoose.Schema(
+    {
+      id: { type: String, index: true, unique: true },
+      name: { type: String, index: true, unique: true },
+      tier: { type: Number, default: 1, index: true },
+      internal: { type: [String], default: [] },
+      description: { type: String, default: "" },
+      extraData: { type: String, default: "" },
+      reward: { type: Number, default: 0 },
+      rewardSetting: { type: String, default: "" },
+      disabled: { type: Boolean, default: false, index: true },
+      sortOrder: { type: Number, default: 0, index: true },
+      createdAt: { type: Number, default: Date.now, index: true },
+      updatedAt: { type: Number, default: Date.now },
+      updatedBy: { type: String, default: "" },
+    },
+    { minimize: false }
+  ),
   LeavePenalty: new mongoose.Schema({
     userId: { type: String, index: true },
     expiresOn: { type: Number, index: true },
@@ -1410,5 +1428,8 @@ schemas.AvatarItem.index({ key: 1 }, { unique: true });
 schemas.AvatarItem.index({ sortOrder: 1 });
 schemas.EmoteGroup.index({ key: 1 }, { unique: true });
 schemas.EmoteGroup.index({ sortOrder: 1 });
+schemas.DailyChallenge.index({ id: 1 }, { unique: true });
+schemas.DailyChallenge.index({ name: 1 }, { unique: true });
+schemas.DailyChallenge.index({ tier: 1, disabled: 1, sortOrder: 1 });
 
 module.exports = schemas;

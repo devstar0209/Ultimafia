@@ -37,6 +37,46 @@ export async function getAdminIncidents() {
   return response.data;
 }
 
+export async function getAdminDailyChanges() {
+  const response = await axios.get("/api/admin/games/daily-changes");
+  return response.data;
+}
+
+export async function createAdminDailyChange(payload) {
+  const response = await axios.post("/api/admin/games/daily-changes", payload);
+  return response.data;
+}
+
+export async function updateAdminDailyChange(id, payload) {
+  const response = await axios.patch(
+    `/api/admin/games/daily-changes/${encodeURIComponent(id)}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function reorderAdminDailyChanges(ids) {
+  const response = await axios.patch("/api/admin/games/daily-changes/order", {
+    ids,
+  });
+  return response.data;
+}
+
+export async function toggleAdminDailyChangeDisabled(id, disabled) {
+  const response = await axios.patch(
+    `/api/admin/games/daily-changes/${encodeURIComponent(id)}/disabled`,
+    { disabled }
+  );
+  return response.data;
+}
+
+export async function deleteAdminDailyChange(id) {
+  const response = await axios.delete(
+    `/api/admin/games/daily-changes/${encodeURIComponent(id)}`
+  );
+  return response.data;
+}
+
 export async function getAdminAvatars(params = {}) {
   const response = await axios.get("/api/admin/avatars", { params });
   return response.data;

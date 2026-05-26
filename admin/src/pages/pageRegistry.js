@@ -3,6 +3,7 @@ import PriceItemsPage from "./catalog/PriceItemsPage";
 import AvatarsPage from "./catalog/AvatarsPage";
 import EmotesPage from "./catalog/EmotesPage";
 import GameIncidentsPage from "./games/GameIncidentsPage";
+import DailyChangesPage from "./games/DailyChangesPage";
 import LiveGamesPage from "./games/LiveGamesPage";
 import QueueHealthPage from "./games/QueueHealthPage";
 import CompetitiveSetupsPage from "./games/CompetitiveSetupsPage";
@@ -26,6 +27,7 @@ const pageRegistry = {
   "games-queues": QueueHealthPage,
   "games-incidents": GameIncidentsPage,
   "games-competitive-setups": CompetitiveSetupsPage,
+  "games-daily-changes": DailyChangesPage,
   "games-competitive-seasons": CompetitiveSeasonsPage,
   "games-ranked-terms": RankedTermsPage,
   "catalog-prices": PriceItemsPage,

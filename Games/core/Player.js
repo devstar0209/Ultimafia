@@ -13,7 +13,7 @@ const gameContext = require("../../modules/gameContext");
 const dbStats = require("../../db/stats");
 const roleData = require("../../data/roles");
 const gameAchievements = require("../../data/Achievements");
-const DailyChallengeData = require("../../data/DailyChallenge");
+const dailyChallengeUtils = require("../../lib/dailyChallenges");
 const itemData = require("../../data/items");
 const modifierData = require("../../data/modifiers");
 const commandData = require("../../data/commands");
@@ -543,6 +543,7 @@ module.exports = class Player {
       case "daily":
         let dailyInfo = [];
         let tempDailyChallenge = this.user.dailyChallenges.map((d) => d[0]);
+        const DailyChallengeData = dailyChallengeUtils.getDailyChallengeData();
         for (let Challenge of Object.entries(DailyChallengeData).filter(
           (DailyChallenge) => tempDailyChallenge.includes(DailyChallenge[1].ID)
         )) {
@@ -910,6 +911,7 @@ module.exports = class Player {
     }
     if (this.game.hasIntegrity && this.DailyTracker.length <= 0) {
       let tempDailyChallenge = this.user.dailyChallenges.map((d) => d[0]);
+      const DailyChallengeData = dailyChallengeUtils.getDailyChallengeData();
       for (let Challenge of Object.entries(DailyChallengeData).filter(
         (DailyChallenge) => tempDailyChallenge.includes(DailyChallenge[1].ID)
       )) {

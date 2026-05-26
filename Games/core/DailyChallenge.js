@@ -1,5 +1,5 @@
 const shortid = require("shortid");
-const DailyChallengeData = require("../../data/DailyChallenge");
+const dailyChallengeUtils = require("../../lib/dailyChallenges");
 
 module.exports = class DailyChallenge {
   constructor(name, player) {
@@ -8,8 +8,10 @@ module.exports = class DailyChallenge {
     this.game = player.game;
     this.player = player;
 
-    this.ID = DailyChallengeData[this.name].ID;
-    this.reward = DailyChallengeData[this.name].reward;
+    const DailyChallengeData = dailyChallengeUtils.getDailyChallengeData();
+    const challengeData = DailyChallengeData[this.name] || {};
+    this.ID = challengeData.ID;
+    this.reward = challengeData.reward || 0;
 
     this.listeners = {};
   }
@@ -24,7 +26,8 @@ module.exports = class DailyChallenge {
       return rewardOverride;
     }
 
-    const settingKey = DailyChallengeData[this.name].rewardSetting;
+    const DailyChallengeData = dailyChallengeUtils.getDailyChallengeData();
+    const settingKey = DailyChallengeData[this.name]?.rewardSetting;
     const settingReward = Number(this.game.defaultSettings?.[settingKey]);
 
     if (settingKey && Number.isFinite(settingReward) && settingReward >= 0) {

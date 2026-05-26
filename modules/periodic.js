@@ -4,7 +4,7 @@ const path = require("path");
 const child_process = require("child_process");
 const Random = require("../lib/Random");
 const constants = require("../data/constants");
-const DailyChallengeData = require("../data/DailyChallenge");
+const dailyChallengeUtils = require("../lib/dailyChallenges");
 const defaultSettings = require("../lib/defaultSettings");
 const roleData = require("../data/roles");
 const models = require("../db/models");
@@ -117,39 +117,39 @@ module.exports = function () {
         });
         for (let refreshedHeart of refreshedHearts) {
           const settings = await defaultSettings.getSettings(models);
-          const dailyPlayOneGameBonus = Number(
-            settings.dailyPlayOneGameBonus || 0
+          const DailyChallengeData =
+            await dailyChallengeUtils.refreshDailyChallengeCache(models);
+          const challengeEntries = Object.entries(DailyChallengeData).filter(
+            (c) => !c[1].disabled
           );
-          const dailyHostOneGameBonus = Number(
-            settings.dailyHostOneGameBonus || 0
-          );
-          //let  Object.entries(DailyChallengeData);
 
           let tierOne = Random.randArrayVal(
-            Object.entries(DailyChallengeData)
+            challengeEntries
               .filter((c) => c[1].tier == 1)
               .map((c) => [c[1].ID, 0, c[1].extraData || null])
           );
           let tierTwo = Random.randArrayVal(
-            Object.entries(DailyChallengeData)
+            challengeEntries
               .filter((c) => c[1].tier == 2)
               .map((c) => [c[1].ID, 0, c[1].extraData || null])
           );
           let tierThree = Random.randArrayVal(
-            Object.entries(DailyChallengeData)
+            challengeEntries
               .filter((c) => c[1].tier == 3)
               .map((c) => [c[1].ID, 0, c[1].extraData || null])
           );
-          //let tierFour = Random.randArrayVal(Object.entries(DailyChallengeData).filter((c) => c[1].tier == 4));
           //Format is [ID, progress, extraData, rewardOverride]
-          let Challenges = [];
-          if (dailyPlayOneGameBonus > 0) {
-            Challenges.push(["Basic0", 0, null, dailyPlayOneGameBonus]);
-          }
-          if (dailyHostOneGameBonus > 0) {
-            Challenges.push(["BasicHost1", 0, null, dailyHostOneGameBonus]);
-          }
+          let Challenges = challengeEntries
+            .filter((c) => c[1].rewardSetting)
+            .map((c) => [
+              c[1].ID,
+              0,
+              c[1].extraData || null,
+              Number(settings[c[1].rewardSetting] || 0),
+            ])
+            .filter((c) => c[3] > 0);
           Challenges.push(tierOne, tierTwo, tierThree);
+          Challenges = Challenges.filter(Boolean);
           for (let c of Challenges) {
             if (c[2] != null) {
               if (c[2] == "Game Type") {
