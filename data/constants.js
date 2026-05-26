@@ -18,6 +18,22 @@ const modifiers = Object.entries(modifierData)
 
 var rates = null;
 
+const DAILY_SPIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const DAILY_SPIN_REWARD_WEIGHTS = {
+  5: 30,
+  10: 24,
+  15: 18,
+  20: 12,
+  30: 7,
+  50: 2,
+};
+const DAILY_SPIN_REWARDS = [5, 10, 15, 20, 30, 50, 30, 20, 15, 10].map(
+  (coins) => ({
+    coins,
+    weight: DAILY_SPIN_REWARD_WEIGHTS[coins],
+  })
+);
+
 if (process.env.NODE_ENV.includes("development")) {
   rates = {
     hostGame: 60 * 100,
@@ -37,6 +53,7 @@ if (process.env.NODE_ENV.includes("development")) {
     staffApplication: 24 * 60 * 60 * 100,
     poke: 5 * 100,
     tradeStamp: 2 * 100,
+    dailySpin: 2 * 100,
   };
 } else {
   rates = {
@@ -57,6 +74,7 @@ if (process.env.NODE_ENV.includes("development")) {
     staffApplication: 24 * 60 * 60 * 1000,
     poke: 5 * 1000,
     tradeStamp: 2 * 1000,
+    dailySpin: 2 * 1000,
   };
 }
 
@@ -343,6 +361,10 @@ module.exports = {
   userGamesPerPage: 5,
   referralGames: 5,
   referralCoins: 50,
+
+  dailySpinIntervalMillis: DAILY_SPIN_INTERVAL_MS,
+  dailySpinRewardWeights: DAILY_SPIN_REWARD_WEIGHTS,
+  dailySpinRewards: DAILY_SPIN_REWARDS,
 
   minMafiaSetupTotal: process.env.NODE_ENV.includes("development") ? 3 : 3,
   captchaThreshold: 0.25,

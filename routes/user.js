@@ -1,5 +1,6 @@
 const express = require("express");
 const bluebird = require("bluebird");
+const crypto = require("crypto");
 const fs = require("fs");
 const fbAdmin = require("firebase-admin");
 const formidable = bluebird.promisifyAll(require("formidable"), {
@@ -70,6 +71,47 @@ function isPokeExpired(poke) {
 function isDismissCooldownActive(poke) {
   return poke.status === "dismissed" && poke.dismissedAt &&
     Date.now() - poke.dismissedAt < constants.pokeDismissCooldownMillis;
+}
+
+function getUtcDayStart(timestamp = Date.now()) {
+  const date = new Date(timestamp);
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  );
+}
+
+function getDailySpinAvailability(lastDailySpinAt = 0, now = Date.now()) {
+  const todayStart = getUtcDayStart(now);
+  const lastSpin = Number(lastDailySpinAt || 0);
+  const canSpin = lastSpin < todayStart;
+
+  return {
+    canSpin,
+    lastDailySpinAt: lastSpin,
+    nextSpinAt: canSpin ? now : todayStart + constants.dailySpinIntervalMillis,
+  };
+}
+
+function getPublicDailySpinRewards() {
+  return constants.dailySpinRewards.map((reward) => ({ coins: reward.coins }));
+}
+
+function pickDailySpinReward() {
+  const totalWeight = constants.dailySpinRewards.reduce(
+    (total, reward) => total + reward.weight,
+    0
+  );
+  let pick = crypto.randomInt(totalWeight);
+
+  for (let index = 0; index < constants.dailySpinRewards.length; index++) {
+    const reward = constants.dailySpinRewards[index];
+    if (pick < reward.weight) return { ...reward, index };
+    pick -= reward.weight;
+  }
+
+  return { ...constants.dailySpinRewards[0], index: 0 };
 }
 
 async function buildPointCatalogBalances(pointsByGameCatalog) {
@@ -730,6 +772,100 @@ router.get("/me/favorite-roles", async function (req, res) {
     logger.error(e);
     res.status(500);
     res.send("Error loading favorite roles.");
+  }
+});
+
+router.get("/daily-spin", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    const user = await models.User.findOne({ id: userId, deleted: false })
+      .select("coins lastDailySpinAt -_id")
+      .lean();
+
+    if (!user) {
+      res.status(404).send("User not found.");
+      return;
+    }
+
+    res.send({
+      ...getDailySpinAvailability(user.lastDailySpinAt),
+      coins: Number(user.coins || 0),
+      rewards: getPublicDailySpinRewards(),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error loading daily spin.");
+  }
+});
+
+router.post("/daily-spin", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const userId = await routeUtils.verifyLoggedIn(req);
+    if (!(await routeUtils.rateLimit(userId, "dailySpin", res))) return;
+
+    const now = Date.now();
+    const todayStart = getUtcDayStart(now);
+    const reward = pickDailySpinReward();
+
+    const spinResult = await models.User.updateOne(
+      {
+        id: userId,
+        deleted: false,
+        $or: [
+          { lastDailySpinAt: { $lt: todayStart } },
+          { lastDailySpinAt: { $exists: false } },
+          { lastDailySpinAt: null },
+        ],
+      },
+      {
+        $inc: { coins: reward.coins },
+        $set: { lastDailySpinAt: now },
+      }
+    ).exec();
+
+    const changed =
+      spinResult.modifiedCount ??
+      spinResult.nModified ??
+      spinResult.matchedCount ??
+      0;
+
+    if (!changed) {
+      const user = await models.User.findOne({ id: userId, deleted: false })
+        .select("lastDailySpinAt -_id")
+        .lean();
+      const availability = getDailySpinAvailability(user?.lastDailySpinAt, now);
+
+      res.status(400).send({
+        ...availability,
+        message: "You have already used today's daily spin.",
+        rewards: getPublicDailySpinRewards(),
+      });
+      return;
+    }
+
+    await redis.cacheUserInfo(userId, true);
+
+    const updatedUser = await models.User.findOne({ id: userId, deleted: false })
+      .select("coins lastDailySpinAt -_id")
+      .lean();
+    const availability = getDailySpinAvailability(
+      updatedUser?.lastDailySpinAt,
+      now
+    );
+
+    res.send({
+      success: true,
+      reward: reward.coins,
+      rewardIndex: reward.index,
+      coins: Number(updatedUser?.coins || 0),
+      ...availability,
+      rewards: getPublicDailySpinRewards(),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500).send("Error using daily spin.");
   }
 });
 

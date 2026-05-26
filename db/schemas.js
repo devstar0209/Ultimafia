@@ -179,6 +179,7 @@ var schemas = {
     blockedUsers: [String],
     coins: { type: Number, default: 0 },
     balanceDollar: { type: Number, default: 0 },
+    lastDailySpinAt: { type: Number, default: 0, index: true },
     itemsOwned: {
       customProfile: { type: Number, default: 0 },
       avatarShape: { type: Number, default: 0 },

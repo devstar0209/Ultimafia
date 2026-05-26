@@ -15,6 +15,7 @@ import { getSiteTheme } from "./constants/themes";
 import { AlertList, useErrorAlert } from "./components/Alerts";
 import UserNavSection from "./pages/User/UserNavSection";
 import CookieBanner from "./components/CookieBanner";
+import DailySpinFloatingButton from "./components/DailySpinFloatingButton";
 import NavDropdown from "./components/NavDropdown";
 import { Loading } from "./components/Loading";
 import "css/main.css";
@@ -217,6 +218,7 @@ function Main(props) {
             setSiteTheme={setSiteTheme}
           >
             <SnowstormController />
+            <DailySpinFloatingButton />
             <Routes>
               <Route path="/" element={<Navigate to="/welcome" />} />
               <Route path="/*" element={mainContent} />
