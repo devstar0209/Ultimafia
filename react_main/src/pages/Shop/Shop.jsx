@@ -343,8 +343,7 @@ export default function Shop() {
           setSelectedSuggestion(null);
           setStampSuggestions([]);
         }
-        setItemToBuy(null);
-        setBuyStatus("idle");
+        setBuyStatus("success");
         setBuyError("");
       })
       .catch((e) => {
@@ -355,6 +354,19 @@ export default function Shop() {
         setBuyError(message);
         setBuyStatus("failed");
       });
+  }
+
+  function getPurchaseDialogIcon() {
+    if (buyStatus === "success") return "fas fa-check-circle";
+    if (buyStatus === "failed") return "fas fa-exclamation-circle";
+    if (itemToBuy?.item?.key === "stamp") return "fas fa-stamp";
+    return "fas fa-shopping-cart";
+  }
+
+  function getPurchaseDialogTitle() {
+    if (buyStatus === "success") return "Purchase Complete";
+    if (buyStatus === "failed") return "Purchase Failed";
+    return "Confirm Purchase";
   }
 
   const shopItems = shopInfo.shopItems.map((item, i) => {
@@ -698,31 +710,45 @@ export default function Shop() {
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Box
               component="i"
-              className={
-                itemToBuy?.item?.key === "stamp"
-                  ? "fas fa-stamp"
-                  : "fas fa-shopping-cart"
-              }
+              className={getPurchaseDialogIcon()}
               aria-hidden="true"
+              sx={{
+                color:
+                  buyStatus === "success"
+                    ? "success.main"
+                    : buyStatus === "failed"
+                      ? "error.main"
+                      : undefined,
+              }}
             />
-            <span>Confirm Purchase</span>
+            <span>{getPurchaseDialogTitle()}</span>
           </Stack>
         </DialogTitle>
         <DialogContent>
           {itemToBuy && (
             <Stack direction="column" spacing={2} sx={{ pt: 0.5 }}>
-              <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-                <Box
-                  component="i"
-                  className="fas fa-question-circle"
-                  aria-hidden="true"
-                  sx={{ color: "primary.main" }}
-                />
-                <Typography variant="body2">
-                  Are you sure you want to buy {itemToBuy.item.name} for{" "}
-                  {formatItemPrice(itemToBuy.item)}?
-                </Typography>
-              </Stack>
+              {buyStatus !== "success" && (
+                <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                  <Box
+                    component="i"
+                    className={
+                      buyStatus === "failed"
+                        ? "fas fa-exclamation-circle"
+                        : "fas fa-question-circle"
+                    }
+                    aria-hidden="true"
+                    sx={{
+                      color:
+                        buyStatus === "failed" ? "error.main" : "primary.main",
+                    }}
+                  />
+                  <Typography variant="body2">
+                    {buyStatus === "failed"
+                      ? "The purchase did not complete. You can try again or close this dialog."
+                      : `Are you sure you want to buy ${itemToBuy.item.name} for ${formatItemPrice(itemToBuy.item)}?`}
+                  </Typography>
+                </Stack>
+              )}
 
               <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                 <ShopItemIcon item={itemToBuy.item} cacheVal={siteInfo.cacheVal} />
@@ -772,8 +798,18 @@ export default function Shop() {
                 </Stack>
               </Box>
 
+              {buyStatus === "success" && (
+                <Alert severity="success">
+                  {itemToBuy.item.key === "stamp"
+                    ? "Stamp purchased successfully. It is now in your scrapbook."
+                    : `${itemToBuy.item.name} was purchased successfully.`}
+                </Alert>
+              )}
+
               {buyStatus === "failed" && (
-                <Alert severity="error">Purchase failed. {buyError}</Alert>
+                <Alert severity="error">
+                  Purchase failed. {buyError}
+                </Alert>
               )}
             </Stack>
           )}
@@ -784,23 +820,33 @@ export default function Shop() {
             disabled={buyStatus === "buying"}
             startIcon={<Box component="i" className="fas fa-times" />}
           >
-            Cancel
+            {buyStatus === "success" || buyStatus === "failed" ? "Close" : "Cancel"}
           </Button>
-          <Button
-            variant="contained"
-            onClick={confirmBuyItem}
-            disabled={!itemToBuy || buyStatus === "buying"}
-            startIcon={
-              <Box
-                component="i"
-                className={
-                  buyStatus === "buying" ? "fas fa-spinner fa-spin" : "fas fa-check"
-                }
-              />
-            }
-          >
-            {buyStatus === "buying" ? "Purchasing..." : "Confirm Purchase"}
-          </Button>
+          {buyStatus !== "success" && (
+            <Button
+              variant="contained"
+              onClick={confirmBuyItem}
+              disabled={!itemToBuy || buyStatus === "buying"}
+              startIcon={
+                <Box
+                  component="i"
+                  className={
+                    buyStatus === "buying"
+                      ? "fas fa-spinner fa-spin"
+                      : buyStatus === "failed"
+                        ? "fas fa-redo"
+                        : "fas fa-check"
+                  }
+                />
+              }
+            >
+              {buyStatus === "buying"
+                ? "Purchasing..."
+                : buyStatus === "failed"
+                  ? "Try Again"
+                  : "Confirm Purchase"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
