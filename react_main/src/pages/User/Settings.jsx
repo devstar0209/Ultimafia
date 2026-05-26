@@ -13,7 +13,6 @@ import {
   MenuItem,
   Select,
   TextField,
-  IconButton,
   LinearProgress,
   Paper,
   ButtonGroup,
@@ -224,63 +223,7 @@ export default function Settings() {
   const errorAlert = useErrorAlert();
   const navigate = useNavigate();
 
-  function getReferralUrl(userId) {
-    return `${import.meta.env.REACT_APP_URL}/auth/login?ref=${userId}`;
-  }
-
-  async function writeClipboardText(text) {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return;
-    }
-
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.setAttribute("readonly", "");
-    textArea.style.position = "fixed";
-    textArea.style.opacity = "0";
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand("copy");
-    document.body.removeChild(textArea);
-  }
-
-  async function copyReferralUrl(referralUrl) {
-    try {
-      await writeClipboardText(referralUrl);
-      siteInfo.showAlert("Referral URL copied", "success");
-    } catch (e) {
-      errorAlert("Could not copy referral URL.");
-    }
-  }
-
   const [siteFields, updateSiteFields] = useForm([
-    {
-      label: "Referral URL",
-      ref: "referralURL",
-      type: "custom",
-      render: (deps) => {
-        const referralUrl = getReferralUrl(deps.user.id);
-        return (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <TextField value={referralUrl} disabled fullWidth />
-            <IconButton
-              aria-label="copy referral URL"
-              onClick={() => copyReferralUrl(referralUrl)}
-              sx={{
-                border: "1px solid",
-                borderColor: "divider",
-                alignSelf: "stretch",
-                borderRadius: 1,
-                px: 1.5,
-              }}
-            >
-              <i className="fas fa-copy" />
-            </IconButton>
-          </Stack>
-        );
-      },
-    },
     {
       label: "DMs from Friends Only",
       ref: "onlyFriendDMs",

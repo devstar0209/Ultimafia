@@ -3130,18 +3130,37 @@ router.post("/friend/reject", async function (req, res) {
 router.post("/referred", async function (req, res) {
   try {
     var userId = await routeUtils.verifyLoggedIn(req);
-    var referrer = String(req.body.referrer);
+    var referrer = String(req.body.referrer || "").trim();
+
+    if (!referrer || referrer === userId) {
+      res.sendStatus(200);
+      return;
+    }
+
     var user = await models.User.findOne({ id: userId }).select("referrer ip");
+
+    if (!user) {
+      res.sendStatus(200);
+      return;
+    }
 
     if (user.referrer) {
       res.sendStatus(200);
       return;
     }
 
-    var referrerUser = await models.User.findOne({ id: referrer }).select("ip");
+    var referrerUser = await models.User.findOne({
+      id: referrer,
+      deleted: false,
+    }).select("ip");
 
-    for (let ip of user.ip) {
-      if (referrerUser.ip.indexOf(ip) != -1) {
+    if (!referrerUser) {
+      res.sendStatus(200);
+      return;
+    }
+
+    for (let ip of user.ip || []) {
+      if ((referrerUser.ip || []).indexOf(ip) != -1) {
         res.sendStatus(200);
         return;
       }

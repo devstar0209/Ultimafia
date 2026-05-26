@@ -61,6 +61,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -161,6 +162,41 @@ function RoleIconCreditsPanel({
         <RoleCount key={key} role={roleName} gameType="Mafia" skin={skin} />
       ))}
     </CasePanel>
+  );
+}
+
+function ProfilePanelTitle({
+  icon,
+  color = "primary.main",
+  children,
+  style = {},
+  sx = {},
+}) {
+  return (
+    <Typography
+      variant="h3"
+      style={style}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        ...sx,
+      }}
+    >
+      <Box
+        component="i"
+        className={icon}
+        sx={{
+          width: 20,
+          flexShrink: 0,
+          fontSize: "0.9em",
+          opacity: 0.82,
+          textAlign: "center",
+          color,
+        }}
+      />
+      <Box component="span">{children}</Box>
+    </Typography>
   );
 }
 
@@ -268,6 +304,13 @@ export default function Profile() {
   const showDelete = profileUserId === user.id;
 
   const showDeleteArchivedGame = showDelete && editingArchivedGames;
+  const referralUrl = isSelf
+    ? `${import.meta.env.REACT_APP_URL}/auth/login?ref=${user.id}`
+    : "";
+  const referralBonus = Number(siteInfo?.publicSettings?.referralBonus || 0);
+  const referralBonusLabel = `${referralBonus.toLocaleString()} ${
+    referralBonus === 1 ? "coin" : "coins"
+  }`;
 
   const displayedPointsByGameCatalog = useMemo(() => {
     const profilePointMap = new Map(
@@ -468,6 +511,32 @@ export default function Profile() {
   }, [profileLoaded, profileUserId]);
 
   const refetchProfile = () => setProfileRefetchKey((k) => k + 1);
+
+  async function writeClipboardText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+  }
+
+  async function copyReferralUrl() {
+    try {
+      await writeClipboardText(referralUrl);
+      siteInfo.showAlert("Referral URL copied", "success");
+    } catch (e) {
+      errorAlert("Could not copy referral URL.");
+    }
+  }
 
   function onEditBanner(files, type) {
     if (!user.itemsOwned.customProfile) {
@@ -2074,9 +2143,13 @@ export default function Profile() {
             </div>
             <div className="box-panel" style={panelStyle}>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 1 }}>
-                <Typography variant="h3" style={headingStyle}>
+                <ProfilePanelTitle
+                  icon="fas fa-chart-line"
+                  color="#42a5f5"
+                  style={headingStyle}
+                >
                   Game Points (XP)
-                </Typography>
+                </ProfilePanelTitle>
                 <Button size="small" variant="outlined" onClick={onOpenPointsHistory}>
                   View points history
                 </Button>
@@ -2132,9 +2205,13 @@ export default function Profile() {
               </div>
             </div>
             <div className="box-panel" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
+              <ProfilePanelTitle
+                icon="fas fa-smile"
+                color="#ffca28"
+                style={headingStyle}
+              >
                 Emote Groups
-              </Typography>
+              </ProfilePanelTitle>
               <div className="content">
                 {ownedEmoteGroups.length > 0 ? (
                   <Grid container spacing={1}>
@@ -2191,9 +2268,13 @@ export default function Profile() {
               </div>
             </div>
             <div className="box-panel" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
+              <ProfilePanelTitle
+                icon="fas fa-shopping-bag"
+                color="#ab47bc"
+                style={headingStyle}
+              >
                 Purchased Items
-              </Typography>
+              </ProfilePanelTitle>
               <div className="content">
                 {purchasedItems.length > 0 ? (
                   <Grid container spacing={1}>
@@ -2318,13 +2399,56 @@ export default function Profile() {
             {(isSelf || user.perms.seeModPanel) && (
               <RapSheet userId={profileUserId} />
             )}
+            {isSelf && (
+              <div className="box-panel" style={panelStyle}>
+                <ProfilePanelTitle
+                  icon="fas fa-gift"
+                  color="#ec407a"
+                  style={headingStyle}
+                >
+                  Referral Rewards
+                </ProfilePanelTitle>
+                <div className="content">
+                  <Stack direction="column" spacing={1.25} sx={{ width: "100%" }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Share this link with a new player. When they finish their first game, you receive {referralBonusLabel}.
+                    </Typography>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                      <TextField
+                        value={referralUrl}
+                        fullWidth
+                        size="small"
+                        InputProps={{ readOnly: true }}
+                      />
+                      <IconButton
+                        aria-label="copy referral URL"
+                        onClick={copyReferralUrl}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          alignSelf: "stretch",
+                          borderRadius: 1,
+                          px: 1.5,
+                        }}
+                      >
+                        <i className="fas fa-copy" />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </div>
+              </div>
+            )}
             {trophyCase}
             {totalGames >= RequiredTotalForStats &&
               !settings.hideStatistics && (
                 <div className="box-panel ratings" style={panelStyle}>
-                  <Typography variant="h3" sx={headingStyle}>
+                  <ProfilePanelTitle
+                    icon="fas fa-star"
+                    color="#ffb300"
+                    sx={headingStyle}
+                  >
                     Mafia Ratings
-                  </Typography>
+                  </ProfilePanelTitle>
                   <div className="ratings-tabs">
                     <div
                       className={
@@ -2379,9 +2503,13 @@ export default function Profile() {
               />
             )}
             <div className="box-panel recent-games" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
+              <ProfilePanelTitle
+                icon="fas fa-history"
+                color="#26a69a"
+                style={headingStyle}
+              >
                 Recent Games
-              </Typography>
+              </ProfilePanelTitle>
               <div className="content" style={{ padding: "0px" }}>
                 {recentGamesMaxPage > 1 && (
                   <PageNav
@@ -2422,17 +2550,25 @@ export default function Profile() {
             </div>
             {friendRequests.length > 0 && (
               <div className="box-panel" style={panelStyle}>
-                <Typography variant="h3" style={headingStyle}>
+                <ProfilePanelTitle
+                  icon="fas fa-user-plus"
+                  color="#66bb6a"
+                  style={headingStyle}
+                >
                   Friend Requests
-                </Typography>
+                </ProfilePanelTitle>
                 <div className="content">{friendRequestRows}</div>
               </div>
             )}
             {incomingPokes.length > 0 && !user.settings?.disablePokes && (
               <div className="box-panel" style={panelStyle}>
-                <Typography variant="h3" style={headingStyle}>
+                <ProfilePanelTitle
+                  icon="fas fa-hand-pointer"
+                  color="#ffa726"
+                  style={headingStyle}
+                >
                   Pokes
-                </Typography>
+                </ProfilePanelTitle>
                 <div className="content">
                   {incomingPokes.map((poke) => (
                     <div className="poke-item" key={poke.from.id}>
@@ -2467,9 +2603,13 @@ export default function Profile() {
               </div>
             )}
             <div className="box-panel" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
+              <ProfilePanelTitle
+                icon="fas fa-user-friends"
+                color="#29b6f6"
+                style={headingStyle}
+              >
                 Friends
-              </Typography>
+              </ProfilePanelTitle>
               <div className="content">
                 <PageNav inverted page={friendsPage} onNav={onFriendsPageNav} />
                 {friendRows}
@@ -2486,9 +2626,13 @@ export default function Profile() {
               </div>
             </div>
             <div className="box-panel" style={panelStyle}>
-              <Typography variant="h3" style={headingStyle}>
+              <ProfilePanelTitle
+                icon="fas fa-layer-group"
+                color="#7e57c2"
+                style={headingStyle}
+              >
                 Setups Created
-              </Typography>
+              </ProfilePanelTitle>
               <div className="content">
                 {setupsMaxPage > 1 && (
                   <PageNav
@@ -2538,7 +2682,11 @@ export default function Profile() {
             />
             {archivedGamesRows.length !== 0 && (
               <div className="box-panel archived-games" style={panelStyle}>
-                <Typography variant="h3" sx={headingStyle}>
+                <ProfilePanelTitle
+                  icon="fas fa-archive"
+                  color="#8d6e63"
+                  sx={headingStyle}
+                >
                   Archived Games{" "}
                   {showDelete && (
                     <i
@@ -2546,7 +2694,7 @@ export default function Profile() {
                       onClick={onEditArchivedGamesClick()}
                     />
                   )}
-                </Typography>
+                </ProfilePanelTitle>
                 <div className="content" style={{ padding: "0px" }}>
                   <Stack direction="column" spacing={0}>
                     {archivedGamesRows}

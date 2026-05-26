@@ -46,6 +46,26 @@ function SnowstormController() {
   return null;
 }
 
+function ReferralLoginRedirect() {
+  const location = useLocation();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const referrer = String(params.get("ref") || "").trim();
+
+    if (referrer) {
+      window.localStorage.setItem("referrer", referrer);
+    }
+
+    setReady(true);
+  }, [location.search]);
+
+  if (!ready) return null;
+
+  return <Navigate to="/welcome" replace />;
+}
+
 function ErrorBox({ error, resetErrorBoundary }) {
   const location = useLocation();
   const [errorLocation, setErrorLocation] = useState(location.pathname);
@@ -160,6 +180,7 @@ function Main(props) {
                   <Route path="learn/*" element={<Learn />} />
                   <Route path="policy/*" element={<Policy />} />
                   <Route path="user/*" element={<User />} />
+                  <Route path="auth/login" element={<ReferralLoginRedirect />} />
                   <Route path="auth/action" element={<AuthAction />} />
                   <Route path="auth/discord/redirect" element={<DiscordRedirect />} />
                   <Route path="shop" element={<Shop />} />

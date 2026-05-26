@@ -3740,6 +3740,63 @@ module.exports = class Game {
     }
   }
 
+  async awardReferralBonus(player) {
+    try {
+      const referralBonus = Number(this.defaultSettings?.referralBonus || 0);
+      const referredUserId = player?.user?.id;
+      const referrerId = String(player?.user?.referrer || "").trim();
+
+      if (
+        player?.isBot ||
+        referralBonus <= 0 ||
+        !referredUserId ||
+        !referrerId ||
+        referrerId === referredUserId ||
+        player.user.playedGame ||
+        player.user.referralBonusAwardedAt
+      ) {
+        return;
+      }
+
+      const claimResult = await models.User.updateOne(
+        {
+          id: referredUserId,
+          referrer: referrerId,
+          referralBonusAwardedAt: { $in: [null, 0] },
+        },
+        {
+          $set: { referralBonusAwardedAt: Date.now() },
+        }
+      ).exec();
+      const claimed =
+        (claimResult.modifiedCount ?? claimResult.nModified ?? 0) > 0;
+
+      if (!claimed) return;
+
+      const referrerResult = await models.User.updateOne(
+        { id: referrerId, deleted: false },
+        { $inc: { coins: referralBonus } }
+      ).exec();
+      const referrerUpdated =
+        (referrerResult.modifiedCount ?? referrerResult.nModified ?? 0) > 0;
+
+      if (!referrerUpdated) return;
+
+      await routeUtils.createNotification(
+        {
+          content: `You earned ${referralBonus} coins from a referral!`,
+          icon: "fas fa-coins",
+          link: `/user/${referredUserId}`,
+        },
+        [referrerId]
+      );
+
+      await redis.cacheUserInfo(referrerId, true);
+    } catch (e) {
+      logger.error("Error awarding referral bonus: ", e);
+    }
+  }
+
   async endPostgame() {
     try {
       if (this.postgameOver) return;
@@ -3930,6 +3987,8 @@ module.exports = class Game {
             $inc: incOps,
           }
         ).exec();
+
+        await this.awardReferralBonus(player);
 
         if (pointAwards.length > 0) {
           await models.PointsHistory.insertMany(

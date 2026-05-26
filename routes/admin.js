@@ -2422,6 +2422,7 @@ router.get("/settings/general", async function (req, res) {
       branding: brandingUtils.buildBrandingPayload(brandingDoc),
       defaultSettings: {
         registerCoinsReward: defaultSettings?.registerCoinsReward || 0,
+        referralBonus: defaultSettings?.referralBonus || 0,
         coinsPerDollar: defaultSettings?.coinsPerDollar || 100,
         dailyPlayOneGameBonus: defaultSettings?.dailyPlayOneGameBonus || 0,
         dailyHostOneGameBonus: defaultSettings?.dailyHostOneGameBonus || 0,
@@ -2445,6 +2446,7 @@ router.patch("/settings/defaults", async function (req, res) {
 
     const {
       registerCoinsReward,
+      referralBonus,
       coinsPerDollar,
       dailyPlayOneGameBonus,
       dailyHostOneGameBonus,
@@ -2459,6 +2461,7 @@ router.patch("/settings/defaults", async function (req, res) {
       { key: "default" },
       {
         registerCoinsReward: Number(registerCoinsReward || 0),
+        referralBonus: Number(referralBonus || 0),
         coinsPerDollar: Number(coinsPerDollar || 100),
         dailyPlayOneGameBonus: Number(dailyPlayOneGameBonus || 0),
         dailyHostOneGameBonus: Number(dailyHostOneGameBonus || 0),
@@ -2480,6 +2483,7 @@ router.patch("/settings/defaults", async function (req, res) {
     res.send({
       defaultSettings: {
         registerCoinsReward: updated.registerCoinsReward,
+        referralBonus: updated.referralBonus,
         coinsPerDollar: updated.coinsPerDollar,
         dailyPlayOneGameBonus: updated.dailyPlayOneGameBonus,
         dailyHostOneGameBonus: updated.dailyHostOneGameBonus,

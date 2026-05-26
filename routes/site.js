@@ -122,6 +122,24 @@ router.get("/branding", async function (req, res) {
   }
 });
 
+router.get("/settings", async function (req, res) {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const settings = await models.DefaultSettings.findOne({ key: "default" })
+      .select("referralBonus -_id")
+      .lean();
+
+    res.send({
+      referralBonus: Number(settings?.referralBonus || 0),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.send({
+      referralBonus: 0,
+    });
+  }
+});
+
 router.get("/gamecatalogs", async function (req, res) {
   res.setHeader("Content-Type", "application/json");
   try {

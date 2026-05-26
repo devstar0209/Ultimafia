@@ -24,6 +24,7 @@ module.exports = class User {
     }
     this.playedGame = props.playedGame;
     this.referrer = props.referrer;
+    this.referralBonusAwardedAt = props.referralBonusAwardedAt;
     this.guestId = props.guestId;
     this.settings = props.settings;
     this.isTest = props.isTest;

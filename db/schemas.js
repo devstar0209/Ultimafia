@@ -220,6 +220,7 @@ var schemas = {
     bdayChanged: { type: Boolean, default: false },
     playedGame: { type: Boolean, default: false },
     referrer: String,
+    referralBonusAwardedAt: { type: Number, default: 0 },
     transactions: [Number],
     deleted: { type: Boolean, default: false },
     banned: { type: Boolean, default: false },
@@ -266,6 +267,7 @@ var schemas = {
     {
       key: { type: String, index: true, unique: true, default: "default" },
       registerCoinsReward: { type: Number, default: 0 },
+      referralBonus: { type: Number, default: 0 },
       coinsPerDollar: { type: Number, default: 100 },
       dailyPlayOneGameBonus: { type: Number, default: 0 },
       dailyHostOneGameBonus: { type: Number, default: 0 },

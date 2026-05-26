@@ -335,6 +335,9 @@ export function SiteInfoProvider({ children, setSiteInfoLoading }) {
     {
       alerts: [],
       cacheVal,
+      publicSettings: {
+        referralBonus: null,
+      },
     }
   );
 
@@ -443,6 +446,22 @@ export function SiteInfoProvider({ children, setSiteInfoLoading }) {
         )
         .catch(() =>
           updateSiteInfo({ type: "setProp", prop: "branding", value: {} })
+        ),
+      axios
+        .get("/api/site/settings")
+        .then((res) =>
+          updateSiteInfo({
+            type: "setProp",
+            prop: "publicSettings",
+            value: res.data || { referralBonus: null },
+          })
+        )
+        .catch(() =>
+          updateSiteInfo({
+            type: "setProp",
+            prop: "publicSettings",
+            value: { referralBonus: null },
+          })
         ),
       axios
         .get("/api/site/gamecatalogs")

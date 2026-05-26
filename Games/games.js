@@ -104,7 +104,7 @@ var deprecated = false;
               deleted: false,
             })
               .select(
-                "id name avatar settings customEmotes dev itemsOwned rankedCount competitiveCount stats achievements playedGame birthday referrer dailyChallenges dailyChallengesCompleted"
+                "id name avatar settings customEmotes dev itemsOwned rankedCount competitiveCount stats achievements playedGame birthday referrer referralBonusAwardedAt dailyChallenges dailyChallengesCompleted"
               )
               .populate([
                 {

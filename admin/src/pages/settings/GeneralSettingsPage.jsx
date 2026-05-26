@@ -37,6 +37,7 @@ export default function GeneralSettingsPage() {
 
   // Coin Rewards
   const [registerCoinsReward, setRegisterCoinsReward] = useState(0);
+  const [referralBonus, setReferralBonus] = useState(0);
   const [coinsPerDollar, setCoinsPerDollar] = useState(100);
   const [dailyPlayOneGameBonus, setDailyPlayOneGameBonus] = useState(0);
   const [dailyHostOneGameBonus, setDailyHostOneGameBonus] = useState(0);
@@ -57,6 +58,7 @@ export default function GeneralSettingsPage() {
     }
     if (data?.defaultSettings) {
       setRegisterCoinsReward(data.defaultSettings.registerCoinsReward || 0);
+      setReferralBonus(data.defaultSettings.referralBonus || 0);
       setCoinsPerDollar(data.defaultSettings.coinsPerDollar || 100);
       setDailyPlayOneGameBonus(data.defaultSettings.dailyPlayOneGameBonus || 0);
       setDailyHostOneGameBonus(data.defaultSettings.dailyHostOneGameBonus || 0);
@@ -120,6 +122,7 @@ export default function GeneralSettingsPage() {
     try {
       await updateAdminDefaultSettings({
         registerCoinsReward: Number(registerCoinsReward || 0),
+        referralBonus: Number(referralBonus || 0),
         coinsPerDollar: Number(coinsPerDollar || 100),
         dailyPlayOneGameBonus: Number(dailyPlayOneGameBonus || 0),
         dailyHostOneGameBonus: Number(dailyHostOneGameBonus || 0),
@@ -255,6 +258,16 @@ export default function GeneralSettingsPage() {
                   onChange={(e) => setRegisterCoinsReward(e.target.value)}
                   placeholder="0"
                   helperText="Coins awarded to new registered users"
+                  inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Referral Bonus"
+                  type="number"
+                  value={referralBonus}
+                  onChange={(e) => setReferralBonus(e.target.value)}
+                  placeholder="0"
+                  helperText="Coins awarded to a referrer when a referred player finishes their first game"
                   inputProps={{ min: 0 }}
                 />
                 <TextField
