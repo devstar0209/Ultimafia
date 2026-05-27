@@ -5,7 +5,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Grid,
@@ -80,6 +80,7 @@ export default function Family() {
   const errorAlert = useErrorAlert();
   const errorAlertRef = useRef(errorAlert);
   const isPhoneDevice = useIsPhoneDevice();
+  const navigate = useNavigate();
 
   useEffect(() => {
     errorAlertRef.current = errorAlert;
@@ -231,6 +232,10 @@ export default function Family() {
     if (!family.isLeader) return;
     setEditingBio(true);
     setOldBio(bio);
+  }
+
+  function onManageFamilyClick() {
+    navigate("/user/settings/family");
   }
 
   function onEditBio() {
@@ -554,8 +559,31 @@ export default function Family() {
                     }}
                   />
                 )}
-                <Box>
-                  <Typography variant="h2">{family.name}</Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    sx={{
+                      alignItems: { xs: "flex-start", sm: "center" },
+                      justifyContent: "space-between",
+                      gap: 1,
+                    }}
+                  >
+                    <Typography variant="h2">{family.name}</Typography>
+                    {family.isLeader && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={onManageFamilyClick}
+                        startIcon={
+                          <i className="fas fa-cog" aria-hidden="true" />
+                        }
+                        sx={{ flexShrink: 0 }}
+                      >
+                        Manage Family
+                      </Button>
+                    )}
+                  </Stack>
                   <Typography variant="body2" color="text.secondary">
                     Founded by{" "}
                     <NameWithAvatar
@@ -574,11 +602,35 @@ export default function Family() {
                 onClick={onBioClick}
               >
                 {!editingBio && (
-                  <div className="md-content">
-                    <CustomMarkdown>
-                      {bio || "Click to edit your family's bio"}
-                    </CustomMarkdown>
-                  </div>
+                  <>
+                    {family.isLeader && (
+                      <Stack
+                        direction="row"
+                        sx={{ justifyContent: "flex-end", mb: 1 }}
+                      >
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onBioClick();
+                          }}
+                          startIcon={
+                            <i className="fas fa-pen" aria-hidden="true" />
+                          }
+                        >
+                          Edit Bio
+                        </Button>
+                      </Stack>
+                    )}
+                    <div className="md-content">
+                      <CustomMarkdown>
+                        {bio || (family.isLeader
+                          ? "Add a family bio."
+                          : "No family bio yet.")}
+                      </CustomMarkdown>
+                    </div>
+                  </>
                 )}
                 {editingBio && (
                   <>
