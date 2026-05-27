@@ -27,6 +27,7 @@ import CustomMarkdown from "components/CustomMarkdown";
 import { VoteWidget } from "components/VoteWidget";
 import { NameWithAvatar } from "pages/User/User";
 import { Loading } from "components/Loading";
+import ConfirmDialog from "components/ConfirmDialog";
 import surprisedFace from "images/emotes/surprised.webp";
 import sadFace from "images/emotes/sad.webp";
 
@@ -66,6 +67,7 @@ function StrategiesBase({
   const [contentInput, setContentInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [deleteConfirmStrategy, setDeleteConfirmStrategy] = useState(null);
 
   const hasUser = Boolean(user && user.id);
   const allowDeleted = Boolean(user.perms?.viewDeleted);
@@ -217,13 +219,15 @@ function StrategiesBase({
   const handleDeleteToggle = (strategy, shouldDelete) => {
     if (!strategy?.id) return;
 
-    if (
-      shouldDelete &&
-      !window.confirm("Are you sure you wish to delete this strategy?")
-    ) {
+    if (shouldDelete) {
+      setDeleteConfirmStrategy(strategy);
       return;
     }
 
+    submitDeleteToggle(strategy, shouldDelete);
+  };
+
+  const submitDeleteToggle = (strategy, shouldDelete) => {
     const endpoint = shouldDelete
       ? `/api/strategy/${strategy.id}/delete`
       : `/api/strategy/${strategy.id}/restore`;
@@ -266,6 +270,12 @@ function StrategiesBase({
         }
       })
       .catch(errorAlert);
+  };
+
+  const confirmDeleteStrategy = () => {
+    const strategy = deleteConfirmStrategy;
+    setDeleteConfirmStrategy(null);
+    if (strategy) submitDeleteToggle(strategy, true);
   };
   const renderStrategy = (strategy) => {
     const createdLabel =
@@ -525,6 +535,15 @@ function StrategiesBase({
     <>
       {sideMenu}
       {dialog}
+      <ConfirmDialog
+        open={Boolean(deleteConfirmStrategy)}
+        title="Delete Strategy"
+        message="Are you sure you wish to delete this strategy?"
+        confirmLabel="Delete"
+        confirmColor="error"
+        onClose={() => setDeleteConfirmStrategy(null)}
+        onConfirm={confirmDeleteStrategy}
+      />
     </>
   );
 }

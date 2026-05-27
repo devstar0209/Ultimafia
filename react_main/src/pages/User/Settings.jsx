@@ -31,6 +31,7 @@ import { useErrorAlert } from "components/Alerts";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import AvatarUpload from "components/AvatarUpload";
 import { useCookieConsent } from "../../hooks/useCookieConsent";
+import ConfirmDialog from "components/ConfirmDialog";
 
 import "css/settings.css";
 import { setCaptchaVisible } from "utils";
@@ -216,6 +217,7 @@ export default function Settings() {
   const [userFamily, setUserFamily] = useState(null);
   const [familyLoaded, setFamilyLoaded] = useState(false);
   const [transferLeaderUserId, setTransferLeaderUserId] = useState("");
+  const [settingsConfirm, setSettingsConfirm] = useState(null);
   const { mode, setMode } = useColorScheme();
 
   const user = useContext(UserContext);
@@ -1162,19 +1164,38 @@ export default function Settings() {
   ];
 
   return (
-    <Routes>
-      {sections.map((section) => (
-        <Route
-          key={section.path}
-          path={section.path}
-          element={
-            <SettingsSection sections={sections} activeSection={section} />
-          }
-        />
-      ))}
-      <Route path="*" element={<Navigate to={sections[0].path} replace />} />
-    </Routes>
+    <>
+      <Routes>
+        {sections.map((section) => (
+          <Route
+            key={section.path}
+            path={section.path}
+            element={
+              <SettingsSection sections={sections} activeSection={section} />
+            }
+          />
+        ))}
+        <Route path="*" element={<Navigate to={sections[0].path} replace />} />
+      </Routes>
+      <ConfirmDialog
+        open={Boolean(settingsConfirm)}
+        title={settingsConfirm?.title || "Confirm"}
+        message={settingsConfirm?.message || ""}
+        confirmLabel={settingsConfirm?.confirmLabel || "Confirm"}
+        confirmColor={settingsConfirm?.confirmColor || "primary"}
+        onClose={() => setSettingsConfirm(null)}
+        onConfirm={() => {
+          const onConfirm = settingsConfirm?.onConfirm;
+          setSettingsConfirm(null);
+          if (onConfirm) onConfirm();
+        }}
+      />
+    </>
   );
+
+  function requestSettingsConfirm(options, onConfirm) {
+    setSettingsConfirm({ ...options, onConfirm });
+  }
 
   function onSettingChange(action, update) {
     if (action.prop === "value" && !action.localOnly) {
@@ -1206,10 +1227,18 @@ export default function Settings() {
   }
 
   function onBirthdayClear(deps) {
-    if (!window.confirm("Are you sure you want to clear your birthday?")) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Clear Birthday",
+        message: "Are you sure you want to clear your birthday?",
+        confirmLabel: "Clear",
+        confirmColor: "error",
+      },
+      () => clearBirthday(deps)
+    );
+  }
 
+  function clearBirthday(deps) {
     axios
       .delete("/api/user/birthday")
       .then((res) => {
@@ -1320,10 +1349,18 @@ export default function Settings() {
   }
 
   function onVanityUrlClear(deps) {
-    if (!window.confirm("Are you sure you want to clear your vanity URL?")) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Clear Vanity URL",
+        message: "Are you sure you want to clear your vanity URL?",
+        confirmLabel: "Clear",
+        confirmColor: "error",
+      },
+      () => clearVanityUrl(deps)
+    );
+  }
 
+  function clearVanityUrl(deps) {
     axios
       .delete("/api/vanityUrl")
       .then((res) => {
@@ -1359,14 +1396,18 @@ export default function Settings() {
   }
 
   function onProfileBackgroundRemove() {
-    if (
-      !window.confirm(
-        "Are you sure you wish to remove your profile background?"
-      )
-    ) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Remove Profile Background",
+        message: "Are you sure you wish to remove your profile background?",
+        confirmLabel: "Remove",
+        confirmColor: "error",
+      },
+      removeProfileBackground
+    );
+  }
 
+  function removeProfileBackground() {
     axios
       .delete("/api/user/profileBackground")
       .then(() => {
@@ -1429,15 +1470,25 @@ export default function Settings() {
   }
 
   function onDeleteClick() {
-    if (window.confirm("Are you sure you wish to **DELETE** your account?")) {
-      axios
-        .post("/api/user/delete")
-        .then(() => {
-          user.clear();
-          navigate("/");
-        })
-        .catch(errorAlert);
-    }
+    requestSettingsConfirm(
+      {
+        title: "Delete Account",
+        message: "Are you sure you wish to DELETE your account?",
+        confirmLabel: "Delete Account",
+        confirmColor: "error",
+      },
+      deleteAccount
+    );
+  }
+
+  function deleteAccount() {
+    axios
+      .post("/api/user/delete")
+      .then(() => {
+        user.clear();
+        navigate("/");
+      })
+      .catch(errorAlert);
   }
 
   function onFamilyAvatarUpload(files, type) {
@@ -1505,14 +1556,19 @@ export default function Settings() {
       return;
     }
 
-    if (
-      !window.confirm(
-        "Are you sure you want to transfer leadership? You will lose the ability to manage the family."
-      )
-    ) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Transfer Leadership",
+        message:
+          "Are you sure you want to transfer leadership? You will lose the ability to manage the family.",
+        confirmLabel: "Transfer",
+        confirmColor: "error",
+      },
+      transferLeadership
+    );
+  }
 
+  function transferLeadership() {
     axios
       .post(`/api/family/${userFamily.id}/transferLeadership`, {
         newLeaderId: transferLeaderUserId,
@@ -1526,14 +1582,19 @@ export default function Settings() {
   }
 
   function onDeleteFamily() {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete your family? This will remove all members and cannot be undone."
-      )
-    ) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Delete Family",
+        message:
+          "Are you sure you want to delete your family? This will remove all members and cannot be undone.",
+        confirmLabel: "Delete Family",
+        confirmColor: "error",
+      },
+      deleteFamily
+    );
+  }
 
+  function deleteFamily() {
     axios
       .delete(`/api/family/${userFamily.id}`)
       .then(() => {
@@ -1547,14 +1608,19 @@ export default function Settings() {
   }
 
   function onLeaveFamily() {
-    if (
-      !window.confirm(
-        "Are you sure you want to leave this family? You will need to be re-invited to rejoin."
-      )
-    ) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Leave Family",
+        message:
+          "Are you sure you want to leave this family? You will need to be re-invited to rejoin.",
+        confirmLabel: "Leave",
+        confirmColor: "error",
+      },
+      leaveFamily
+    );
+  }
 
+  function leaveFamily() {
     axios
       .post(`/api/family/${userFamily.id}/leave`)
       .then(() => {
@@ -1573,12 +1639,18 @@ export default function Settings() {
   }
 
   function onFamilyBackgroundRemove() {
-    if (
-      !window.confirm("Are you sure you wish to remove the family background?")
-    ) {
-      return;
-    }
+    requestSettingsConfirm(
+      {
+        title: "Remove Family Background",
+        message: "Are you sure you wish to remove the family background?",
+        confirmLabel: "Remove",
+        confirmColor: "error",
+      },
+      removeFamilyBackground
+    );
+  }
 
+  function removeFamilyBackground() {
     axios
       .delete(`/api/family/${userFamily.id}/background`)
       .then(() => {

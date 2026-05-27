@@ -20,6 +20,7 @@ import {
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import { getRowColor, getSetupBackgroundColor } from "./gameRowColors.js";
 import StateIcon from "components/StateIcon";
+import ConfirmDialog from "components/ConfirmDialog";
 
 const GameStatus = (props) => {
   const user = useContext(UserContext);
@@ -156,13 +157,18 @@ export const GameRow = (props) => {
   const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
   const [ishostGameDialogueOpen, setIshostGameDialogueOpen] = useState(false);
+  const [breakConfirmOpen, setBreakConfirmOpen] = useState(false);
 
   const showLobbyName = props.showLobbyName;
   const canBreakGame = user.perms?.breakGame && !props.game.broken;
 
   function onBreakGameClick() {
     if (!canBreakGame) return;
-    if (!window.confirm("Break this game? This cannot be undone.")) return;
+    setBreakConfirmOpen(true);
+  }
+
+  function breakGame() {
+    setBreakConfirmOpen(false);
     axios
       .post("/api/mod/breakGame", { gameId: props.game.id })
       .then(() => {
@@ -180,6 +186,7 @@ export const GameRow = (props) => {
   if (!props.game.setup) return <></>;
 
   return (
+    <>
     <div className="shiny-container" style={{ minWidth: "0px", width: "100%" }}>
       {props.game.competitive && <i className="shiny" />}
       <HostGameDialogue
@@ -341,5 +348,15 @@ export const GameRow = (props) => {
         </Stack>
       </Stack>
     </div>
+    <ConfirmDialog
+      open={breakConfirmOpen}
+      title="Break Game"
+      message="Break this game? This cannot be undone."
+      confirmLabel="Break"
+      confirmColor="error"
+      onClose={() => setBreakConfirmOpen(false)}
+      onConfirm={breakGame}
+    />
+    </>
   );
 };

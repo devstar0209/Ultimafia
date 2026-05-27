@@ -5,6 +5,7 @@ import { UserContext } from "Contexts";
 import { useErrorAlert } from "components/Alerts";
 import { Time } from "components/Basic";
 import CustomMarkdown from "components/CustomMarkdown";
+import ConfirmDialog from "components/ConfirmDialog";
 
 import { VoteWidget } from "components/VoteWidget";
 import { NameWithAvatar } from "../User/User";
@@ -23,16 +24,16 @@ export const Comment = (props) => {
 
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   var content = comment.content;
 
   function onDeleteClick() {
-    const shouldDelete = window.confirm(
-      "Are you sure you wish to delete this?"
-    );
+    setDeleteConfirmOpen(true);
+  }
 
-    if (!shouldDelete) return;
-
+  function deleteComment() {
+    setDeleteConfirmOpen(false);
     axios
       .post(`/api/comment/delete`, { comment: comment.id })
       .then(onDelete)
@@ -116,6 +117,15 @@ export const Comment = (props) => {
           </Stack>
         </Paper>
       </Grid>
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Delete Comment"
+        message="Are you sure you wish to delete this?"
+        confirmLabel="Delete"
+        confirmColor="error"
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={deleteComment}
+      />
     </Grid>
   );
 };

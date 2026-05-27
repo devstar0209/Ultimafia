@@ -4,6 +4,7 @@ import ReactMde from "react-mde";
 import axios from "axios";
 
 import CustomMarkdown from "components/CustomMarkdown";
+import ConfirmDialog from "components/ConfirmDialog";
 import { useOnOutsideClick } from "./Basic";
 import { useErrorAlert } from "./Alerts";
 import DeckPicker from "./DeckPicker";
@@ -51,6 +52,7 @@ function FormField({
   useFormControl = false,
   additionalButtons = <></>,
 }) {
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const separateLabel = forceSeparateLabel || (field.type !== "boolean" && !compact);
   const isUnsaved = deps !== undefined && deps[field.saveBtnDiffer] !== field.value;
   const tooltipIcon = field.infoTooltip ? (
@@ -91,12 +93,22 @@ function FormField({
   );
 
   function saveBtnOnClick(e) {
-    let conf = !field.confirm || window.confirm(field.confirm);
-
-    if (conf) {
-      if (field.saveBtnOnClick) field.saveBtnOnClick(field.value, deps);
-      else onChange(e, field);
+    if (field.confirm) {
+      setSaveConfirmOpen(true);
+      return;
     }
+
+    submitSave(e);
+  }
+
+  function submitSave(e) {
+    if (field.saveBtnOnClick) field.saveBtnOnClick(field.value, deps);
+    else onChange(e, field);
+  }
+
+  function confirmSave() {
+    setSaveConfirmOpen(false);
+    submitSave();
   }
 
   function clearBtnOnClick(e) {
@@ -106,9 +118,10 @@ function FormField({
   }
 
   return (
-    <Stack direction="column" spacing={0.5} sx={{
-      mt: 1,
-    }}>
+    <>
+      <Stack direction="column" spacing={0.5} sx={{
+        mt: 1,
+      }}>
       {separateLabel && !useFormControl && (
         <Stack
           direction="row"
@@ -150,7 +163,15 @@ function FormField({
           </FormControl>
         )}
       </Stack>
-    </Stack>
+      </Stack>
+      <ConfirmDialog
+        open={saveConfirmOpen}
+        title="Confirm Change"
+        message={field.confirm || ""}
+        onClose={() => setSaveConfirmOpen(false)}
+        onConfirm={confirmSave}
+      />
+    </>
   );
 }
 

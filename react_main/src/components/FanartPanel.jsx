@@ -18,6 +18,7 @@ import {
 import { UserContext } from "Contexts";
 import { useErrorAlert } from "./Alerts";
 import ImageViewer from "./ImageViewer";
+import ConfirmDialog from "components/ConfirmDialog";
 
 export default function FanartPanel({ roleId }) {
   const user = useContext(UserContext);
@@ -28,6 +29,7 @@ export default function FanartPanel({ roleId }) {
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
   const [viewerUrl, setViewerUrl] = useState(null);
    const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -101,13 +103,13 @@ export default function FanartPanel({ roleId }) {
 
   function onDelete(item) {
     if (!item?.id) return;
-    if (
-      !window.confirm(
-        "Are you sure you wish to delete this fanart? This cannot be undone."
-      )
-    )
-      return;
+    setDeleteConfirmItem(item);
+  }
 
+  function deleteFanart() {
+    const item = deleteConfirmItem;
+    if (!item?.id) return;
+    setDeleteConfirmItem(null);
     axios
       .post(`/api/fanart/${item.id}/delete`)
       .then(() => {
@@ -268,6 +270,15 @@ export default function FanartPanel({ roleId }) {
           </DialogActions>
         </Dialog>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteConfirmItem)}
+        title="Delete Fanart"
+        message="Are you sure you wish to delete this fanart? This cannot be undone."
+        confirmLabel="Delete"
+        confirmColor="error"
+        onClose={() => setDeleteConfirmItem(null)}
+        onConfirm={deleteFanart}
+      />
     </>
   );
 }

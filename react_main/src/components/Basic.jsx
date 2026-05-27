@@ -9,6 +9,7 @@ import { Slang } from "./Slang";
 import { Typography } from "@mui/material";
 import { SiteInfoContext } from "../Contexts";
 import { InlineRoleMention } from "./Roles";
+import ConfirmDialog from "components/ConfirmDialog";
 
 export function ItemList(props) {
   const itemRows = props.items.map(props.map);
@@ -217,15 +218,6 @@ export function linkify(text) {
 
   const linkRegex = /http(s{0,1}):\/\/([\w.]+)\.(\w+)([^\s]*)/g;
 
-  function onLinkCLick(e) {
-    if (window.confirm("Visit external link?")) {
-      return true;
-    } else {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-  }
-
   for (let i in text) {
     let _segment = text[i];
     let segment = [];
@@ -235,15 +227,12 @@ export function linkify(text) {
     while (regexRes) {
       segment.push(_segment.slice(lastIndex, regexRes.index));
       segment.push(
-        <a
+        <ExternalLink
           href={regexRes[0]}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
           key={lastIndex}
-          onClick={onLinkCLick}
         >
           {regexRes[0]}
-        </a>
+        </ExternalLink>
       );
 
       lastIndex = linkRegex.lastIndex;
@@ -256,6 +245,42 @@ export function linkify(text) {
 
   text = text.flat();
   return text.length === 1 ? text[0] : text;
+}
+
+function ExternalLink({ href, children }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function onClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirmOpen(true);
+  }
+
+  function onConfirm() {
+    setConfirmOpen(false);
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
+
+  return (
+    <>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        onClick={onClick}
+      >
+        {children}
+      </a>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Visit External Link"
+        message="Open this external link in a new tab?"
+        confirmLabel="Open Link"
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={onConfirm}
+      />
+    </>
+  );
 }
 
 // Takes a chat Message (string or [string]) and allows hovering over its <slang>, revealing a Popover w/ more info

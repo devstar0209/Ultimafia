@@ -35,6 +35,7 @@ import { Loading } from "components/Loading";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import CustomMarkdown from "components/CustomMarkdown";
 import TrophyCase from "components/TrophyCase";
+import ConfirmDialog from "components/ConfirmDialog";
 
 function CoinAmount({ amount, variant = "body2", sx = {} }) {
   return (
@@ -72,6 +73,7 @@ export default function Family() {
   const [depositAmount, setDepositAmount] = useState("");
   const [coinConfirmAction, setCoinConfirmAction] = useState(null);
   const [coinConfirmLoading, setCoinConfirmLoading] = useState(false);
+  const [familyConfirm, setFamilyConfirm] = useState(null);
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
@@ -267,10 +269,18 @@ export default function Family() {
   }
 
   function onRejectJoin() {
-    if (!window.confirm("Are you sure you want to reject this invitation?")) {
-      return;
-    }
+    requestFamilyConfirm(
+      {
+        title: "Reject Invitation",
+        message: "Are you sure you want to reject this invitation?",
+        confirmLabel: "Reject",
+        confirmColor: "error",
+      },
+      rejectJoin
+    );
+  }
 
+  function rejectJoin() {
     axios
       .post(`/api/family/${familyId}/rejectJoin`)
       .then(() => {
@@ -281,14 +291,18 @@ export default function Family() {
   }
 
   function onRemoveMember(memberId, memberName) {
-    if (
-      !window.confirm(
-        `Are you sure you want to remove ${memberName} from the family?`
-      )
-    ) {
-      return;
-    }
+    requestFamilyConfirm(
+      {
+        title: "Remove Member",
+        message: `Are you sure you want to remove ${memberName} from the family?`,
+        confirmLabel: "Remove",
+        confirmColor: "error",
+      },
+      () => removeMember(memberId)
+    );
+  }
 
+  function removeMember(memberId) {
     axios
       .delete(`/api/family/${familyId}/member/${memberId}`)
       .then(() => {
@@ -314,6 +328,10 @@ export default function Family() {
         setApplyMessage("");
       })
       .catch(errorAlert);
+  }
+
+  function requestFamilyConfirm(options, onConfirm) {
+    setFamilyConfirm({ ...options, onConfirm });
   }
 
   function onApplicationAction(applicationId, action) {
@@ -960,6 +978,19 @@ export default function Family() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={Boolean(familyConfirm)}
+        title={familyConfirm?.title || "Confirm"}
+        message={familyConfirm?.message || ""}
+        confirmLabel={familyConfirm?.confirmLabel || "Confirm"}
+        confirmColor={familyConfirm?.confirmColor || "primary"}
+        onClose={() => setFamilyConfirm(null)}
+        onConfirm={() => {
+          const onConfirm = familyConfirm?.onConfirm;
+          setFamilyConfirm(null);
+          if (onConfirm) onConfirm();
+        }}
+      />
     </>
   );
 }

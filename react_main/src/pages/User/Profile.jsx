@@ -317,6 +317,10 @@ export default function Profile() {
   const [isFriendRequested, setIsFriendRequested] = useState(false);
   const [friendConfirm, setFriendConfirm] = useState(null);
   const [friendActionLoading, setFriendActionLoading] = useState(false);
+  const [familyInviteConfirmOpen, setFamilyInviteConfirmOpen] =
+    useState(false);
+  const [familyInviteLoading, setFamilyInviteLoading] = useState(false);
+  const [profileConfirm, setProfileConfirm] = useState(null);
   const [isLove, setIsLove] = useState(false);
   const [isMarried, setIsMarried] = useState(false);
   const [kudos, setKudos] = useState(0);
@@ -826,18 +830,25 @@ export default function Profile() {
 
   function onUnarchiveGame(gameId, description) {
     return () => {
-      var shouldDelete = window.confirm(
-        `Are you sure you wish to unarchive ${description}? If the game is old enough to be expired then it will eventually be deleted.`
+      requestProfileConfirm(
+        {
+          title: "Unarchive Game",
+          message: `Are you sure you wish to unarchive ${description}? If the game is old enough to be expired then it will eventually be deleted.`,
+          confirmLabel: "Unarchive",
+          confirmColor: "error",
+        },
+        () => unarchiveGame(gameId)
       );
-      if (!shouldDelete) return;
-
-      axios
-        .delete(`/api/game/${gameId}/archive`)
-        .then((res) => {
-          siteInfo.showAlert(res.data, "success");
-        })
-        .catch(errorAlert);
     };
+  }
+
+  function unarchiveGame(gameId) {
+    axios
+      .delete(`/api/game/${gameId}/archive`)
+      .then((res) => {
+        siteInfo.showAlert(res.data, "success");
+      })
+      .catch(errorAlert);
   }
 
   function onEditArchivedGamesClick() {
@@ -849,26 +860,44 @@ export default function Profile() {
   function onLoveUserClick() {
     if (isLove) {
       if (love === null || love === undefined) {
-        var shouldCancel = window.confirm(
-          "Are you sure you want to cancel your love?"
+        requestProfileConfirm(
+          {
+            title: "Cancel Love",
+            message: "Are you sure you want to cancel your love?",
+            confirmLabel: "Cancel Love",
+            confirmColor: "error",
+          },
+          submitLoveUser
         );
-        if (!shouldCancel) {
-          return;
-        }
+        return;
       } else if (love.type === "Lover") {
-        var shouldBreakup = window.confirm(
-          "Are you sure you want to break up?"
+        requestProfileConfirm(
+          {
+            title: "Break Up",
+            message: "Are you sure you want to break up?",
+            confirmLabel: "Break Up",
+            confirmColor: "error",
+          },
+          submitLoveUser
         );
-        if (!shouldBreakup) {
-          return;
-        }
-      }
-    } else {
-      if (!window.confirm("Are you sure you wish to send a love request?")) {
         return;
       }
+    } else {
+      requestProfileConfirm(
+        {
+          title: "Send Love Request",
+          message: "Are you sure you wish to send a love request?",
+          confirmLabel: "Send Request",
+        },
+        submitLoveUser
+      );
+      return;
     }
 
+    submitLoveUser();
+  }
+
+  function submitLoveUser() {
     axios
       .post("/api/user/love", {
         user: profileUserId,
@@ -897,20 +926,34 @@ export default function Profile() {
 
   function onMarryUserClick() {
     if (isMarried && love.type === "Lover") {
-      var shouldCancel = window.confirm(
-        "Are you sure you want to stop proposing?"
+      requestProfileConfirm(
+        {
+          title: "Stop Proposal",
+          message: "Are you sure you want to stop proposing?",
+          confirmLabel: "Stop Proposing",
+          confirmColor: "error",
+        },
+        submitMarryUser
       );
-      if (!shouldCancel) {
-        return;
-      }
+      return;
     }
     if (isMarried && love.type === "Married") {
-      var shouldDivorce = window.confirm("Are you sure you want to divorce?");
-      if (!shouldDivorce) {
-        return;
-      }
+      requestProfileConfirm(
+        {
+          title: "Divorce",
+          message: "Are you sure you want to divorce?",
+          confirmLabel: "Divorce",
+          confirmColor: "error",
+        },
+        submitMarryUser
+      );
+      return;
     }
 
+    submitMarryUser();
+  }
+
+  function submitMarryUser() {
     axios
       .post("/api/user/love", {
         user: profileUserId,
@@ -940,12 +983,22 @@ export default function Profile() {
 
   function onBlockUserClick() {
     if (!isBlocked) {
-      var shouldBlock = window.confirm(
-        "Are you sure you wish to block this user?"
+      requestProfileConfirm(
+        {
+          title: "Block User",
+          message: "Are you sure you wish to block this user?",
+          confirmLabel: "Block",
+          confirmColor: "error",
+        },
+        toggleBlockUser
       );
-      if (!shouldBlock) return;
+      return;
     }
 
+    toggleBlockUser();
+  }
+
+  function toggleBlockUser() {
     axios
       .post("/api/user/block", { user: profileUserId })
       .then(() => {
@@ -957,17 +1010,24 @@ export default function Profile() {
       .catch(errorAlert);
   }
 
+  function requestProfileConfirm(options, onConfirm) {
+    setProfileConfirm({ ...options, onConfirm });
+  }
+
   function onFamilyJoinRequestClick() {
     if (!userFamily) return;
+    setFamilyInviteConfirmOpen(true);
+  }
 
-    if (
-      !window.confirm(
-        `Are you sure you want to invite ${name} to join ${userFamily.name}?`
-      )
-    ) {
-      return;
-    }
+  function closeFamilyInviteConfirm() {
+    if (familyInviteLoading) return;
+    setFamilyInviteConfirmOpen(false);
+  }
 
+  function sendFamilyJoinRequest() {
+    if (!userFamily) return;
+
+    setFamilyInviteLoading(true);
     axios
       .post(`/api/family/${userFamily.id}/requestJoin`, {
         targetUserId: profileUserId,
@@ -975,7 +1035,11 @@ export default function Profile() {
       .then(() => {
         siteInfo.showAlert("Family join request sent!", "success");
       })
-      .catch(errorAlert);
+      .catch(errorAlert)
+      .finally(() => {
+        setFamilyInviteLoading(false);
+        setFamilyInviteConfirmOpen(false);
+      });
   }
 
   function onReportClick() {
@@ -1165,12 +1229,18 @@ export default function Profile() {
   }
 
   function onPokeDismissClick(fromUserId) {
-    if (
-      !window.confirm(
-        "Dismiss this poke? They won't be able to poke you again for 30 days."
-      )
-    )
-      return;
+    requestProfileConfirm(
+      {
+        title: "Dismiss Poke",
+        message: "Dismiss this poke? They won't be able to poke you again for 30 days.",
+        confirmLabel: "Dismiss",
+        confirmColor: "error",
+      },
+      () => dismissPoke(fromUserId)
+    );
+  }
+
+  function dismissPoke(fromUserId) {
     axios
       .post("/api/user/poke/dismiss", { targetId: fromUserId })
       .then((res) => {
@@ -1613,13 +1683,12 @@ export default function Profile() {
                 userFamily.canManageApplications &&
                 userFamily.memberCount < userFamily.memberLimit && (
                   <IconButton
-                    aria-label="request to join family"
+                    aria-label={`invite ${name} to family`}
                     title={`Invite to ${userFamily.name}`}
+                    disabled={familyInviteLoading}
+                    onClick={onFamilyJoinRequestClick}
                   >
-                    <i
-                      className="fas fa-users"
-                      onClick={onFamilyJoinRequestClick}
-                    />
+                    <i className="fas fa-users" />
                   </IconButton>
                 )}
               <LoveIcon
@@ -1986,6 +2055,28 @@ export default function Profile() {
         onConfirm={() => {
           if (!friendConfirm) return;
           submitFriendAction(friendConfirm.userId, friendConfirm.source);
+        }}
+      />
+      <ConfirmDialog
+        open={familyInviteConfirmOpen}
+        title="Invite to Family"
+        message={`Invite ${name} to join ${userFamily?.name || "your family"}?`}
+        confirmLabel="Send Invite"
+        loading={familyInviteLoading}
+        onClose={closeFamilyInviteConfirm}
+        onConfirm={sendFamilyJoinRequest}
+      />
+      <ConfirmDialog
+        open={Boolean(profileConfirm)}
+        title={profileConfirm?.title || "Confirm"}
+        message={profileConfirm?.message || ""}
+        confirmLabel={profileConfirm?.confirmLabel || "Confirm"}
+        confirmColor={profileConfirm?.confirmColor || "primary"}
+        onClose={() => setProfileConfirm(null)}
+        onConfirm={() => {
+          const onConfirm = profileConfirm?.onConfirm;
+          setProfileConfirm(null);
+          if (onConfirm) onConfirm();
         }}
       />
       <Modal

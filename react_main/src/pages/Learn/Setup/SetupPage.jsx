@@ -51,6 +51,7 @@ import { TextEditor } from "components/Form";
 import CustomMarkdown from "components/CustomMarkdown";
 import { Loading } from "components/Loading";
 import { VoteWidget } from "components/VoteWidget";
+import ConfirmDialog from "components/ConfirmDialog";
 import {
   getRowStubColor,
   getSetupBackgroundColor,
@@ -152,6 +153,7 @@ export function SetupPage() {
   const [currentVersionNum, setCurrentVersionNum] = useState(0);
   const [selectedVersionNum, setSelectedVersionNum] = useState(0);
   const [moderationDrawerOpen, setModerationDrawerOpen] = useState(false);
+  const [deleteConfirmSetup, setDeleteConfirmSetup] = useState(null);
   const [versionTimestamp, setVersionTimestamp] = useState("");
   const [versionGamesPlayed, setVersionGamesPlayed] = useState(0);
   const [diff, setDiff] = useState([]); // Changelog diff
@@ -266,7 +268,13 @@ export function SetupPage() {
   }
 
   function onDelSetup(s) {
-    if (!window.confirm("Are you sure you want to delete this setup?")) return;
+    setDeleteConfirmSetup(s);
+  }
+
+  function deleteSetup() {
+    const s = deleteConfirmSetup;
+    if (!s) return;
+    setDeleteConfirmSetup(null);
     axios
       .post("/api/setup/delete", { id: s.id })
       .then(() => navigate("/play"))
@@ -396,6 +404,15 @@ export function SetupPage() {
             setup={setup}
           />
         )}
+        <ConfirmDialog
+          open={Boolean(deleteConfirmSetup)}
+          title="Delete Setup"
+          message="Are you sure you want to delete this setup?"
+          confirmLabel="Delete"
+          confirmColor="error"
+          onClose={() => setDeleteConfirmSetup(null)}
+          onConfirm={deleteSetup}
+        />
         <ModerationSideDrawer
           open={moderationDrawerOpen}
           setOpen={setModerationDrawerOpen}

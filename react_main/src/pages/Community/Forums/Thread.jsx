@@ -12,6 +12,7 @@ import { TextEditor } from "components/Form";
 import { UserContext } from "Contexts";
 import { Loading } from "components/Loading";
 import { ThreadPoll } from "components/Poll";
+import ConfirmDialog from "components/ConfirmDialog";
 
 import { VoteWidget } from "components/VoteWidget";
 import { NameWithAvatar } from "../../User/User";
@@ -316,16 +317,16 @@ function Post(props) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(postInfo.content);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const user = useContext(UserContext);
   const errorAlert = useErrorAlert();
 
   function onDeleteClick() {
-    const shouldDelete = window.confirm(
-      "Are you sure you wish to delete this?"
-    );
+    setDeleteConfirmOpen(true);
+  }
 
-    if (!shouldDelete) return;
-
+  function deletePost() {
+    setDeleteConfirmOpen(false);
     axios
       .post(`/api/forums/${itemType}/delete`, { [itemType]: postInfo.id })
       .then(onDelete)
@@ -398,6 +399,7 @@ function Post(props) {
   if (postInfo.deleted && user.settings.hideDeleted) content = "*deleted*";
 
   return (
+    <>
     <div
       className={`post span-panel ${postInfo.deleted ? "deleted" : ""} ${
         props.className
@@ -585,5 +587,15 @@ function Post(props) {
         )}
       </div>
     </div>
+    <ConfirmDialog
+      open={deleteConfirmOpen}
+      title="Delete Post"
+      message="Are you sure you wish to delete this?"
+      confirmLabel="Delete"
+      confirmColor="error"
+      onClose={() => setDeleteConfirmOpen(false)}
+      onConfirm={deletePost}
+    />
+    </>
   );
 }
