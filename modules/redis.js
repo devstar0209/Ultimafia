@@ -125,7 +125,12 @@ async function updateFavSetup(userId, setupId) {
 }
 
 async function userCached(userId) {
-  return client.existsAsync(`user:${userId}:info:id`);
+  const [infoExists, gamePointsExists] = await Promise.all([
+    client.existsAsync(`user:${userId}:info:id`),
+    client.existsAsync(`user:${userId}:info:pointsByGameCatalog`),
+  ]);
+
+  return infoExists && gamePointsExists;
 }
 
 async function invalidateCachedUser(userId) {
@@ -171,7 +176,7 @@ async function cacheUserInfo(userId, reset) {
   if (!exists || reset) {
     var user = await models.User.findOne({ id: userId, deleted: false })
       .select(
-        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned emoteGroupsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points dailyChallengesCompleted dailyChallenges admin"
+        "_id id name avatar banner profileBackground blockedUsers settings customEmotes itemsOwned emoteGroupsOwned nameChanged bdayChanged birthday pronouns achievements coins balanceDollar points pointsByGameCatalog dailyChallengesCompleted dailyChallenges admin"
       )
       .populate({
         path: "customEmotes",
@@ -227,6 +232,10 @@ async function cacheUserInfo(userId, reset) {
     );
     await client.setAsync(`user:${userId}:info:points`, user.points);
     await client.setAsync(
+      `user:${userId}:info:pointsByGameCatalog`,
+      JSON.stringify(user.pointsByGameCatalog || {})
+    );
+    await client.setAsync(
       `user:${userId}:info:dailyChallenges`,
       JSON.stringify(user.dailyChallenges || [])
     );
@@ -269,6 +278,7 @@ async function cacheUserInfo(userId, reset) {
   client.expire(`user:${userId}:info:coins`, 3600);
   client.expire(`user:${userId}:info:balanceDollar`, 3600);
   client.expire(`user:${userId}:info:points`, 3600);
+  client.expire(`user:${userId}:info:pointsByGameCatalog`, 3600);
   client.expire(`user:${userId}:info:dailyChallenges`, 3600);
   client.expire(`user:${userId}:info:blockedUsers`, 3600);
   client.expire(`user:${userId}:info:settings`, 3600);
@@ -299,6 +309,7 @@ async function deleteUserInfo(userId) {
   await client.delAsync(`user:${userId}:info:coins`);
   await client.delAsync(`user:${userId}:info:balanceDollar`);
   await client.delAsync(`user:${userId}:info:points`);
+  await client.delAsync(`user:${userId}:info:pointsByGameCatalog`);
   await client.delAsync(`user:${userId}:info:dailyChallenges`);
   await client.delAsync(`user:${userId}:info:status`);
   await client.delAsync(`user:${userId}:info:blockedUsers`);
@@ -328,6 +339,7 @@ async function getUserInfo(userId) {
       `user:${userId}:info:coins`,
       `user:${userId}:info:balanceDollar`,
       `user:${userId}:info:points`,
+      `user:${userId}:info:pointsByGameCatalog`,
       `user:${userId}:info:dailyChallenges`,
       `user:${userId}:info:status`,
       `user:${userId}:info:blockedUsers`,
@@ -354,6 +366,7 @@ async function getUserInfo(userId) {
     coins,
     balanceDollar,
     points,
+    pointsByGameCatalog,
     dailyChallenges,
     status,
     blockedUsers,
@@ -379,6 +392,7 @@ async function getUserInfo(userId) {
   info.coins = Number(coins || 0);
   info.balanceDollar = Number(balanceDollar || 0);
   info.points = points;
+  info.pointsByGameCatalog = JSON.parse(pointsByGameCatalog || "{}");
   info.dailyChallenges = JSON.parse(dailyChallenges || "[]");
   info.status = status;
   info.blockedUsers = JSON.parse(blockedUsers || "[]");

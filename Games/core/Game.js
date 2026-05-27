@@ -73,6 +73,8 @@ module.exports = class Game {
     this.anonymousGame = options.settings.anonymousGame;
     this.anonymousDeck = options.settings.anonymousDeck;
     this.coinsChargedAtStart = false;
+    this.entryFeeCoins = 0;
+    this.entryFeeChargedPlayerCount = 0;
     this.readyCountdownLength =
       options.settings.readyCountdownLength != null
         ? options.settings.readyCountdownLength
@@ -324,6 +326,33 @@ module.exports = class Game {
       (total, award) => total + Number(award.amount || 0),
       0
     );
+  }
+
+  getEntryPrizePool() {
+    const prizePercent = Math.max(
+      0,
+      Math.min(100, Number(this.defaultSettings?.entryPrizePoolPercent ?? 70))
+    );
+
+    return Math.floor(
+      Number(this.entryFeeCoins || 0) *
+        Number(this.entryFeeChargedPlayerCount || 0) *
+        (prizePercent / 100)
+    );
+  }
+
+  getWinnersInfo() {
+    const winnersInfo = this.winners.getWinnersInfo();
+    const winnerCount = winnersInfo.players.length;
+    const entryPrizePool = this.getEntryPrizePool();
+
+    winnersInfo.entryPrizePool = entryPrizePool;
+    winnersInfo.entryPrizePerWinner =
+      winnerCount > 0 && entryPrizePool > 0
+        ? Math.floor(entryPrizePool / winnerCount)
+        : 0;
+
+    return winnersInfo;
   }
 
   getPlayerSummary() {
@@ -1044,6 +1073,7 @@ module.exports = class Game {
       guests: this.guests,
       stateLengths: this.stateLengths,
       gameTypeOptions: this.getGameTypeOptions(),
+      gameCatalogKey: this.getPointCatalogKey(),
       anonymousGame: this.anonymousGame,
       anonymousDeck: this.anonymousDeck,
       graveyardParticipation: this.graveyardParticipation,
@@ -1330,6 +1360,8 @@ module.exports = class Game {
       chargedUserIds.map((userId) => redis.cacheUserInfo(userId, true))
     );
     this.coinsChargedAtStart = true;
+    this.entryFeeCoins = coinsRequired;
+    this.entryFeeChargedPlayerCount = chargedUserIds.length;
     return true;
   }
 
@@ -3230,12 +3262,12 @@ module.exports = class Game {
     try {
       if (this.finished) return;
 
-      const winnersInfo = winners.getWinnersInfo();
-
       this.finished = true;
       this.clearTimers();
+      this.defaultSettings = await defaultSettings.getSettings(models);
 
       this.winners = winners;
+      const winnersInfo = this.getWinnersInfo();
       this.currentState = -2;
 
       let stateInfo = this.getStateInfo();
@@ -3247,7 +3279,6 @@ module.exports = class Game {
       redis.setGameState(this.id, stateInfo.name);
       redis.setWinnersInfo(this.id, winnersInfo);
 
-      this.defaultSettings = await defaultSettings.getSettings(models);
       this.events.emit("aboutToFinish");
 
       this.history.recordAllRoles();
@@ -3907,7 +3938,7 @@ module.exports = class Game {
         left: playersLeft.map((p) => p.id),
         names: playerNames,
         winners: this.winners.players.map((p) => p.id),
-        winnersInfo: this.winners.getWinnersInfo(),
+        winnersInfo: this.getWinnersInfo(),
         playerIdMap: JSON.stringify(playerIdMap),
         playerAlignmentMap: JSON.stringify(playerAlignmentMap),
         playerRoleMap: JSON.stringify(playerRoleMap),
@@ -3933,6 +3964,8 @@ module.exports = class Game {
         await this.recordCompetitiveCompletions(gameDocument._id);
       }
 
+      const entryPrizePerWinner = this.getWinnersInfo().entryPrizePerWinner;
+
       for (let player of this.players) {
         this.awardEndGamePoints(player);
 
@@ -3940,6 +3973,8 @@ module.exports = class Game {
         if (this.ranked && player.won) {
           coinsEarned++;
         }
+
+        if (player.won) coinsEarned += entryPrizePerWinner;
 
         let pointsWon = 0;
         if (this.pointsEarnedByPlayers[player.id] !== undefined) {

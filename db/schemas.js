@@ -271,6 +271,7 @@ var schemas = {
       coinsPerDollar: { type: Number, default: 100 },
       dailyPlayOneGameBonus: { type: Number, default: 0 },
       dailyHostOneGameBonus: { type: Number, default: 0 },
+      entryPrizePoolPercent: { type: Number, default: 70 },
       // Ranked/Competitive Settings
       minimumGamesForRanked: { type: Number, default: 5 },
       minimumPointsForCompetitive: { type: Number, default: 150 },

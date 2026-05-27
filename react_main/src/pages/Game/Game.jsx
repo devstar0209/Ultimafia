@@ -14,8 +14,6 @@ import axios from "axios";
 import ReactLoading from "react-loading";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
-import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 import { UserText } from "../../components/Basic";
 import Newspaper, {
@@ -56,7 +54,6 @@ import { coreAudioConfig } from "../../audio/audioConfigs";
 
 import "css/game.css";
 import EmotePicker from "../../components/EmotePicker";
-import "./Game.css";
 import { Loading } from "../../components/Loading";
 import StateSwitcher from "../../components/gameComponents/StateSwitcher";
 
@@ -73,7 +70,6 @@ import {
   Button,
   ButtonGroup,
   Divider,
-  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -116,6 +112,8 @@ import ChangeSetupDialog from "components/gameComponents/ChangeSetupDialog";
 import UrgencyOverlay from "./components/UrgencyOverlay";
 import ReadyCheckDialog from "./components/ReadyCheck";
 import RoleMarkerToggle from "./components/RoleMarkerToggle";
+import PrizeModal from "./components/PrizeModal";
+import GameFinishedAnimation from "./components/GameFinishedAnimation";
 
 const emoteMap = {
   dice1: dice1,
@@ -186,13 +184,9 @@ export default function Game() {
   const [history, updateHistory] = useHistoryReducer();
   const [finishAnimationVisible, setFinishAnimationVisible] = useState(false);
   const [rewardModalOpen, setRewardModalOpen] = useState(false);
-  const [rewardInfo, setRewardInfo] = useState(null);
   const [replayStatus, setReplayStatus] = useState("idle");
   const finishAnimationShownRef = useRef(false);
   const rewardModalShownRef = useRef(false);
-  const rewardInfoRequestedRef = useRef(false);
-  const playerWonRef = useRef(null);
-  const userRef = useRef(user);
   const shouldHoldPostgameBoard =
     !review &&
     history.currentState === -2 &&
@@ -377,60 +371,8 @@ export default function Game() {
     }, 500);
   }
 
-  function refreshRewardInfoAfterFinish() {
-    if (rewardInfoRequestedRef.current || playerWonRef.current !== true) return;
-
-    rewardInfoRequestedRef.current = true;
-    const previousCoins = Number(userRef.current?.coins || 0);
-
-    setTimeout(() => {
-      axios
-        .get("/api/user/info")
-        .then((res) => {
-          if (!res.data?.id) return;
-
-          const rank = Number(res.data.rank);
-          const nextUser = {
-            ...res.data,
-            loggedIn: true,
-            loaded: true,
-            rank: Number.isFinite(rank) ? rank : 0,
-          };
-
-          userRef.current?.set?.((prev) => ({
-            ...prev,
-            ...nextUser,
-          }));
-
-          const balance = Number(res.data.coins || 0);
-          const coinsEarned = Math.max(0, balance - previousCoins);
-
-          setRewardInfo((prev) => ({
-            ...prev,
-            coinsEarned: Math.max(Number(prev?.coinsEarned || 0), coinsEarned),
-            balance,
-            finalized: true,
-          }));
-        })
-        .catch(() => {
-          setRewardInfo((prev) => ({
-            ...prev,
-            finalized: false,
-          }));
-      });
-    }, 1200);
-  }
-
   function openRewardModal() {
     rewardModalShownRef.current = true;
-    setRewardInfo((prev) => ({
-      coinsEarned: Math.max(
-        Number(prev?.coinsEarned || 0),
-        options.ranked ? 1 : 0
-      ),
-      balance: prev?.balance ?? null,
-      finalized: Boolean(prev?.finalized),
-    }));
     setRewardModalOpen(true);
   }
 
@@ -725,24 +667,14 @@ export default function Game() {
   }, [self]);
 
   useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  useEffect(() => {
-    playerWonRef.current = playerWon;
-  }, [playerWon]);
-
-  useEffect(() => {
     if (stateViewing == null) updateStateViewing({ type: "current" });
   }, [history.currentState]);
 
   useEffect(() => {
     finishAnimationShownRef.current = false;
     rewardModalShownRef.current = false;
-    rewardInfoRequestedRef.current = false;
     setFinishAnimationVisible(false);
     setRewardModalOpen(false);
-    setRewardInfo(null);
     setReplayStatus("idle");
   }, [gameId]);
 
@@ -805,7 +737,6 @@ export default function Game() {
     });
 
     socket.on("finished", () => {
-      refreshRewardInfoAfterFinish();
       setFinished(true);
     });
 
@@ -1327,14 +1258,9 @@ export default function Game() {
             setChangeSetupDialogOpen(false);
           }}
         />
-        <RewardModal
+        <PrizeModal
           show={rewardModalOpen}
           winnersInfo={postgameWinnersInfo}
-          gameType={gameType}
-          setup={setup}
-          isRanked={!!options.ranked}
-          isCompetitive={!!options.competitive}
-          rewardInfo={rewardInfo}
           onClose={leaveGame}
         />
       </GameContext.Provider>
@@ -1361,67 +1287,6 @@ function getPlayerFinishedResult(winnersInfo, self, isParticipant) {
     });
   });
 }
-
-function getWinnerSummary(winnersInfo) {
-  const winnerGroups = winnersInfo?.groups || [];
-
-  if (winnerGroups.length === 0) return "The game is complete.";
-  if (winnerGroups.length === 1) return `${winnerGroups[0]} won.`;
-
-  return `${winnerGroups.join(", ")} won.`;
-}
-
-function GameFinishedAnimation({ visible, playerWon, winnersInfo, onClick }) {
-  if (!visible) return null;
-
-  const isWin = playerWon === true;
-  const isLoss = playerWon === false;
-  const title = isWin ? "Victory" : isLoss ? "Failed" : "Game Over";
-  const emoticons = isWin
-    ? ["🏆", "🎉", "✨", "👏", "⭐", "💎"]
-    : isLoss
-      ? ["💀", "💔", "😵", "⚠️", "🥀", "✖️"]
-      : ["🎲", "⭐", "!", "?", "✨", "•"];
-
-  return (
-    <div
-      className={`game-finished-animation ${
-        isWin ? "is-win" : isLoss ? "is-loss" : "is-neutral"
-      }`}
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      aria-live="polite"
-      aria-label={isWin ? "View your reward" : isLoss ? "Leave game" : "Continue"}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-    >
-      <div className="game-finished-burst" />
-      <div className="game-finished-emoticons" aria-hidden="true">
-        {emoticons.map((emoticon, index) => (
-          <span key={`${emoticon}-${index}`}>{emoticon}</span>
-        ))}
-      </div>
-      <div className="game-finished-result">
-        <div className="game-finished-icon">
-          {isWin ? "🏆" : isLoss ? "💀" : "🎲"}
-        </div>
-        <div className="game-finished-title">{title}</div>
-        <div className="game-finished-subtitle">
-          {getWinnerSummary(winnersInfo)}
-        </div>
-        <div className="game-finished-action">
-          {isWin ? "View reward" : "Leave game"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ReplayWaitingScreen() {
   return (
     <div className="game-replay-waiting" aria-live="polite">
@@ -1433,95 +1298,6 @@ function ReplayWaitingScreen() {
         </div>
       </div>
     </div>
-  );
-}
-
-function RewardModal({
-  show,
-  winnersInfo,
-  gameType,
-  setup,
-  isRanked,
-  isCompetitive,
-  rewardInfo,
-  onClose,
-}) {
-  const rewardCoins = Number(rewardInfo?.coinsEarned || 0);
-  const rewardLabel =
-    rewardCoins > 0
-      ? `${rewardCoins.toLocaleString()} ${rewardCoins === 1 ? "coin" : "coins"}`
-      : "Recorded";
-  const balanceLabel =
-    rewardInfo?.balance == null
-      ? "Pending"
-      : `${Number(rewardInfo.balance || 0).toLocaleString()} coins`;
-
-  return (
-    <Dialog
-      open={show}
-      onClose={onClose}
-      className="game-replay-dialog"
-      maxWidth="sm"
-      fullWidth
-    >
-      <div className="game-reward-modal">
-        <button
-          type="button"
-          className="game-reward-modal-close"
-          onClick={onClose}
-          aria-label="Close reward"
-        >
-          <CloseRoundedIcon fontSize="small" />
-        </button>
-
-        <div className="game-reward-modal-hero">
-          <div className="game-reward-cup-ring" aria-hidden="true">
-            <EmojiEventsRoundedIcon />
-            <EmojiEventsRoundedIcon />
-          </div>
-          <div className="game-reward-cup">
-            <EmojiEventsRoundedIcon fontSize="inherit" />
-          </div>
-          <div className="game-reward-modal-heading">
-            <span>Victory Reward</span>
-            <strong>{rewardLabel}</strong>
-            <p>Your win has been recorded.</p>
-          </div>
-        </div>
-
-        <div className="game-reward-modal-grid">
-          <div className="game-reward-modal-stat">
-            <span>Game</span>
-            <strong>{gameType || "-"}</strong>
-          </div>
-          <div className="game-reward-modal-stat">
-            <span>Setup</span>
-            <strong>{setup?.name || "-"}</strong>
-          </div>
-          <div className="game-reward-modal-stat">
-            <span>Mode</span>
-            <strong>
-              {isCompetitive ? "Competitive" : isRanked ? "Ranked" : "Casual"}
-            </strong>
-          </div>
-          <div className="game-reward-modal-stat">
-            <span>Balance</span>
-            <strong>{balanceLabel}</strong>
-          </div>
-        </div>
-
-        <div className="game-reward-modal-result">
-          <span>Result</span>
-          <strong>{getWinnerSummary(winnersInfo)}</strong>
-        </div>
-
-        <div className="game-reward-modal-actions">
-          <Button variant="contained" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </div>
-    </Dialog>
   );
 }
 

@@ -41,6 +41,7 @@ export default function GeneralSettingsPage() {
   const [coinsPerDollar, setCoinsPerDollar] = useState(100);
   const [dailyPlayOneGameBonus, setDailyPlayOneGameBonus] = useState(0);
   const [dailyHostOneGameBonus, setDailyHostOneGameBonus] = useState(0);
+  const [entryPrizePoolPercent, setEntryPrizePoolPercent] = useState(70);
 
   // Ranked/Competitive
   const [minimumGamesForRanked, setMinimumGamesForRanked] = useState(5);
@@ -62,6 +63,7 @@ export default function GeneralSettingsPage() {
       setCoinsPerDollar(data.defaultSettings.coinsPerDollar || 100);
       setDailyPlayOneGameBonus(data.defaultSettings.dailyPlayOneGameBonus || 0);
       setDailyHostOneGameBonus(data.defaultSettings.dailyHostOneGameBonus || 0);
+      setEntryPrizePoolPercent(data.defaultSettings.entryPrizePoolPercent ?? 70);
       setMinimumGamesForRanked(data.defaultSettings.minimumGamesForRanked || 5);
       setMinimumPointsForCompetitive(data.defaultSettings.minimumPointsForCompetitive || 150);
       setPointsNominalAmount(data.defaultSettings.pointsNominalAmount || 60);
@@ -126,6 +128,7 @@ export default function GeneralSettingsPage() {
         coinsPerDollar: Number(coinsPerDollar || 100),
         dailyPlayOneGameBonus: Number(dailyPlayOneGameBonus || 0),
         dailyHostOneGameBonus: Number(dailyHostOneGameBonus || 0),
+        entryPrizePoolPercent: Number(entryPrizePoolPercent ?? 70),
         minimumGamesForRanked: Number(minimumGamesForRanked || 5),
         minimumPointsForCompetitive: Number(minimumPointsForCompetitive || 150),
         pointsNominalAmount: Number(pointsNominalAmount || 60),
@@ -299,6 +302,16 @@ export default function GeneralSettingsPage() {
                   placeholder="0"
                   helperText="Coins awarded for the daily Host One Game challenge"
                   inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Entry Prize Pool %"
+                  type="number"
+                  value={entryPrizePoolPercent}
+                  onChange={(e) => setEntryPrizePoolPercent(e.target.value)}
+                  placeholder="70"
+                  helperText="Percent of all paid player entry fees awarded to winners"
+                  inputProps={{ min: 0, max: 100, step: 1 }}
                 />
               </Stack>
 
