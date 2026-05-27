@@ -303,6 +303,11 @@ function Header({ setShowAnnouncementTemporarily }) {
                 items: [
                   { text: "Forums", path: "/community/forums" },
                   { text: "Users", path: "/community/users" },
+                  {
+                    text: "Families",
+                    path: "/community/families",
+                    hide: !user.loggedIn,
+                  },
                   { text: "Calendar", path: "/community/calendar" },
                 ],
               },
@@ -389,6 +394,11 @@ function Header({ setShowAnnouncementTemporarily }) {
               items={[
                 { text: "Forums", path: "/community/forums" },
                 { text: "Users", path: "/community/users" },
+                {
+                  text: "Families",
+                  path: "/community/families",
+                  hide: !user.loggedIn,
+                },
                 { text: "Calendar", path: "/community/calendar" },
               ]}
             />

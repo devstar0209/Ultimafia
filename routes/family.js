@@ -38,6 +38,10 @@ const FAMILY_PERKS = [
   },
 ];
 
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function getFamilyMemberLimit(family) {
   return family?.perks?.includes("expandedRoster")
     ? EXPANDED_FAMILY_MEMBER_LIMIT
@@ -249,6 +253,133 @@ router.get("/leaderboard", async function (req, res) {
     logger.error(e);
     res.status(500);
     res.send("Error loading family leaderboard.");
+  }
+});
+
+router.get("/discover", async function (req, res) {
+  try {
+    const search = String(req.query.search || "").trim();
+    const sort = String(req.query.sort || "score");
+    const openOnly = String(req.query.openOnly || "") === "true";
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(48, Math.max(6, Number(req.query.limit) || 12));
+    const query = {};
+
+    if (search) {
+      query.name = { $regex: escapeRegex(search), $options: "i" };
+    }
+
+    if (openOnly) {
+      query.applicationsOpen = { $ne: false };
+    }
+
+    const families = await models.Family.find(query)
+      .select(
+        "id name avatar avatarUrl leader members treasury perks applicationsOpen createdAt bio"
+      )
+      .populate("leader", "id name avatar vanityUrl")
+      .populate("members", "id")
+      .lean();
+
+    const memberIds = [];
+    for (const family of families) {
+      for (const member of family.members || []) {
+        if (member?.id) memberIds.push(member.id);
+      }
+    }
+
+    const trophyCounts = memberIds.length
+      ? await models.Trophy.aggregate([
+          {
+            $match: {
+              ownerId: { $in: memberIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$ownerId",
+              count: { $sum: 1 },
+            },
+          },
+        ])
+      : [];
+
+    const trophyCountByUser = new Map(
+      trophyCounts.map((entry) => [entry._id, entry.count])
+    );
+
+    const discoveredFamilies = families.map((family) => {
+      const members = family.members || [];
+      const trophyCount = members.reduce(
+        (total, member) => total + (trophyCountByUser.get(member.id) || 0),
+        0
+      );
+      const treasury = Number(family.treasury || 0);
+      const perks = family.perks || [];
+      const memberLimit = getFamilyMemberLimit(family);
+      const score =
+        trophyCount * 10 +
+        members.length * 25 +
+        perks.length * 50 +
+        Math.floor(treasury / 100);
+
+      return {
+        id: family.id,
+        name: family.name,
+        avatar: family.avatarUrl || family.avatar,
+        leader: family.leader
+          ? {
+              id: family.leader.id,
+              name: family.leader.name,
+              avatar: family.leader.avatar,
+              vanityUrl: family.leader.vanityUrl,
+            }
+          : null,
+        memberCount: members.length,
+        memberLimit,
+        applicationsOpen: family.applicationsOpen !== false,
+        treasury,
+        perkCount: perks.length,
+        trophyCount,
+        score,
+        createdAt: family.createdAt,
+        bioPreview: String(family.bio || "").replace(/\s+/g, " ").slice(0, 160),
+      };
+    });
+
+    discoveredFamilies.sort((a, b) => {
+      if (sort === "newest") return Number(b.createdAt) - Number(a.createdAt);
+      if (sort === "members") return b.memberCount - a.memberCount;
+      if (sort === "treasury") return b.treasury - a.treasury;
+      if (sort === "open") {
+        return (
+          Number(b.applicationsOpen) - Number(a.applicationsOpen) ||
+          b.score - a.score
+        );
+      }
+
+      return (
+        b.score - a.score ||
+        b.memberCount - a.memberCount ||
+        b.treasury - a.treasury ||
+        Number(b.createdAt) - Number(a.createdAt)
+      );
+    });
+
+    const total = discoveredFamilies.length;
+    const start = (page - 1) * limit;
+
+    res.send({
+      families: discoveredFamilies.slice(start, start + limit),
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error discovering families.");
   }
 });
 
