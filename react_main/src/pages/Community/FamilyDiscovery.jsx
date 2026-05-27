@@ -24,9 +24,10 @@ import {
   Typography,
 } from "@mui/material";
 
-import { SiteInfoContext } from "Contexts";
+import { SiteInfoContext, UserContext } from "Contexts";
 import { useErrorAlert } from "components/Alerts";
 import { Loading } from "components/Loading";
+import ConfirmDialog from "components/ConfirmDialog";
 import { NameWithAvatar } from "../User/User";
 
 function CoinAmount({ amount }) {
@@ -87,7 +88,38 @@ function FamilyAvatar({ family }) {
   );
 }
 
-function FamilyCard({ family }) {
+function FamilyCard({ family, isRequesting, onRequestJoin, user }) {
+  const isFull = family.memberCount >= family.memberLimit;
+  let requestLabel = "Request Join";
+  let requestTitle = "";
+  const joinFee = Number(family.joinFee || 0);
+
+  if (isRequesting) {
+    requestLabel = "Requesting...";
+  } else if (family.userIsMember) {
+    requestLabel = "Your Family";
+  } else if (family.hasPendingApplication) {
+    requestLabel = "Requested";
+  } else if (!user.loaded) {
+    requestTitle = "Loading account status.";
+  } else if (!user.loggedIn) {
+    requestLabel = "Log In to Request";
+    requestTitle = "Log in to request to join this family.";
+  } else if (!family.applicationsOpen) {
+    requestLabel = "Closed";
+    requestTitle = "This family is not accepting applications.";
+  } else if (isFull) {
+    requestLabel = "Full";
+    requestTitle = "This family has reached its member limit.";
+  } else if (!family.canRequestJoin) {
+    requestLabel = "Already in Family";
+    requestTitle = "Leave your current family before requesting to join another.";
+  } else if (joinFee > 0) {
+    requestLabel = "Pay Fee & Request";
+  }
+
+  const requestDisabled = isRequesting || !user.loaded || !family.canRequestJoin;
+
   return (
     <Paper
       sx={{
@@ -160,6 +192,20 @@ function FamilyCard({ family }) {
             label={`${family.score} pts`}
             variant="outlined"
           />
+          {joinFee > 0 && (
+            <Chip
+              size="small"
+              icon={
+                <Box
+                  component="i"
+                  className="fas fa-coins"
+                  aria-hidden="true"
+                />
+              }
+              label={`${joinFee.toLocaleString()} join fee`}
+              variant="outlined"
+            />
+          )}
         </Stack>
 
         {family.bioPreview && (
@@ -201,17 +247,41 @@ function FamilyCard({ family }) {
           </Grid>
         </Grid>
 
-        <Button
-          component={RouterLink}
-          to={`/user/family/${family.id}`}
-          variant="contained"
-          size="small"
-          startIcon={
-            <Box component="i" className="fas fa-eye" aria-hidden="true" />
-          }
-        >
-          View Family
-        </Button>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+          <Button
+            component={RouterLink}
+            to={`/user/family/${family.id}`}
+            variant="outlined"
+            size="small"
+            startIcon={
+              <Box component="i" className="fas fa-eye" aria-hidden="true" />
+            }
+            sx={{ flex: 1 }}
+          >
+            View
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            disabled={requestDisabled}
+            title={requestTitle}
+            onClick={() => onRequestJoin(family)}
+            startIcon={
+              <Box
+                component="i"
+                className={
+                  family.hasPendingApplication
+                    ? "fas fa-clock"
+                    : "fas fa-user-plus"
+                }
+                aria-hidden="true"
+              />
+            }
+            sx={{ flex: 1 }}
+          >
+            {requestLabel}
+          </Button>
+        </Stack>
       </Stack>
     </Paper>
   );
@@ -227,6 +297,10 @@ export default function FamilyDiscovery() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [requestingFamilies, setRequestingFamilies] = useState({});
+  const [joinConfirmFamily, setJoinConfirmFamily] = useState(null);
+  const user = useContext(UserContext);
+  const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
   const errorAlertRef = useRef(errorAlert);
 
@@ -281,6 +355,62 @@ export default function FamilyDiscovery() {
   function onOpenOnlyChange(event) {
     setPage(1);
     setOpenOnly(event.target.checked);
+  }
+
+  function onRequestJoinClick(family) {
+    if (Number(family.joinFee || 0) > 0) {
+      setJoinConfirmFamily(family);
+      return;
+    }
+
+    submitJoinRequest(family.id);
+  }
+
+  function submitJoinRequest(familyId) {
+    if (requestingFamilies[familyId]) return;
+
+    setJoinConfirmFamily(null);
+    setRequestingFamilies((prev) => ({
+      ...prev,
+      [familyId]: true,
+    }));
+
+    axios
+      .post(`/api/family/${familyId}/apply`, { message: "" })
+      .then((res) => {
+        siteInfo.showAlert("Join request submitted", "success");
+        if (res.data?.coins !== undefined) {
+          user.set((prev) => ({
+            ...prev,
+            coins: Number(res.data.coins ?? prev.coins ?? 0),
+            balanceDollar: Number(
+              res.data.balanceDollar ?? prev.balanceDollar ?? 0
+            ),
+          }));
+        }
+        setFamilies((prev) =>
+          prev.map((family) =>
+            family.id === familyId
+              ? {
+                  ...family,
+                  hasPendingApplication: true,
+                  canRequestJoin: false,
+                  treasury:
+                    Number(family.treasury || 0) +
+                    Number(res.data?.joinFee || 0),
+                }
+              : family
+          )
+        );
+      })
+      .catch(errorAlert)
+      .finally(() => {
+        setRequestingFamilies((prev) => {
+          const next = { ...prev };
+          delete next[familyId];
+          return next;
+        });
+      });
   }
 
   return (
@@ -389,7 +519,12 @@ export default function FamilyDiscovery() {
           <Grid container spacing={2}>
             {families.map((family) => (
               <Grid item xs={12} md={6} xl={4} key={family.id}>
-                <FamilyCard family={family} />
+                <FamilyCard
+                  family={family}
+                  isRequesting={Boolean(requestingFamilies[family.id])}
+                  onRequestJoin={onRequestJoinClick}
+                  user={user}
+                />
               </Grid>
             ))}
           </Grid>
@@ -405,6 +540,21 @@ export default function FamilyDiscovery() {
           )}
         </>
       )}
+      <ConfirmDialog
+        open={Boolean(joinConfirmFamily)}
+        title="Pay Join Fee"
+        message={`Requesting to join ${
+          joinConfirmFamily?.name || "this family"
+        } costs ${Number(
+          joinConfirmFamily?.joinFee || 0
+        ).toLocaleString()} coins. The fee is refunded if the request is rejected.`}
+        confirmLabel="Pay and Request"
+        loading={Boolean(
+          joinConfirmFamily && requestingFamilies[joinConfirmFamily.id]
+        )}
+        onClose={() => setJoinConfirmFamily(null)}
+        onConfirm={() => submitJoinRequest(joinConfirmFamily.id)}
+      />
     </Stack>
   );
 }

@@ -901,7 +901,9 @@ var schemas = {
       enum: ["checker", "stretch"],
     },
     applicationsOpen: { type: Boolean, default: true, index: true },
+    joinFee: { type: Number, default: 0, min: 0 },
     treasury: { type: Number, default: 0, index: true },
+    pendingJoinFees: { type: Number, default: 0, min: 0 },
     perks: { type: [String], default: [] },
     bio: {
       type: String,
@@ -971,6 +973,7 @@ var schemas = {
       index: true,
     },
     message: { type: String, default: "", maxlength: 500 },
+    joinFee: { type: Number, default: 0, min: 0 },
     status: {
       type: String,
       enum: ["pending", "accepted", "rejected"],
@@ -996,7 +999,7 @@ var schemas = {
     },
     type: {
       type: String,
-      enum: ["deposit", "perk"],
+      enum: ["deposit", "perk", "joinFee", "joinFeeRefund"],
       index: true,
     },
     amount: { type: Number, default: 0 },

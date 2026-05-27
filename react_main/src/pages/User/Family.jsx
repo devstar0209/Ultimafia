@@ -70,6 +70,7 @@ export default function Family() {
   const [ledger, setLedger] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [applyMessage, setApplyMessage] = useState("");
+  const [joinFeeInput, setJoinFeeInput] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
   const [coinConfirmAction, setCoinConfirmAction] = useState(null);
   const [coinConfirmLoading, setCoinConfirmLoading] = useState(false);
@@ -104,6 +105,7 @@ export default function Family() {
       .then((res) => {
         setFamily(res.data);
         setBio(res.data.bio || "");
+        setJoinFeeInput(String(Number(res.data.joinFee || 0)));
         setFamilyLoaded(true);
         document.title = `${res.data.name} | PassionMafia`;
 
@@ -326,11 +328,50 @@ export default function Family() {
   }
 
   function onApplyToFamily() {
+    const joinFee = Number(family?.joinFee || 0);
+
+    if (joinFee > 0) {
+      setCoinConfirmAction({
+        type: "apply",
+        amount: joinFee,
+        title: "Confirm Join Fee",
+        description:
+          "This fee is paid when you submit the application and refunded if the family rejects it.",
+      });
+      return;
+    }
+
+    submitApplication();
+  }
+
+  function submitApplication() {
     axios
       .post(`/api/family/${familyId}/apply`, { message: applyMessage })
-      .then(() => {
+      .then((res) => {
         siteInfo.showAlert("Application submitted", "success");
         setApplyMessage("");
+        setFamily((prev) =>
+          prev
+            ? {
+                ...prev,
+                hasPendingApplication: true,
+              }
+            : prev
+        );
+        if (res.data?.coins !== undefined) {
+          user.set((prev) => ({
+            ...prev,
+            coins: Number(res.data.coins ?? prev.coins ?? 0),
+            balanceDollar: Number(
+              res.data.balanceDollar ?? prev.balanceDollar ?? 0
+            ),
+          }));
+        }
+        refreshFamilyTools();
+      })
+      .finally(() => {
+        setCoinConfirmLoading(false);
+        setCoinConfirmAction(null);
       })
       .catch(errorAlert);
   }
@@ -348,6 +389,32 @@ export default function Family() {
           "success"
         );
         refreshFamilyTools();
+      })
+      .catch(errorAlert);
+  }
+
+  function onSaveJoinFee() {
+    const joinFee = Math.floor(Number(joinFeeInput));
+
+    if (!Number.isFinite(joinFee) || joinFee < 0) {
+      siteInfo.showAlert("Join fee must be a positive number or 0", "error");
+      return;
+    }
+
+    axios
+      .post(`/api/family/${familyId}/joinFee`, { joinFee })
+      .then((res) => {
+        const updatedJoinFee = Number(res.data.joinFee || 0);
+        setJoinFeeInput(String(updatedJoinFee));
+        setFamily((prev) =>
+          prev
+            ? {
+                ...prev,
+                joinFee: updatedJoinFee,
+              }
+            : prev
+        );
+        siteInfo.showAlert("Join fee updated", "success");
       })
       .catch(errorAlert);
   }
@@ -428,6 +495,11 @@ export default function Family() {
       return;
     }
 
+    if (coinConfirmAction.type === "apply") {
+      submitApplication();
+      return;
+    }
+
     if (coinConfirmAction.type === "perk") {
       buyPerk(coinConfirmAction.perkKey);
     }
@@ -461,6 +533,7 @@ export default function Family() {
   const canApply =
     user.loggedIn &&
     !isFamilyMember &&
+    !family.hasPendingApplication &&
     family.applicationsOpen &&
     family.members.length < family.memberLimit;
   const ownedPerks = (family.perks || []).filter((perk) => perk.owned);
@@ -771,6 +844,29 @@ export default function Family() {
                   Apply
                 </Typography>
                 <Stack direction="column" spacing={1}>
+                  {Number(family.joinFee || 0) > 0 && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        px: 1.5,
+                        py: 1,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        Join fee
+                      </Typography>
+                      <CoinAmount
+                        amount={family.joinFee}
+                        variant="body1"
+                        sx={{ fontWeight: 700 }}
+                      />
+                    </Box>
+                  )}
                   <TextField
                     multiline
                     minRows={3}
@@ -781,7 +877,9 @@ export default function Family() {
                     helperText={`${applyMessage.length}/500 characters`}
                   />
                   <Button variant="contained" onClick={onApplyToFamily}>
-                    Submit Application
+                    {Number(family.joinFee || 0) > 0
+                      ? "Pay Fee and Apply"
+                      : "Submit Application"}
                   </Button>
                 </Stack>
               </Paper>
@@ -803,6 +901,17 @@ export default function Family() {
                       {application.message && (
                         <Typography variant="body2" sx={{ mt: 1 }}>
                           {application.message}
+                        </Typography>
+                      )}
+                      {Number(application.joinFee || 0) > 0 && (
+                        <Typography
+                          component="div"
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 0.5 }}
+                        >
+                          Paid join fee:{" "}
+                          <CoinAmount amount={application.joinFee} />
                         </Typography>
                       )}
                       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
@@ -841,6 +950,12 @@ export default function Family() {
                 variant="h4"
                 sx={{ mt: 0.5 }}
               />
+              {Number(family.pendingJoinFees || 0) > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  {Number(family.pendingJoinFees).toLocaleString()} coins are
+                  reserved for pending join fee refunds.
+                </Typography>
+              )}
               {isFamilyMember && (
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                   <TextField
@@ -856,6 +971,30 @@ export default function Family() {
                 </Stack>
               )}
             </Paper>
+            {family.isLeader && (
+              <Paper sx={panelStyle}>
+                <Typography variant="h3" sx={headingStyle}>
+                  Join Fee
+                </Typography>
+                <Stack direction="column" spacing={1}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={joinFeeInput}
+                    onChange={(e) => setJoinFeeInput(e.target.value)}
+                    inputProps={{ min: 0, step: 1 }}
+                    placeholder="0"
+                  />
+                  <Button variant="outlined" onClick={onSaveJoinFee}>
+                    Save Join Fee
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    Applicants pay this fee when requesting to join. Rejected
+                    applications are refunded.
+                  </Typography>
+                </Stack>
+              </Paper>
+            )}
             <Paper sx={panelStyle}>
               <Typography variant="h3" sx={headingStyle}>
                 Perks

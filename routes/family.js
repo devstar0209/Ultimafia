@@ -16,6 +16,7 @@ const uploadUtils = require("../lib/Utils");
 
 const BASE_FAMILY_MEMBER_LIMIT = 20;
 const EXPANDED_FAMILY_MEMBER_LIMIT = 25;
+const MAX_FAMILY_JOIN_FEE = 1000000;
 const FAMILY_UPLOAD_PATH = "families";
 const FAMILY_PERKS = [
   {
@@ -46,6 +47,23 @@ function getFamilyMemberLimit(family) {
   return family?.perks?.includes("expandedRoster")
     ? EXPANDED_FAMILY_MEMBER_LIMIT
     : BASE_FAMILY_MEMBER_LIMIT;
+}
+
+function normalizeFamilyJoinFee(value) {
+  const fee = Math.floor(Number(value || 0));
+
+  if (!Number.isFinite(fee) || fee < 0) return null;
+  if (fee > MAX_FAMILY_JOIN_FEE) return null;
+
+  return fee;
+}
+
+function getPendingJoinFees(family) {
+  return Math.max(0, Number(family?.pendingJoinFees || 0));
+}
+
+function getAvailableFamilyTreasury(family) {
+  return Math.max(0, Number(family?.treasury || 0) - getPendingJoinFees(family));
 }
 
 function getMembershipRole(inFamily, family, user) {
@@ -258,12 +276,42 @@ router.get("/leaderboard", async function (req, res) {
 
 router.get("/discover", async function (req, res) {
   try {
+    const userId = await routeUtils.verifyLoggedIn(req, true);
     const search = String(req.query.search || "").trim();
     const sort = String(req.query.sort || "score");
     const openOnly = String(req.query.openOnly || "") === "true";
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(48, Math.max(6, Number(req.query.limit) || 12));
     const query = {};
+    let viewerFamilyId = null;
+    let viewerCanSubmitApplication = false;
+    let pendingApplicationFamilyIds = new Set();
+
+    if (userId) {
+      const user = await models.User.findOne({ id: userId }).select("_id").lean();
+
+      if (user) {
+        viewerCanSubmitApplication = true;
+        const viewerFamily = await models.InFamily.findOne({
+          user: user._id,
+        })
+          .populate("family", "id")
+          .lean();
+
+        viewerFamilyId = viewerFamily?.family?.id || null;
+
+        const pendingApplications = await models.FamilyApplication.find({
+          applicantId: userId,
+          status: "pending",
+        })
+          .select("familyId -_id")
+          .lean();
+
+        pendingApplicationFamilyIds = new Set(
+          pendingApplications.map((application) => application.familyId)
+        );
+      }
+    }
 
     if (search) {
       query.name = { $regex: escapeRegex(search), $options: "i" };
@@ -275,7 +323,7 @@ router.get("/discover", async function (req, res) {
 
     const families = await models.Family.find(query)
       .select(
-        "id name avatar avatarUrl leader members treasury perks applicationsOpen createdAt bio"
+        "id name avatar avatarUrl leader members treasury pendingJoinFees perks applicationsOpen joinFee createdAt bio"
       )
       .populate("leader", "id name avatar vanityUrl")
       .populate("members", "id")
@@ -317,6 +365,9 @@ router.get("/discover", async function (req, res) {
       const treasury = Number(family.treasury || 0);
       const perks = family.perks || [];
       const memberLimit = getFamilyMemberLimit(family);
+      const applicationsOpen = family.applicationsOpen !== false;
+      const isFull = members.length >= memberLimit;
+      const hasPendingApplication = pendingApplicationFamilyIds.has(family.id);
       const score =
         trophyCount * 10 +
         members.length * 25 +
@@ -337,13 +388,23 @@ router.get("/discover", async function (req, res) {
           : null,
         memberCount: members.length,
         memberLimit,
-        applicationsOpen: family.applicationsOpen !== false,
+        applicationsOpen,
+        joinFee: Number(family.joinFee || 0),
         treasury,
+        availableTreasury: getAvailableFamilyTreasury(family),
         perkCount: perks.length,
         trophyCount,
         score,
         createdAt: family.createdAt,
         bioPreview: String(family.bio || "").replace(/\s+/g, " ").slice(0, 160),
+        userIsMember: viewerFamilyId === family.id,
+        hasPendingApplication,
+        canRequestJoin:
+          viewerCanSubmitApplication &&
+          !viewerFamilyId &&
+          applicationsOpen &&
+          !isFull &&
+          !hasPendingApplication,
       };
     });
 
@@ -413,7 +474,7 @@ router.get("/user/family", async function (req, res) {
     // Query family directly and populate leader properly
     const family = await models.Family.findById(familyId)
       .select(
-        "id name avatar avatarUrl leader members background backgroundUrl backgroundRepeatMode applicationsOpen treasury perks"
+        "id name avatar avatarUrl leader members background backgroundUrl backgroundRepeatMode applicationsOpen joinFee treasury pendingJoinFees perks"
       )
       .populate("leader", "_id");
 
@@ -442,7 +503,10 @@ router.get("/user/family", async function (req, res) {
         memberCount: memberCount,
         memberLimit: getFamilyMemberLimit(family),
         applicationsOpen: family.applicationsOpen !== false,
+        joinFee: Number(family.joinFee || 0),
         treasury: Number(family.treasury || 0),
+        pendingJoinFees: getPendingJoinFees(family),
+        availableTreasury: getAvailableFamilyTreasury(family),
         perks: getFamilyPerks(family),
       },
     });
@@ -652,6 +716,15 @@ router.get("/:familyId/profile", async function (req, res) {
     var founderId = family.founder.id;
     var currentMembership = user ? await getFamilyMembership(family, user) : null;
     var userRole = getMembershipRole(currentMembership, family, user);
+    var hasPendingApplication = userId
+      ? Boolean(
+          await models.FamilyApplication.exists({
+            familyId: familyId,
+            applicantId: userId,
+            status: "pending",
+          })
+        )
+      : false;
     var familyMemberships = await models.InFamily.find({
       family: family._id,
     }).populate("user", "id");
@@ -743,7 +816,11 @@ router.get("/:familyId/profile", async function (req, res) {
       userRole: userRole,
       canManageApplications: canManageFamilyApplications(userRole),
       applicationsOpen: family.applicationsOpen !== false,
+      joinFee: Number(family.joinFee || 0),
+      hasPendingApplication,
       treasury: Number(family.treasury || 0),
+      pendingJoinFees: getPendingJoinFees(family),
+      availableTreasury: getAvailableFamilyTreasury(family),
       memberLimit: getFamilyMemberLimit(family),
       perks: getFamilyPerks(family),
       quests: buildFamilyQuests(family, trophies ? trophies.length : 0),
@@ -830,7 +907,54 @@ router.post("/:familyId/applicationsOpen", async function (req, res) {
   }
 });
 
+router.post("/:familyId/joinFee", async function (req, res) {
+  try {
+    var userId = await routeUtils.verifyLoggedIn(req);
+    var familyId = req.params.familyId;
+    var joinFee = normalizeFamilyJoinFee(req.body.joinFee);
+
+    if (joinFee === null) {
+      res.status(500);
+      res.send(`Join fee must be between 0 and ${MAX_FAMILY_JOIN_FEE} coins.`);
+      return;
+    }
+
+    var user = await models.User.findOne({ id: userId });
+    var family = await models.Family.findOne({ id: familyId });
+
+    if (!family) {
+      res.status(404);
+      res.send("Family not found.");
+      return;
+    }
+
+    if (family.leader.toString() !== user._id.toString()) {
+      res.status(500);
+      res.send("Only the family leader can change the join fee.");
+      return;
+    }
+
+    await models.Family.updateOne(
+      { id: familyId },
+      { $set: { joinFee: joinFee } }
+    );
+
+    res.send({ joinFee });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error updating join fee.");
+  }
+});
+
 router.post("/:familyId/apply", async function (req, res) {
+  let paidJoinFee = 0;
+  let paidUserObjectId = null;
+  let paidUserId = null;
+  let paidFamilyObjectId = null;
+  let familyJoinFeeAdded = false;
+  let paymentCommitted = false;
+
   try {
     var userId = await routeUtils.verifyLoggedIn(req);
     var familyId = req.params.familyId;
@@ -885,17 +1009,105 @@ router.post("/:familyId/apply", async function (req, res) {
       return;
     }
 
+    var joinFee = Math.max(0, Math.floor(Number(family.joinFee || 0)));
+    var debit = null;
+
+    if (joinFee > 0) {
+      debit = await models.User.findOneAndUpdate(
+        { id: userId, coins: { $gte: joinFee } },
+        { $inc: { coins: -joinFee } },
+        { new: true }
+      )
+        .select("coins balanceDollar")
+        .lean();
+
+      if (!debit) {
+        res.status(500);
+        res.send(`This family requires a ${joinFee} coin join fee.`);
+        return;
+      }
+
+      paidJoinFee = joinFee;
+      paidUserObjectId = user._id;
+      paidUserId = userId;
+      paidFamilyObjectId = family._id;
+
+      await models.Family.updateOne(
+        { id: familyId },
+        {
+          $inc: {
+            treasury: joinFee,
+            pendingJoinFees: joinFee,
+          },
+        }
+      );
+      familyJoinFeeAdded = true;
+    }
+
     await new models.FamilyApplication({
       familyId: familyId,
       family: family._id,
       applicantId: userId,
       applicant: user._id,
       message: message,
+      joinFee: joinFee,
       createdAt: Date.now(),
     }).save();
 
-    res.sendStatus(200);
+    paymentCommitted = true;
+
+    if (joinFee > 0) {
+      try {
+        await new models.FamilyLedger({
+          familyId: familyId,
+          family: family._id,
+          userId: userId,
+          user: user._id,
+          type: "joinFee",
+          amount: joinFee,
+          description: `Join fee paid by ${user.name}`,
+          createdAt: Date.now(),
+        }).save();
+      } catch (ledgerError) {
+        logger.error("Error recording family join fee ledger:", ledgerError);
+      }
+
+      try {
+        await redis.cacheUserInfo(userId, true);
+      } catch (cacheError) {
+        logger.error("Error refreshing user cache after join fee:", cacheError);
+      }
+    }
+
+    res.send({
+      joinFee,
+      coins: debit ? Number(debit.coins || 0) : undefined,
+      balanceDollar: debit ? Number(debit.balanceDollar || 0) : undefined,
+    });
   } catch (e) {
+    if (paidJoinFee > 0 && !paymentCommitted) {
+      try {
+        await models.User.updateOne(
+          { _id: paidUserObjectId },
+          { $inc: { coins: paidJoinFee } }
+        );
+        if (familyJoinFeeAdded) {
+          await models.Family.updateOne(
+            { _id: paidFamilyObjectId },
+            {
+              $inc: {
+                treasury: -paidJoinFee,
+                pendingJoinFees: -paidJoinFee,
+              },
+            }
+          );
+        }
+        await redis.cacheUserInfo(paidUserId, true);
+      } catch (rollbackError) {
+        logger.error("Error rolling back family join fee:", rollbackError);
+      }
+    }
+
     logger.error(e);
     res.status(500);
     res.send("Error submitting family application.");
@@ -944,6 +1156,7 @@ router.get("/:familyId/applications", async function (req, res) {
             vanityUrl: application.applicant.vanityUrl,
           },
           message: application.message || "",
+          joinFee: Number(application.joinFee || 0),
           createdAt: application.createdAt,
         })),
     });
@@ -988,6 +1201,8 @@ async function resolveFamilyApplication(req, res, status) {
     return;
   }
 
+  var joinFee = Math.max(0, Math.floor(Number(application.joinFee || 0)));
+
   if (status === "accepted") {
     if ((family.members || []).length >= getFamilyMemberLimit(family)) {
       res.status(500);
@@ -1013,8 +1228,47 @@ async function resolveFamilyApplication(req, res, status) {
 
     await models.Family.updateOne(
       { id: familyId },
-      { $push: { members: application.applicant._id } }
+      {
+        $push: { members: application.applicant._id },
+        $inc: { pendingJoinFees: -joinFee },
+      }
     );
+  } else if (joinFee > 0) {
+    await models.Family.updateOne(
+      { id: familyId },
+      {
+        $inc: {
+          treasury: -joinFee,
+          pendingJoinFees: -joinFee,
+        },
+      }
+    );
+
+    await models.User.updateOne(
+      { _id: application.applicant._id },
+      { $inc: { coins: joinFee } }
+    );
+
+    try {
+      await new models.FamilyLedger({
+        familyId: familyId,
+        family: family._id,
+        userId: application.applicant.id,
+        user: application.applicant._id,
+        type: "joinFeeRefund",
+        amount: -joinFee,
+        description: `Refunded join fee to ${application.applicant.name}`,
+        createdAt: Date.now(),
+      }).save();
+    } catch (ledgerError) {
+      logger.error("Error recording family join fee refund:", ledgerError);
+    }
+
+    try {
+      await redis.cacheUserInfo(application.applicant.id, true);
+    } catch (cacheError) {
+      logger.error("Error refreshing user cache after join fee refund:", cacheError);
+    }
   }
 
   await models.FamilyApplication.updateOne(
@@ -1033,7 +1287,9 @@ async function resolveFamilyApplication(req, res, status) {
       content:
         status === "accepted"
           ? `Your application to join ${family.name} was accepted!`
-          : `Your application to join ${family.name} was rejected.`,
+          : joinFee > 0
+            ? `Your application to join ${family.name} was rejected. Your ${joinFee} coin join fee was refunded.`
+            : `Your application to join ${family.name} was rejected.`,
       icon: "fas fa-users",
       link: `/user/family/${familyId}`,
     },
@@ -1270,8 +1526,13 @@ router.post("/:familyId/perks/:perkKey/buy", async function (req, res) {
     var result = await models.Family.updateOne(
       {
         id: familyId,
-        treasury: { $gte: perk.cost },
         perks: { $ne: perk.key },
+        $expr: {
+          $gte: [
+            { $subtract: ["$treasury", { $ifNull: ["$pendingJoinFees", 0] }] },
+            perk.cost,
+          ],
+        },
       },
       {
         $inc: { treasury: -perk.cost },
@@ -1462,6 +1723,25 @@ router.delete("/:familyId", async function (req, res) {
 
     // Remove all members from the family
     await models.InFamily.deleteMany({ family: family._id });
+
+    // Refund pending join fees before removing applications.
+    var pendingApplications = await models.FamilyApplication.find({
+      family: family._id,
+      status: "pending",
+      joinFee: { $gt: 0 },
+    })
+      .populate("applicant", "id")
+      .lean();
+
+    for (const application of pendingApplications) {
+      if (!application.applicant) continue;
+
+      await models.User.updateOne(
+        { _id: application.applicant._id },
+        { $inc: { coins: Number(application.joinFee || 0) } }
+      );
+      await redis.cacheUserInfo(application.applicant.id, true);
+    }
 
     // Delete all pending join requests
     await models.FamilyJoinRequest.deleteMany({ family: family._id });
