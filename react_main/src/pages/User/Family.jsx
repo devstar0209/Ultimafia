@@ -19,6 +19,10 @@ import {
   TextField,
   LinearProgress,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 
 import { UserContext, SiteInfoContext } from "Contexts";
@@ -31,6 +35,27 @@ import { Loading } from "components/Loading";
 import { useIsPhoneDevice } from "hooks/useIsPhoneDevice";
 import CustomMarkdown from "components/CustomMarkdown";
 import TrophyCase from "components/TrophyCase";
+
+function CoinAmount({ amount, variant = "body2", sx = {} }) {
+  return (
+    <Stack
+      component="span"
+      direction="row"
+      spacing={0.75}
+      sx={{ display: "inline-flex", alignItems: "center", ...sx }}
+    >
+      <Typography component="span" variant={variant}>
+        {Number(amount || 0).toLocaleString()}
+      </Typography>
+      <Box
+        component="i"
+        className="fas fa-coins"
+        aria-label="Coins"
+        sx={{ color: "#f5c542", fontSize: "0.95em" }}
+      />
+    </Stack>
+  );
+}
 
 export default function Family() {
   const { familyId } = useParams();
@@ -45,6 +70,8 @@ export default function Family() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [applyMessage, setApplyMessage] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
+  const [coinConfirmAction, setCoinConfirmAction] = useState(null);
+  const [coinConfirmLoading, setCoinConfirmLoading] = useState(false);
 
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
@@ -309,24 +336,78 @@ export default function Family() {
       return;
     }
 
+    setCoinConfirmAction({
+      type: "deposit",
+      amount,
+      title: "Confirm Deposit",
+      description: "This will move the selected amount from your balance into the family treasury.",
+    });
+  }
+
+  function depositToTreasury(amount) {
     axios
       .post(`/api/family/${familyId}/treasury/deposit`, { amount })
-      .then(() => {
+      .then((res) => {
         siteInfo.showAlert("Coins deposited", "success");
         setDepositAmount("");
+        user.set((prev) => ({
+          ...prev,
+          coins: Number(res.data.coins ?? prev.coins ?? 0),
+          balanceDollar: Number(
+            res.data.balanceDollar ?? prev.balanceDollar ?? 0
+          ),
+        }));
         refreshFamilyTools();
+      })
+      .finally(() => {
+        setCoinConfirmLoading(false);
+        setCoinConfirmAction(null);
       })
       .catch(errorAlert);
   }
 
-  function onBuyPerk(perkKey) {
+  function onBuyPerk(perk) {
+    setCoinConfirmAction({
+      type: "perk",
+      perkKey: perk.key,
+      amount: Number(perk.cost || 0),
+      title: "Confirm Perk Purchase",
+      description: `This will spend family treasury funds on ${perk.name}.`,
+    });
+  }
+
+  function buyPerk(perkKey) {
     axios
       .post(`/api/family/${familyId}/perks/${perkKey}/buy`)
       .then(() => {
         siteInfo.showAlert("Family perk bought", "success");
         refreshFamilyTools();
       })
+      .finally(() => {
+        setCoinConfirmLoading(false);
+        setCoinConfirmAction(null);
+      })
       .catch(errorAlert);
+  }
+
+  function closeCoinConfirmDialog() {
+    if (coinConfirmLoading) return;
+    setCoinConfirmAction(null);
+  }
+
+  function confirmCoinAction() {
+    if (!coinConfirmAction) return;
+
+    setCoinConfirmLoading(true);
+
+    if (coinConfirmAction.type === "deposit") {
+      depositToTreasury(coinConfirmAction.amount);
+      return;
+    }
+
+    if (coinConfirmAction.type === "perk") {
+      buyPerk(coinConfirmAction.perkKey);
+    }
   }
 
   function onChangeMemberRole(memberId, role) {
@@ -685,9 +766,11 @@ export default function Family() {
               <Typography variant="h3" sx={headingStyle}>
                 Treasury
               </Typography>
-              <Typography variant="h4">
-                {Number(family.treasury || 0).toLocaleString()} coins
-              </Typography>
+              <CoinAmount
+                amount={family.treasury}
+                variant="h4"
+                sx={{ mt: 0.5 }}
+              />
               {isFamilyMember && (
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                   <TextField
@@ -729,7 +812,15 @@ export default function Family() {
                           <Button
                             size="small"
                             variant="outlined"
-                            onClick={() => onBuyPerk(perk.key)}
+                            onClick={() => onBuyPerk(perk)}
+                            startIcon={
+                              <Box
+                                component="i"
+                                className="fas fa-coins"
+                                aria-hidden="true"
+                                sx={{ color: "#f5c542" }}
+                              />
+                            }
                           >
                             {perk.cost}
                           </Button>
@@ -806,6 +897,69 @@ export default function Family() {
           </Grid>
         )}
       </Grid>
+      <Dialog
+        open={Boolean(coinConfirmAction)}
+        onClose={closeCoinConfirmDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box
+            component="i"
+            className="fas fa-coins"
+            aria-hidden="true"
+            sx={{ color: "#f5c542" }}
+          />
+          {coinConfirmAction?.title || "Confirm"}
+        </DialogTitle>
+        <DialogContent>
+          <Stack direction="column" spacing={1.5}>
+            <Typography color="text.secondary">
+              {coinConfirmAction?.description}
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 1,
+                px: 1.5,
+                py: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Amount
+              </Typography>
+              <CoinAmount
+                amount={coinConfirmAction?.amount}
+                variant="body1"
+                sx={{ fontWeight: 700 }}
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCoinConfirmDialog} disabled={coinConfirmLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={confirmCoinAction}
+            disabled={coinConfirmLoading}
+            startIcon={
+              <Box
+                component="i"
+                className="fas fa-check"
+                aria-hidden="true"
+              />
+            }
+          >
+            {coinConfirmLoading ? "Processing..." : "Confirm"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

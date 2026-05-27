@@ -10,14 +10,13 @@ const formidable = bluebird.promisifyAll(require("formidable"), {
   multiArgs: true,
 });
 const sharp = require("sharp");
-const fs = require("fs");const path = require("path");
-const {
-  uploadImage,
-  removeUploadedFile,
-} = require("../lib/Utils");
+const fs = require("fs");
+const path = require("path");
+const uploadUtils = require("../lib/Utils");
 
 const BASE_FAMILY_MEMBER_LIMIT = 20;
 const EXPANDED_FAMILY_MEMBER_LIMIT = 25;
+const FAMILY_UPLOAD_PATH = "families";
 const FAMILY_PERKS = [
   {
     key: "expandedRoster",
@@ -122,6 +121,58 @@ function getFamilyPerks(family) {
     ...perk,
     owned: owned.has(perk.key),
   }));
+}
+
+function getFormImageFile(files = {}) {
+  const image = files.image;
+  return Array.isArray(image) ? image[0] : image;
+}
+
+function getFormFilePath(file) {
+  return file?.filepath || file?.path;
+}
+
+function getFamilyUploadKey(familyId, type) {
+  return `${familyId}_${type}`;
+}
+
+function getFamilyUploadUrl(familyId, type) {
+  return uploadUtils.toPublicUrl(
+    FAMILY_UPLOAD_PATH,
+    getFamilyUploadKey(familyId, type)
+  );
+}
+
+function getFamilyUploadAbsolutePath(familyId, type) {
+  return path.join(
+    uploadUtils.resolveUploadPath(FAMILY_UPLOAD_PATH),
+    `${getFamilyUploadKey(familyId, type)}.webp`
+  );
+}
+
+function removeFamilyUpload(currentUrl, familyId, type) {
+  uploadUtils.removeUploadFile(currentUrl || getFamilyUploadUrl(familyId, type));
+
+  // Older family images were stored at /uploads/<familyId>_family_avatar.webp.
+  uploadUtils.removeUploadFile(
+    `/uploads/${getFamilyUploadKey(familyId, type)}.webp`
+  );
+}
+
+function movePendingFamilyAvatar(userId, familyId) {
+  const pendingId = `pending_${userId}`;
+  const pendingPath = getFamilyUploadAbsolutePath(pendingId, "family_avatar");
+
+  if (!fs.existsSync(pendingPath)) return "";
+
+  const avatarUrl = getFamilyUploadUrl(familyId, "family_avatar");
+  const avatarPath = getFamilyUploadAbsolutePath(familyId, "family_avatar");
+
+  uploadUtils.ensureDirectory(path.dirname(avatarPath));
+  uploadUtils.removeUploadFile(avatarUrl);
+  fs.renameSync(pendingPath, avatarPath);
+
+  return avatarUrl;
 }
 
 router.get("/leaderboard", async function (req, res) {
@@ -308,10 +359,13 @@ router.post("/create", async function (req, res) {
     }
 
     const familyId = shortid.generate();
+    const avatarUrl = movePendingFamilyAvatar(userId, familyId);
 
     const family = new models.Family({
       id: familyId,
       name: trimmedName,
+      avatar: Boolean(avatarUrl),
+      avatarUrl,
       founder: user._id,
       leader: user._id,
       members: [user._id],
@@ -376,11 +430,24 @@ router.post("/avatar", async function (req, res) {
     form.maxFileSize = 1024 * 1024;
     form.maxFields = 1;
 
-    var [fields, files] = await form.parseAsync(req);
+    var [, files] = await form.parseAsync(req);
+    const image = getFormImageFile(files);
+    const imagePath = getFormFilePath(image);
 
-    const imageUrl = await uploadImage(
-      files.image,
-      `${familyId}_family_avatar`,
+    if (!imagePath) {
+      res.status(400);
+      res.send("Image file is required.");
+      return;
+    }
+
+    if (isExistingFamily) {
+      removeFamilyUpload(inFamily.family.avatarUrl, familyId, "family_avatar");
+    }
+
+    const imageUrl = await uploadUtils.uploadImage(
+      imagePath,
+      FAMILY_UPLOAD_PATH,
+      getFamilyUploadKey(familyId, "family_avatar"),
       {
         resize: {
           width: 100,
@@ -986,21 +1053,27 @@ router.post("/:familyId/treasury/deposit", async function (req, res) {
       return;
     }
 
-    var debit = await models.User.updateOne(
+    var debit = await models.User.findOneAndUpdate(
       { id: userId, coins: { $gte: amount } },
-      { $inc: { coins: -amount } }
-    );
+      { $inc: { coins: -amount } },
+      { new: true }
+    )
+      .select("coins balanceDollar")
+      .lean();
 
-    if (!debit.modifiedCount) {
+    if (!debit) {
       res.status(500);
       res.send("You do not have enough coins for this deposit.");
       return;
     }
 
-    await models.Family.updateOne(
+    var updatedFamily = await models.Family.findOneAndUpdate(
       { id: familyId },
-      { $inc: { treasury: amount } }
-    );
+      { $inc: { treasury: amount } },
+      { new: true }
+    )
+      .select("treasury")
+      .lean();
 
     await new models.FamilyLedger({
       familyId: familyId,
@@ -1013,7 +1086,13 @@ router.post("/:familyId/treasury/deposit", async function (req, res) {
       createdAt: Date.now(),
     }).save();
 
-    res.sendStatus(200);
+    await redis.cacheUserInfo(userId, true);
+
+    res.send({
+      coins: Number(debit.coins || 0),
+      balanceDollar: Number(debit.balanceDollar || 0),
+      treasury: Number(updatedFamily?.treasury || 0),
+    });
   } catch (e) {
     logger.error(e);
     res.status(500);
@@ -1258,9 +1337,9 @@ router.delete("/:familyId", async function (req, res) {
     await models.FamilyApplication.deleteMany({ family: family._id });
     await models.FamilyLedger.deleteMany({ family: family._id });
 
-    // Delete the family avatar if it exists
-    removeUploadedFile(`${familyId}_family_avatar`);
-    removeUploadedFile(`${familyId}_familyBackground`);
+    // Delete the family images if they exist
+    removeFamilyUpload(family.avatarUrl, familyId, "family_avatar");
+    removeFamilyUpload(family.backgroundUrl, familyId, "familyBackground");
 
     // Delete the family
     await models.Family.deleteOne({ id: familyId });
@@ -1593,11 +1672,22 @@ router.post("/:familyId/background", async function (req, res) {
     form.maxFileSize = 5 * 1024 * 1024; // 5 MB
     form.maxFields = 1;
 
-    var [fields, files] = await form.parseAsync(req);
+    var [, files] = await form.parseAsync(req);
+    const image = getFormImageFile(files);
+    const imagePath = getFormFilePath(image);
 
-    const imageUrl = await uploadImage(
-      files.image,
-      `${familyId}_familyBackground`,
+    if (!imagePath) {
+      res.status(400);
+      res.send("Image file is required.");
+      return;
+    }
+
+    removeFamilyUpload(family.backgroundUrl, familyId, "familyBackground");
+
+    const imageUrl = await uploadUtils.uploadImage(
+      imagePath,
+      FAMILY_UPLOAD_PATH,
+      getFamilyUploadKey(familyId, "familyBackground"),
       {
         quality: 100,
       }
@@ -1613,7 +1703,7 @@ router.post("/:familyId/background", async function (req, res) {
     logger.error(e);
     res.status(500);
 
-    if (e.message.indexOf("maxFileSize exceeded") == 0)
+    if (e.message && e.message.indexOf("maxFileSize exceeded") == 0)
       res.send("Image is too large, background must be less than 5 MB.");
     else res.send("Error uploading family background.");
   }
@@ -1640,7 +1730,7 @@ router.delete("/:familyId/background", async function (req, res) {
       return;
     }
 
-    removeUploadedFile(`${familyId}_familyBackground`);
+    removeFamilyUpload(family.backgroundUrl, familyId, "familyBackground");
 
     await models.Family.updateOne(
       { id: familyId },
