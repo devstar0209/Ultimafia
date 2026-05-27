@@ -99,6 +99,107 @@ const formatShopPrice = (item = {}) =>
     ? formatUsdAmount(item.priceDollar ?? item.price)
     : `${item.price} coins`;
 
+const PURCHASED_ITEM_USE_ACTIONS = {
+  textColors: {
+    path: "/user/settings/game",
+    icon: "fas fa-palette",
+  },
+  customProfile: {
+    path: "/user/settings/profile",
+    icon: "fas fa-id-card",
+  },
+  nameChange: {
+    path: "/user/settings/profile",
+    icon: "fas fa-signature",
+  },
+  threeCharName: {
+    path: "/user/settings/profile",
+    icon: "fas fa-signature",
+  },
+  twoCharName: {
+    path: "/user/settings/profile",
+    icon: "fas fa-signature",
+  },
+  oneCharName: {
+    path: "/user/settings/profile",
+    icon: "fas fa-signature",
+  },
+  deathMessageEnabled: {
+    path: "/user/settings/game",
+    icon: "fas fa-skull-crossbones",
+  },
+  deathMessageChange: {
+    path: "/user/settings/game",
+    icon: "fas fa-skull-crossbones",
+  },
+  anonymousDeck: {
+    path: "/play/createDeck",
+    icon: "fas fa-layer-group",
+  },
+  customEmotes: {
+    path: "/shop/emotes",
+    icon: "fas fa-smile",
+    message: "Custom emote uploads are disabled. Buy emote packs from the shop.",
+  },
+  customEmotesExtra: {
+    path: "/shop/emotes",
+    icon: "fas fa-smile",
+    message: "Custom emote uploads are disabled. Buy emote packs from the shop.",
+  },
+  archivedGames: {
+    path: "/play",
+    icon: "fas fa-archive",
+    message: "Open a finished game and use Archive from the game top bar.",
+  },
+  archivedGamesMax: {
+    path: "/play",
+    icon: "fas fa-archive",
+    message: "Open a finished game and use Archive from the game top bar.",
+  },
+  avatarShape: {
+    path: "/user/settings/profile",
+    icon: "fas fa-vector-square",
+  },
+  vanityUrl: {
+    path: "/user/settings/profile",
+    icon: "fas fa-link",
+  },
+  customPrimaryColor: {
+    path: "/user/settings/site",
+    icon: "fas fa-fill-drip",
+  },
+  iconFilter: {
+    path: "/user/settings/site",
+    icon: "fas fa-adjust",
+  },
+  profileBackground: {
+    path: "/user/settings/profile",
+    icon: "fas fa-image",
+  },
+  createFamily: {
+    path: "/user/settings/family",
+    icon: "fas fa-users",
+  },
+};
+
+function getPurchasedItemUseAction(item = {}) {
+  const key = String(item.key || "");
+
+  if (key.startsWith("avatar-")) {
+    return {
+      modal: "avatarSelection",
+      icon: "fas fa-user-circle",
+    };
+  }
+
+  return (
+    PURCHASED_ITEM_USE_ACTIONS[key] || {
+      path: "/user/settings/profile",
+      icon: "fas fa-external-link-alt",
+    }
+  );
+}
+
 function FavoritedRolesPanel({
   favoriteRoles = [],
   panelStyle = {},
@@ -608,6 +709,23 @@ export default function Profile() {
       });
 
     return false;
+  }
+
+  function onUsePurchasedItem(item) {
+    const action = getPurchasedItemUseAction(item);
+
+    if (action.message) {
+      siteInfo.showAlert(action.message, "info");
+    }
+
+    if (action.modal === "avatarSelection") {
+      openAvatarSelectionDialog();
+      return;
+    }
+
+    if (action.path) {
+      navigate(action.path);
+    }
   }
 
   function closeAvatarSelectionDialog() {
@@ -2278,40 +2396,66 @@ export default function Profile() {
               <div className="content">
                 {purchasedItems.length > 0 ? (
                   <Grid container spacing={1}>
-                    {purchasedItems.map((item) => (
-                      <Grid item xs={12} sm={6} md={4} key={item.key}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 1,
-                            p: 1,
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: 1,
-                            minHeight: 44,
-                          }}
-                        >
-                          <Typography variant="body2" noWrap>
-                            {item.name}
-                          </Typography>
-                          {item.count > 1 && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                px: 0.75,
-                                py: 0.25,
-                                borderRadius: 999,
-                                bgcolor: "action.selected",
-                                flexShrink: 0,
-                              }}
-                            >
-                              x{item.count}
+                    {purchasedItems.map((item) => {
+                      const useAction = getPurchasedItemUseAction(item);
+
+                      return (
+                        <Grid item xs={12} sm={6} md={4} key={item.key}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 1,
+                              p: 1,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: 1,
+                              minHeight: 44,
+                            }}
+                          >
+                            <Typography variant="body2" noWrap>
+                              {item.name}
                             </Typography>
-                          )}
-                        </Box>
-                      </Grid>
-                    ))}
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              sx={{ alignItems: "center", flexShrink: 0 }}
+                            >
+                              {item.count > 1 && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    px: 0.75,
+                                    py: 0.25,
+                                    borderRadius: 999,
+                                    bgcolor: "action.selected",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  x{item.count}
+                                </Typography>
+                              )}
+                              {isSelf && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => onUsePurchasedItem(item)}
+                                  startIcon={
+                                    <i
+                                      className={useAction.icon}
+                                      aria-hidden="true"
+                                    />
+                                  }
+                                  sx={{ minWidth: 0, px: 1 }}
+                                >
+                                  Use
+                                </Button>
+                              )}
+                            </Stack>
+                          </Box>
+                        </Grid>
+                      );
+                    })}
                   </Grid>
                 ) : (
                   <Typography color="text.secondary">
