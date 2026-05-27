@@ -14,6 +14,8 @@ import axios from "axios";
 import ReactLoading from "react-loading";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 import { UserText } from "../../components/Basic";
 import Newspaper, {
@@ -183,16 +185,20 @@ export default function Game() {
   const [emojis, setEmojis] = useState({});
   const [history, updateHistory] = useHistoryReducer();
   const [finishAnimationVisible, setFinishAnimationVisible] = useState(false);
-  const [replayPromptOpen, setReplayPromptOpen] = useState(false);
+  const [rewardModalOpen, setRewardModalOpen] = useState(false);
+  const [rewardInfo, setRewardInfo] = useState(null);
   const [replayStatus, setReplayStatus] = useState("idle");
-  const replayPromptShownRef = useRef(false);
+  const finishAnimationShownRef = useRef(false);
+  const rewardModalShownRef = useRef(false);
+  const rewardInfoRequestedRef = useRef(false);
+  const playerWonRef = useRef(null);
+  const userRef = useRef(user);
   const shouldHoldPostgameBoard =
     !review &&
     history.currentState === -2 &&
     (finishAnimationVisible ||
-      replayPromptOpen ||
       replayStatus === "hosting" ||
-      !replayPromptShownRef.current);
+      !finishAnimationShownRef.current);
   const [stateViewing, updateStateViewing] = useStateViewingReducer(
     history,
     shouldHoldPostgameBoard
@@ -233,6 +239,12 @@ export default function Game() {
   const [selectedPanel, setSelectedPanel] = useState("chat");
 
   const isParticipant = !isSpectator && !review;
+  const postgameWinnersInfo = history.states?.[-2]?.winners;
+  const playerWon = getPlayerFinishedResult(
+    postgameWinnersInfo,
+    self,
+    isParticipant
+  );
   const currentStateObject = history.states[history.currentState];
   const unresolvedActionCount = Object.values(
     currentStateObject ? currentStateObject.meetings : {}
@@ -289,7 +301,6 @@ export default function Game() {
 
     noLeaveRef.current = true;
     setReplayStatus("hosting");
-    setReplayPromptOpen(false);
 
     setTimeout(() => {
       var stateLengths = {};
@@ -361,10 +372,75 @@ export default function Game() {
         .catch((e) => {
           noLeaveRef.current = false;
           setReplayStatus("idle");
-          setReplayPromptOpen(true);
           errorAlert(e);
         });
     }, 500);
+  }
+
+  function refreshRewardInfoAfterFinish() {
+    if (rewardInfoRequestedRef.current || playerWonRef.current !== true) return;
+
+    rewardInfoRequestedRef.current = true;
+    const previousCoins = Number(userRef.current?.coins || 0);
+
+    setTimeout(() => {
+      axios
+        .get("/api/user/info")
+        .then((res) => {
+          if (!res.data?.id) return;
+
+          const rank = Number(res.data.rank);
+          const nextUser = {
+            ...res.data,
+            loggedIn: true,
+            loaded: true,
+            rank: Number.isFinite(rank) ? rank : 0,
+          };
+
+          userRef.current?.set?.((prev) => ({
+            ...prev,
+            ...nextUser,
+          }));
+
+          const balance = Number(res.data.coins || 0);
+          const coinsEarned = Math.max(0, balance - previousCoins);
+
+          setRewardInfo((prev) => ({
+            ...prev,
+            coinsEarned: Math.max(Number(prev?.coinsEarned || 0), coinsEarned),
+            balance,
+            finalized: true,
+          }));
+        })
+        .catch(() => {
+          setRewardInfo((prev) => ({
+            ...prev,
+            finalized: false,
+          }));
+      });
+    }, 1200);
+  }
+
+  function openRewardModal() {
+    rewardModalShownRef.current = true;
+    setRewardInfo((prev) => ({
+      coinsEarned: Math.max(
+        Number(prev?.coinsEarned || 0),
+        options.ranked ? 1 : 0
+      ),
+      balance: prev?.balance ?? null,
+      finalized: Boolean(prev?.finalized),
+    }));
+    setRewardModalOpen(true);
+  }
+
+  function onGameFinishedResultClick() {
+    if (playerWon === true) {
+      openRewardModal();
+      return;
+    }
+
+    leaveGame();
   }
 
   useEffect(() => {
@@ -649,30 +725,33 @@ export default function Game() {
   }, [self]);
 
   useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    playerWonRef.current = playerWon;
+  }, [playerWon]);
+
+  useEffect(() => {
     if (stateViewing == null) updateStateViewing({ type: "current" });
   }, [history.currentState]);
 
   useEffect(() => {
-    replayPromptShownRef.current = false;
+    finishAnimationShownRef.current = false;
+    rewardModalShownRef.current = false;
+    rewardInfoRequestedRef.current = false;
     setFinishAnimationVisible(false);
-    setReplayPromptOpen(false);
+    setRewardModalOpen(false);
+    setRewardInfo(null);
     setReplayStatus("idle");
   }, [gameId]);
 
   useEffect(() => {
-    if (review || history.currentState !== -2 || replayPromptShownRef.current)
+    if (review || history.currentState !== -2 || finishAnimationShownRef.current)
       return;
 
-    replayPromptShownRef.current = true;
+    finishAnimationShownRef.current = true;
     setFinishAnimationVisible(true);
-    setReplayPromptOpen(false);
-
-    const replayPromptTimer = setTimeout(() => {
-      setFinishAnimationVisible(false);
-      setReplayPromptOpen(true);
-    }, 10000);
-
-    return () => clearTimeout(replayPromptTimer);
   }, [gameId, history.currentState, review]);
 
   useEffect(() => {
@@ -725,7 +804,10 @@ export default function Game() {
       setEmojis(emojis);
     });
 
-    socket.on("finished", () => setFinished(true));
+    socket.on("finished", () => {
+      refreshRewardInfoAfterFinish();
+      setFinished(true);
+    });
 
     socket.on("state", (state) => {
       updateHistory({ type: "addState", state: state });
@@ -1157,13 +1239,6 @@ export default function Game() {
     };
 
     const isUrgent = voteKickUrgency || (readyCheckInfo.active && !readyCheckInfo.readyPlayers[self]);
-    const postgameWinnersInfo = history.states?.[-2]?.winners;
-    const playerWon = getPlayerFinishedResult(
-      postgameWinnersInfo,
-      self,
-      isParticipant
-    );
-
     return (
       <GameContext.Provider value={gameContext}>
         <ChangeHeadPing title={pingInfo?.msg} timestamp={pingInfo?.timestamp} />
@@ -1202,6 +1277,7 @@ export default function Game() {
               visible={finishAnimationVisible}
               playerWon={playerWon}
               winnersInfo={postgameWinnersInfo}
+              onClick={onGameFinishedResultClick}
             />
             {replayStatus === "hosting" && <ReplayWaitingScreen />}
           </Box>
@@ -1251,16 +1327,14 @@ export default function Game() {
             setChangeSetupDialogOpen(false);
           }}
         />
-        <ReplayModal
-          show={replayPromptOpen}
-          playerWon={playerWon}
+        <RewardModal
+          show={rewardModalOpen}
           winnersInfo={postgameWinnersInfo}
           gameType={gameType}
           setup={setup}
-          playerCount={Object.keys(players || {}).length}
           isRanked={!!options.ranked}
           isCompetitive={!!options.competitive}
-          onReplay={rehostGame}
+          rewardInfo={rewardInfo}
           onClose={leaveGame}
         />
       </GameContext.Provider>
@@ -1297,7 +1371,7 @@ function getWinnerSummary(winnersInfo) {
   return `${winnerGroups.join(", ")} won.`;
 }
 
-function GameFinishedAnimation({ visible, playerWon, winnersInfo }) {
+function GameFinishedAnimation({ visible, playerWon, winnersInfo, onClick }) {
   if (!visible) return null;
 
   const isWin = playerWon === true;
@@ -1314,7 +1388,17 @@ function GameFinishedAnimation({ visible, playerWon, winnersInfo }) {
       className={`game-finished-animation ${
         isWin ? "is-win" : isLoss ? "is-loss" : "is-neutral"
       }`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
       aria-live="polite"
+      aria-label={isWin ? "View your reward" : isLoss ? "Leave game" : "Continue"}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       <div className="game-finished-burst" />
       <div className="game-finished-emoticons" aria-hidden="true">
@@ -1329,6 +1413,9 @@ function GameFinishedAnimation({ visible, playerWon, winnersInfo }) {
         <div className="game-finished-title">{title}</div>
         <div className="game-finished-subtitle">
           {getWinnerSummary(winnersInfo)}
+        </div>
+        <div className="game-finished-action">
+          {isWin ? "View reward" : "Leave game"}
         </div>
       </div>
     </div>
@@ -1349,87 +1436,88 @@ function ReplayWaitingScreen() {
   );
 }
 
-function ReplayModal({
+function RewardModal({
   show,
-  playerWon,
   winnersInfo,
   gameType,
   setup,
-  playerCount,
   isRanked,
   isCompetitive,
-  onReplay,
+  rewardInfo,
   onClose,
 }) {
-  const resultLabel =
-    playerWon === true
-      ? "Victory"
-      : playerWon === false
-      ? "Defeat"
-      : "Game Complete";
-  const resultClass =
-    playerWon === true ? "is-win" : playerWon === false ? "is-loss" : "is-neutral";
-  const winnerGroups = winnersInfo?.groups || [];
-  const modeLabel = isCompetitive ? "Competitive" : isRanked ? "Ranked" : "Casual";
+  const rewardCoins = Number(rewardInfo?.coinsEarned || 0);
+  const rewardLabel =
+    rewardCoins > 0
+      ? `${rewardCoins.toLocaleString()} ${rewardCoins === 1 ? "coin" : "coins"}`
+      : "Recorded";
+  const balanceLabel =
+    rewardInfo?.balance == null
+      ? "Pending"
+      : `${Number(rewardInfo.balance || 0).toLocaleString()} coins`;
 
   return (
     <Dialog
       open={show}
-      onClose={(event, reason) => {
-        if (reason === "backdropClick" || reason === "escapeKeyDown") return;
-        onClose();
-      }}
+      onClose={onClose}
       className="game-replay-dialog"
       maxWidth="sm"
       fullWidth
     >
-      <div className={`game-replay-modal ${resultClass}`}>
-        <div className="game-replay-modal-hero">
-          <div className="game-replay-modal-emblem">
-            {playerWon === true ? "W" : playerWon === false ? "X" : "!"}
+      <div className="game-reward-modal">
+        <button
+          type="button"
+          className="game-reward-modal-close"
+          onClick={onClose}
+          aria-label="Close reward"
+        >
+          <CloseRoundedIcon fontSize="small" />
+        </button>
+
+        <div className="game-reward-modal-hero">
+          <div className="game-reward-cup-ring" aria-hidden="true">
+            <EmojiEventsRoundedIcon />
+            <EmojiEventsRoundedIcon />
           </div>
-          <div className="game-replay-modal-heading">
-            <span>{resultLabel}</span>
-            <strong>{getWinnerSummary(winnersInfo)}</strong>
+          <div className="game-reward-cup">
+            <EmojiEventsRoundedIcon fontSize="inherit" />
+          </div>
+          <div className="game-reward-modal-heading">
+            <span>Victory Reward</span>
+            <strong>{rewardLabel}</strong>
+            <p>Your win has been recorded.</p>
           </div>
         </div>
 
-        <div className="game-replay-modal-grid">
-          <div className="game-replay-modal-stat">
+        <div className="game-reward-modal-grid">
+          <div className="game-reward-modal-stat">
             <span>Game</span>
             <strong>{gameType || "-"}</strong>
           </div>
-          <div className="game-replay-modal-stat">
+          <div className="game-reward-modal-stat">
             <span>Setup</span>
             <strong>{setup?.name || "-"}</strong>
           </div>
-          <div className="game-replay-modal-stat">
-            <span>Players</span>
-            <strong>{playerCount || "-"}</strong>
-          </div>
-          <div className="game-replay-modal-stat">
+          <div className="game-reward-modal-stat">
             <span>Mode</span>
-            <strong>{modeLabel}</strong>
+            <strong>
+              {isCompetitive ? "Competitive" : isRanked ? "Ranked" : "Casual"}
+            </strong>
+          </div>
+          <div className="game-reward-modal-stat">
+            <span>Balance</span>
+            <strong>{balanceLabel}</strong>
           </div>
         </div>
 
-        <div className="game-replay-modal-winners">
-          <span>Winning side</span>
-          <div>
-            {winnerGroups.length > 0
-              ? winnerGroups.map((group) => (
-                  <strong key={group}>{group}</strong>
-                ))
-              : <strong>Game finished</strong>}
-          </div>
+        <div className="game-reward-modal-result">
+          <span>Result</span>
+          <strong>{getWinnerSummary(winnersInfo)}</strong>
         </div>
 
-        <div className="game-replay-modal-actions">
-          <Button variant="outlined" onClick={onClose}>
-            Leave Game
-          </Button>
-          <Button variant="contained" onClick={onReplay}>
-            Play Again
+        <div className="game-reward-modal-actions">
+          <Button variant="contained" onClick={onClose}>
+            Close
           </Button>
         </div>
       </div>
