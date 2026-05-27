@@ -575,6 +575,7 @@
 }
 
 .game .center-panel {
+  position: relative;
   flex-grow: 1;
   flex-basis: 0px;
   display: flex;
@@ -584,6 +585,77 @@
 
   background-color: transparent;
   box-shadow: none;
+}
+
+.game .game-board-start-shell {
+  position: relative;
+  min-height: 220px;
+}
+
+.game .pregame-start-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.game .pregame-start-button.MuiButton-root {
+  min-width: 180px;
+  min-height: 54px;
+  padding: 12px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2e7d4f, #d49a35);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: none;
+  pointer-events: auto;
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.32),
+    0 0 0 0 rgba(212, 154, 53, 0.46);
+  animation: pregame-start-pop 0.34s ease-out both,
+    pregame-start-pulse 1.8s ease-in-out infinite 0.34s;
+}
+
+.game .pregame-start-button.MuiButton-root:hover {
+  background: linear-gradient(135deg, #348c59, #e0a642);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.36),
+    0 0 0 8px rgba(212, 154, 53, 0.12);
+}
+
+@keyframes pregame-start-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pregame-start-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 16px 34px rgba(0, 0, 0, 0.32),
+      0 0 0 0 rgba(212, 154, 53, 0.4);
+  }
+
+  50% {
+    transform: scale(1.035);
+    box-shadow:
+      0 20px 42px rgba(0, 0, 0, 0.38),
+      0 0 0 12px rgba(212, 154, 53, 0);
+  }
 }
 
 .game .title-box {

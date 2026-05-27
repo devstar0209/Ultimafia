@@ -147,6 +147,14 @@ module.exports = class Player {
         }
     });
 
+    socket.on("startGame", () => {
+      try {
+        this.game.requestGameStart(this);
+      } catch (e) {
+        logger.error(e);
+      }
+    });
+
     socket.on("speak", (message) => {
       try {
         if (typeof message != "object") return;

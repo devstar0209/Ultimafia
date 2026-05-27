@@ -1083,6 +1083,8 @@ module.exports = class Game {
             endTime: Date.now() + this.getTimeLeft("pregameCountdown"),
             readyPlayers: Object.keys(this.readyPlayers)
         });
+    } else if (this.timers.pregameCountdown) {
+      player.send("gameStartPending");
     }
 
     this.sendTimersToPlayer(player);
@@ -1120,12 +1122,31 @@ module.exports = class Game {
   }
 
   checkGameStart() {
-    if (this.players.length == this.setup.total) {
-      if (!this.isTest) {
-        if (this.readyCheck) this.startReadyCheck();
-        else this.startPregameCountdown();
-      } else this.start();
+    if (this.players.length == this.setup.total && this.isTest) this.start();
+  }
+
+  requestGameStart(player) {
+    if (this.started || this.currentState !== -1) return;
+
+    if (!player || player.user.id !== this.hostId) {
+      player?.sendAlert("Only the host can start this game.");
+      return;
     }
+
+    if (this.players.length !== this.setup.total) {
+      player.sendAlert(
+        `This game needs ${this.setup.total} players to start.`
+      );
+      return;
+    }
+
+    if (this.isReadyCheckActive || this.timers.pregameCountdown) {
+      player.sendAlert("This game is already starting.");
+      return;
+    }
+
+    if (this.readyCheck) this.startReadyCheck();
+    else this.startPregameCountdown();
   }
 
   startReadyCheck() {
@@ -1198,6 +1219,7 @@ module.exports = class Game {
   startPregameCountdown() {
     this.clearTimer("pregameCountdown");
     this.broadcast("readyCheck success", {}); 
+    this.broadcast("gameStartPending");
     
     this.createTimer("pregameCountdown", this.pregameCountdownLength, () =>
       this.start()
@@ -1315,7 +1337,10 @@ module.exports = class Game {
     if (this.started) return;
 
     const playerCoinsCharged = await this.chargePlayerCoinsAtStart();
-    if (!playerCoinsCharged) return;
+    if (!playerCoinsCharged) {
+      this.broadcast("gameStartFailed");
+      return;
+    }
 
     // Set game in progress in redis db
     redis.setGameStatus(this.id, "In Progress");

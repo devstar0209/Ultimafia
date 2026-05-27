@@ -13,6 +13,7 @@ import update from "immutability-helper";
 import axios from "axios";
 import ReactLoading from "react-loading";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 
 import { UserText } from "../../components/Basic";
 import Newspaper, {
@@ -218,6 +219,7 @@ export default function Game() {
   const [roleRevealData, setRoleRevealData] = useState(null);
   const [hostId, setHostId] = useState(null);
   const [changeSetupDialogOpen, setChangeSetupDialogOpen] = useState(false);
+  const [gameStartRequested, setGameStartRequested] = useState(false);
 
   const playersRef = useRef();
   const selfRef = useRef();
@@ -247,6 +249,13 @@ export default function Game() {
   function onReadyCheckVerify() {
     socket.send("readyCheck verify");
     stopAudio("urgent");
+  }
+
+  function requestGameStart() {
+    if (!socket.send) return;
+
+    setGameStartRequested(true);
+    socket.send("startGame");
   }
 
   function onLeaveGameClick() {
@@ -738,6 +747,7 @@ export default function Game() {
     });
 
     socket.on("playerJoin", (player) => {
+      setGameStartRequested(false);
       updatePlayers({
         type: "add",
         player,
@@ -746,6 +756,7 @@ export default function Game() {
     });
 
     socket.on("playerLeave", (playerId) => {
+      setGameStartRequested(false);
       updatePlayers({
         type: "remove",
         playerId,
@@ -763,6 +774,10 @@ export default function Game() {
 
     socket.on("self", (playerId) => {
       setSelf(playerId);
+    });
+
+    socket.on("hostId", (hostId) => {
+      setHostId(hostId);
     });
 
     socket.on("obituaries", (info) => {
@@ -965,12 +980,21 @@ export default function Game() {
 
     socket.on("readyCheck cancel", () => {
       stopAudio("urgent");
+      setGameStartRequested(false);
       setReadyCheckInfo({ active: false, readyPlayers: {}, endTime: 0 });
     });
 
     socket.on("readyCheck success", () => {
       stopAudio("urgent");
       setReadyCheckInfo({ active: false, readyPlayers: {}, endTime: 0 });
+    });
+
+    socket.on("gameStartPending", () => {
+      setGameStartRequested(true);
+    });
+
+    socket.on("gameStartFailed", () => {
+      setGameStartRequested(false);
     });
 
     socket.on("readyCheck update", (data) => {
@@ -1127,7 +1151,9 @@ export default function Game() {
       setChangeSetupDialogOpen: setChangeSetupDialogOpen,
       spectators: spectators,
       setSpectators: setSpectators,
-      readyCheckInfo: readyCheckInfo
+      readyCheckInfo: readyCheckInfo,
+      gameStartRequested: gameStartRequested,
+      requestGameStart: requestGameStart,
     };
 
     const isUrgent = voteKickUrgency || (readyCheckInfo.active && !readyCheckInfo.readyPlayers[self]);
@@ -1715,7 +1741,10 @@ export function MobileLayout({
       {!hideInfoTab && (
         <Box sx={{ display: selectedPanel === "info" ? undefined : "none" }}>
           {/* The additionalInfoContent displays after the mobile version of TopBar */}
-          {additionalInfoContent}
+          <div className="game-board-start-shell">
+            {additionalInfoContent}
+            <PregameStartButton />
+          </div>
         </Box>
       )}
       <Stack
@@ -1816,11 +1845,46 @@ export function ThreePanelLayout({
       </div>
       <div className="center-panel panel with-radial-gradient">
         {centerPanelContent}
+        <PregameStartButton />
       </div>
       <div className="right-panel panel with-radial-gradient">
         {rightPanelContent}
       </div>
     </Stack>
+  );
+}
+
+function PregameStartButton() {
+  const game = useContext(GameContext);
+  const activePlayerCount = Object.values(game.players || {}).filter(
+    (player) => !player.left
+  ).length;
+  const selfPlayer = game.players?.[game.self];
+  const isHost = selfPlayer?.userId === game.hostId;
+  const canStart =
+    !game.review &&
+    !game.isSpectator &&
+    game.history.currentState === -1 &&
+    game.setup?.total &&
+    activePlayerCount === game.setup.total &&
+    isHost &&
+    !game.readyCheckInfo?.active &&
+    !game.gameStartRequested;
+
+  if (!canStart) return null;
+
+  return (
+    <div className="pregame-start-overlay">
+      <Button
+        className="pregame-start-button"
+        variant="contained"
+        color="primary"
+        startIcon={<PlayArrowRoundedIcon />}
+        onClick={game.requestGameStart}
+      >
+        Start
+      </Button>
+    </div>
   );
 }
 
