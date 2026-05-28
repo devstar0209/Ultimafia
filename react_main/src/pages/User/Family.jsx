@@ -327,6 +327,44 @@ export default function Family() {
     if (family?.canManageApplications) loadFamilyApplications();
   }
 
+  function onCancelApplication() {
+    const joinFee = Number(family?.joinFee || 0);
+    requestFamilyConfirm(
+      {
+        title: "Cancel Application",
+        message:
+          joinFee > 0
+            ? `Are you sure you want to cancel your application? Your ${joinFee.toLocaleString()} coin join fee will be refunded.`
+            : "Are you sure you want to cancel your application?",
+        confirmLabel: "Cancel Application",
+        confirmColor: "error",
+      },
+      cancelApplication
+    );
+  }
+
+  function cancelApplication() {
+    axios
+      .delete(`/api/family/${familyId}/applications/mine`)
+      .then((res) => {
+        siteInfo.showAlert("Application cancelled", "success");
+        setFamily((prev) =>
+          prev ? { ...prev, hasPendingApplication: false } : prev
+        );
+        if (res.data?.coins !== undefined) {
+          user.set((prev) => ({
+            ...prev,
+            coins: Number(res.data.coins ?? prev.coins ?? 0),
+            balanceDollar: Number(
+              res.data.balanceDollar ?? prev.balanceDollar ?? 0
+            ),
+          }));
+        }
+        refreshFamilyTools();
+      })
+      .catch(errorAlert);
+  }
+
   function onApplyToFamily() {
     const joinFee = Number(family?.joinFee || 0);
 
@@ -835,6 +873,48 @@ export default function Family() {
                       Reject
                     </Button>
                   </Stack>
+                </Stack>
+              </Paper>
+            )}
+            {!isFamilyMember && family.hasPendingApplication && (
+              <Paper sx={panelStyle}>
+                <Typography variant="h3" sx={headingStyle}>
+                  Pending Application
+                </Typography>
+                <Stack direction="column" spacing={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    Your application is awaiting review by the family leader.
+                  </Typography>
+                  {Number(family.joinFee || 0) > 0 && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        px: 1.5,
+                        py: 1,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        Paid join fee (refunded if cancelled)
+                      </Typography>
+                      <CoinAmount
+                        amount={family.joinFee}
+                        variant="body1"
+                        sx={{ fontWeight: 700 }}
+                      />
+                    </Box>
+                  )}
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={onCancelApplication}
+                  >
+                    Cancel Application
+                  </Button>
                 </Stack>
               </Paper>
             )}

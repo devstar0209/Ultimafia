@@ -1114,6 +1114,99 @@ router.post("/:familyId/apply", async function (req, res) {
   }
 });
 
+router.delete("/:familyId/applications/mine", async function (req, res) {
+  try {
+    var userId = await routeUtils.verifyLoggedIn(req);
+    var familyId = req.params.familyId;
+
+    var user = await models.User.findOne({ id: userId });
+    var family = await models.Family.findOne({ id: familyId });
+
+    if (!family) {
+      res.status(404);
+      res.send("Family not found.");
+      return;
+    }
+
+    var application = await models.FamilyApplication.findOne({
+      familyId: familyId,
+      applicantId: userId,
+      status: "pending",
+    });
+
+    if (!application) {
+      res.status(404);
+      res.send("No pending application found.");
+      return;
+    }
+
+    var joinFee = Math.max(0, Math.floor(Number(application.joinFee || 0)));
+
+    if (joinFee > 0) {
+      await models.Family.updateOne(
+        { id: familyId },
+        {
+          $inc: {
+            treasury: -joinFee,
+            pendingJoinFees: -joinFee,
+          },
+        }
+      );
+
+      await models.User.updateOne(
+        { _id: user._id },
+        { $inc: { coins: joinFee } }
+      );
+
+      try {
+        await new models.FamilyLedger({
+          familyId: familyId,
+          family: family._id,
+          userId: userId,
+          user: user._id,
+          type: "joinFeeRefund",
+          amount: -joinFee,
+          description: `Refunded join fee to ${user.name} (application cancelled)`,
+          createdAt: Date.now(),
+        }).save();
+      } catch (ledgerError) {
+        logger.error("Error recording join fee refund ledger:", ledgerError);
+      }
+
+      try {
+        await redis.cacheUserInfo(userId, true);
+      } catch (cacheError) {
+        logger.error("Error refreshing user cache after join fee refund:", cacheError);
+      }
+    }
+
+    await models.FamilyApplication.updateOne(
+      { _id: application._id },
+      {
+        $set: {
+          status: "cancelled",
+          resolvedAt: Date.now(),
+          resolvedBy: userId,
+        },
+      }
+    );
+
+    var updatedUser = await models.User.findOne({ id: userId })
+      .select("coins balanceDollar")
+      .lean();
+
+    res.send({
+      joinFee,
+      coins: Number(updatedUser?.coins || 0),
+      balanceDollar: Number(updatedUser?.balanceDollar || 0),
+    });
+  } catch (e) {
+    logger.error(e);
+    res.status(500);
+    res.send("Error cancelling application.");
+  }
+});
+
 router.get("/:familyId/applications", async function (req, res) {
   try {
     var userId = await routeUtils.verifyLoggedIn(req);

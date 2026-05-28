@@ -88,7 +88,7 @@ function FamilyAvatar({ family }) {
   );
 }
 
-function FamilyCard({ family, isRequesting, onRequestJoin, user }) {
+function FamilyCard({ family, isRequesting, onRequestJoin, onCancelApplication, user }) {
   const isFull = family.memberCount >= family.memberLimit;
   let requestLabel = "Request Join";
   let requestTitle = "";
@@ -98,8 +98,6 @@ function FamilyCard({ family, isRequesting, onRequestJoin, user }) {
     requestLabel = "Requesting...";
   } else if (family.userIsMember) {
     requestLabel = "Your Family";
-  } else if (family.hasPendingApplication) {
-    requestLabel = "Requested";
   } else if (!user.loaded) {
     requestTitle = "Loading account status.";
   } else if (!user.loggedIn) {
@@ -111,7 +109,7 @@ function FamilyCard({ family, isRequesting, onRequestJoin, user }) {
   } else if (isFull) {
     requestLabel = "Full";
     requestTitle = "This family has reached its member limit.";
-  } else if (!family.canRequestJoin) {
+  } else if (!family.canRequestJoin && !family.hasPendingApplication) {
     requestLabel = "Already in Family";
     requestTitle = "Leave your current family before requesting to join another.";
   } else if (joinFee > 0) {
@@ -260,27 +258,34 @@ function FamilyCard({ family, isRequesting, onRequestJoin, user }) {
           >
             View
           </Button>
-          <Button
-            variant="contained"
-            size="small"
-            disabled={requestDisabled}
-            title={requestTitle}
-            onClick={() => onRequestJoin(family)}
-            startIcon={
-              <Box
-                component="i"
-                className={
-                  family.hasPendingApplication
-                    ? "fas fa-clock"
-                    : "fas fa-user-plus"
-                }
-                aria-hidden="true"
-              />
-            }
-            sx={{ flex: 1 }}
-          >
-            {requestLabel}
-          </Button>
+          {family.hasPendingApplication ? (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              onClick={() => onCancelApplication(family)}
+              startIcon={
+                <Box component="i" className="fas fa-times" aria-hidden="true" />
+              }
+              sx={{ flex: 1 }}
+            >
+              Cancel Request
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              size="small"
+              disabled={requestDisabled}
+              title={requestTitle}
+              onClick={() => onRequestJoin(family)}
+              startIcon={
+                <Box component="i" className="fas fa-user-plus" aria-hidden="true" />
+              }
+              sx={{ flex: 1 }}
+            >
+              {requestLabel}
+            </Button>
+          )}
         </Stack>
       </Stack>
     </Paper>
@@ -299,6 +304,8 @@ export default function FamilyDiscovery() {
   const [total, setTotal] = useState(0);
   const [requestingFamilies, setRequestingFamilies] = useState({});
   const [joinConfirmFamily, setJoinConfirmFamily] = useState(null);
+  const [cancelConfirmFamily, setCancelConfirmFamily] = useState(null);
+  const [cancellingFamilies, setCancellingFamilies] = useState({});
   const user = useContext(UserContext);
   const siteInfo = useContext(SiteInfoContext);
   const errorAlert = useErrorAlert();
@@ -355,6 +362,55 @@ export default function FamilyDiscovery() {
   function onOpenOnlyChange(event) {
     setPage(1);
     setOpenOnly(event.target.checked);
+  }
+
+  function onCancelApplicationClick(family) {
+    setCancelConfirmFamily(family);
+  }
+
+  function cancelApplication(familyId) {
+    if (cancellingFamilies[familyId]) return;
+
+    setCancelConfirmFamily(null);
+    setCancellingFamilies((prev) => ({ ...prev, [familyId]: true }));
+
+    axios
+      .delete(`/api/family/${familyId}/applications/mine`)
+      .then((res) => {
+        siteInfo.showAlert("Application cancelled", "success");
+        if (res.data?.coins !== undefined) {
+          user.set((prev) => ({
+            ...prev,
+            coins: Number(res.data.coins ?? prev.coins ?? 0),
+            balanceDollar: Number(
+              res.data.balanceDollar ?? prev.balanceDollar ?? 0
+            ),
+          }));
+        }
+        setFamilies((prev) =>
+          prev.map((f) => {
+            if (f.id !== familyId) return f;
+            const isFull = f.memberCount >= f.memberLimit;
+            return {
+              ...f,
+              hasPendingApplication: false,
+              canRequestJoin: f.applicationsOpen && !isFull,
+              treasury: Math.max(
+                0,
+                Number(f.treasury || 0) - Number(f.joinFee || 0)
+              ),
+            };
+          })
+        );
+      })
+      .catch(errorAlert)
+      .finally(() => {
+        setCancellingFamilies((prev) => {
+          const next = { ...prev };
+          delete next[familyId];
+          return next;
+        });
+      });
   }
 
   function onRequestJoinClick(family) {
@@ -523,6 +579,7 @@ export default function FamilyDiscovery() {
                   family={family}
                   isRequesting={Boolean(requestingFamilies[family.id])}
                   onRequestJoin={onRequestJoinClick}
+                  onCancelApplication={onCancelApplicationClick}
                   user={user}
                 />
               </Grid>
@@ -554,6 +611,28 @@ export default function FamilyDiscovery() {
         )}
         onClose={() => setJoinConfirmFamily(null)}
         onConfirm={() => submitJoinRequest(joinConfirmFamily.id)}
+      />
+      <ConfirmDialog
+        open={Boolean(cancelConfirmFamily)}
+        title="Cancel Application"
+        message={
+          Number(cancelConfirmFamily?.joinFee || 0) > 0
+            ? `Are you sure you want to cancel your application to ${
+                cancelConfirmFamily?.name || "this family"
+              }? Your ${Number(
+                cancelConfirmFamily?.joinFee || 0
+              ).toLocaleString()} coin join fee will be refunded.`
+            : `Are you sure you want to cancel your application to ${
+                cancelConfirmFamily?.name || "this family"
+              }?`
+        }
+        confirmLabel="Cancel Application"
+        confirmColor="error"
+        loading={Boolean(
+          cancelConfirmFamily && cancellingFamilies[cancelConfirmFamily.id]
+        )}
+        onClose={() => setCancelConfirmFamily(null)}
+        onConfirm={() => cancelApplication(cancelConfirmFamily.id)}
       />
     </Stack>
   );
